@@ -28,22 +28,39 @@ function gettop
     fi
 }
 
-T="$(gettop)"
-if [ ! "$T" ]; then
+# TODO: Refactor build/soong/scripts/microfactory.bash to make getoutdir() available elsewhere
+function getoutdir
+{
+    local out_dir="${OUT_DIR-}"
+    if [ -z "${out_dir}" ]; then
+        if [ "${OUT_DIR_COMMON_BASE-}" ]; then
+            out_dir="${OUT_DIR_COMMON_BASE}/$(basename ${TOP})"
+        else
+            out_dir="out"
+        fi
+    fi
+    if [[ "${out_dir}" != /* ]]; then
+        out_dir="${TOP}/${out_dir}"
+    fi
+    echo "${out_dir}"
+}
+
+TOP="$(gettop)"
+if [ ! "$TOP" ]; then
     echo "Couldn't locate the top of the tree.  Try setting TOP."
     return
 fi
 
 case $(uname -s) in
     Darwin)
-        ANDROID_BAZEL_PATH="${T}/prebuilts/bazel/darwin-x86_64/bazel"
-        ANDROID_BAZELRC_PATH="${T}/build/bazel/darwin.bazelrc"
-        ANDROID_BAZEL_JDK_PATH="${T}/prebuilts/jdk/jdk11/darwin-x86"
+        ANDROID_BAZEL_PATH="${TOP}/prebuilts/bazel/darwin-x86_64/bazel"
+        ANDROID_BAZELRC_PATH="${TOP}/build/bazel/darwin.bazelrc"
+        ANDROID_BAZEL_JDK_PATH="${TOP}/prebuilts/jdk/jdk11/darwin-x86"
         ;;
     Linux)
-        ANDROID_BAZEL_PATH="${T}/prebuilts/bazel/linux-x86_64/bazel"
-        ANDROID_BAZELRC_PATH="${T}/build/bazel/linux.bazelrc"
-        ANDROID_BAZEL_JDK_PATH="${T}/prebuilts/jdk/jdk11/linux-x86"
+        ANDROID_BAZEL_PATH="${TOP}/prebuilts/bazel/linux-x86_64/bazel"
+        ANDROID_BAZELRC_PATH="${TOP}/build/bazel/linux.bazelrc"
+        ANDROID_BAZEL_JDK_PATH="${TOP}/prebuilts/jdk/jdk11/linux-x86"
         ;;
     *)
         ANDROID_BAZEL_PATH=
@@ -77,4 +94,8 @@ echo "WARNING: Bazel support for the Android Platform is experimental and is und
 echo "WARNING: Currently, build stability is not guaranteed. Thank you."
 echo
 
-"${ANDROID_BAZEL_PATH}" --server_javabase="${ANDROID_BAZEL_JDK_PATH}" --bazelrc="${ANDROID_BAZELRC_PATH}" "$@"
+"${ANDROID_BAZEL_PATH}" \
+  --server_javabase="${ANDROID_BAZEL_JDK_PATH}" \
+  --output_user_root="$(getoutdir)/bazel/output_user_root" \
+  --bazelrc="${ANDROID_BAZELRC_PATH}" \
+  "$@"
