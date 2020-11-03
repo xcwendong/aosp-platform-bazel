@@ -1,6 +1,4 @@
-# TODO(b/160567682): Check-in the lunch repository rule to stop hardcoding these.
-TARGET_PRODUCT = "aosp_flame"
-TARGET_BUILD_VARIANT = "eng"
+load("@lunch//:env.bzl", "TARGET_PRODUCT", "TARGET_BUILD_VARIANT")
 
 ninja_graph(
     name = "combined_graph",
