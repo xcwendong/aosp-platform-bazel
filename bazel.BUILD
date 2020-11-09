@@ -1,15 +1,19 @@
-load("@lunch//:env.bzl", "TARGET_PRODUCT", "TARGET_BUILD_VARIANT")
+load(
+  "@lunch//:env.bzl",
+  "TARGET_PRODUCT",
+  "TARGET_BUILD_VARIANT",
+  "COMBINED_NINJA",
+  "KATI_NINJA",
+  "PACKAGE_NINJA",
+)
 
 ninja_graph(
     name = "combined_graph",
     # TODO: Stop hardcoding "out/".
-    # TODO(b/172302866): the actual suffix comes from getKatiSuffix, which may not necessarily
-    #       just be TARGET_PRODUCT.
-    #       https://cs.android.com/android/platform/superproject/+/master:build/soong/ui/build/kati.go;drc=9f43597ff7349c4facd9e338e5b4b277e625e518;l=36
-    main = "out/combined-%s.ninja" % TARGET_PRODUCT,
+    main = "out/%s" % COMBINED_NINJA,
     ninja_srcs = [
-        "out/build-%s.ninja" % TARGET_PRODUCT,
-        "out/build-%s-package.ninja" % TARGET_PRODUCT,
+        "out/%s" % KATI_NINJA,
+        "out/%s" % PACKAGE_NINJA,
         "out/soong/build.ninja",
     ],
     output_root = "out",

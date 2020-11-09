@@ -94,7 +94,8 @@ fi
 >&2 echo "WARNING: Currently, build stability is not guaranteed. Thank you."
 >&2 echo
 
-"${ANDROID_BAZEL_PATH}" \
+ABSOLUTE_OUT_DIR="$(getoutdir)" \
+  "${ANDROID_BAZEL_PATH}" \
   --server_javabase="${ANDROID_BAZEL_JDK_PATH}" \
   --output_user_root="$(getoutdir)/bazel/output_user_root" \
   --bazelrc="${ANDROID_BAZELRC_PATH}" \
