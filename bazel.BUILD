@@ -5,17 +5,19 @@ load(
   "COMBINED_NINJA",
   "KATI_NINJA",
   "PACKAGE_NINJA",
+  "SOONG_NINJA"
 )
 
 ninja_graph(
     name = "combined_graph",
-    # TODO: Stop hardcoding "out/".
-    main = "out/%s" % COMBINED_NINJA,
+    main = COMBINED_NINJA,
+    # This assumes that --skip-make is *not* used, so the Kati and Package files exists.
     ninja_srcs = [
-        "out/%s" % KATI_NINJA,
-        "out/%s" % PACKAGE_NINJA,
-        "out/soong/build.ninja",
+        KATI_NINJA,
+        PACKAGE_NINJA,
+        SOONG_NINJA,
     ],
+    # TODO(b/171012031): Stop hardcoding "out/".
     output_root = "out",
     output_root_inputs = [
         "soong/.bootstrap/bin/soong_build",
