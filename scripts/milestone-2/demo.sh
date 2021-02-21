@@ -84,15 +84,15 @@ function cleanup() {
 }
 
 # Run bazel query for the generated targets in the //bionic/libc package.
-function query-libc-package() {
-  log "Running bazel query //bionic/libc/..."
-  bazel query //bionic/libc/...
+function query-bionic-package() {
+  log "Running bazel query //bionic/..."
+  bazel query //bionic/...
 }
 
 # Use bazel to build the generated targets in the //bionic/libc package.
-function build-libc-package() {
-  log "Running bazel build //bionic/libc/..."
-  bazel build //bionic/libc/...
+function build-bionic-package() {
+  log "Running bazel build //bionic/..."
+  bazel build //bionic/...
 }
 
 function run() {
@@ -112,16 +112,16 @@ function run() {
       cleanup
       ;;
     "query")
-      query-libc-package
+      query-bionic-package
       ;;
     "build")
-      build-libc-package
+      build-bionic-package
       ;;
     "full")
       generate
       sync
-      query-libc-package
-      build-libc-package
+      query-bionic-package
+      build-bionic-package
       ;;
     *)
       error "Unknown action: $action"
