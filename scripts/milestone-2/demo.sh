@@ -122,6 +122,7 @@ function run() {
       sync
       query-bionic-package
       build-bionic-package
+      cleanup
       ;;
     *)
       error "Unknown action: $action"
