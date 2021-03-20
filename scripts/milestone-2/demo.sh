@@ -70,7 +70,7 @@ function generate() {
 # Sync the generated BUILD files into the source tree.
 function sync() {
   log "Syncing the generated BUILD files to the source tree.."
-  "${AOSP_ROOT}/build/bazel/scripts/bp2build-sync.sh" write
+  "${AOSP_ROOT}/build/bazel/scripts/bp2build-sync.py" write
 
   # Backup the checked-in files.
   find "${AOSP_ROOT}/bionic" -type f -name 'BUILD.bazel' -exec mv {} {}.bak \;
@@ -78,8 +78,8 @@ function sync() {
 
 # Clean up the generated BUILD files in the source tree.
 function cleanup() {
-  log "Removing the generated BUILD files to the source tree.."
-  "${AOSP_ROOT}/build/bazel/scripts/bp2build-sync.sh" remove
+  log "Removing the generated BUILD files from the source tree.."
+  "${AOSP_ROOT}/build/bazel/scripts/bp2build-sync.py" remove
 
   # Restore the checked-in files.
   for f in `find "${AOSP_ROOT}/bionic" -type f -name 'BUILD.bazel.bak'`; do
