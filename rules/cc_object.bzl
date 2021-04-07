@@ -1,4 +1,4 @@
-load("//build/bazel/rules:cc_library_headers.bzl", "cc_library_headers")
+load("//build/bazel/rules:cc_include_helpers.bzl", "cc_library_header_suite", "hdr_globs_for_srcs")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
 
 # "cc_object" module copts, taken from build/soong/cc/object.go
@@ -113,36 +113,9 @@ def cc_object(
         **kwargs):
     "Build macro to correspond with the cc_object Soong module."
 
-    # convert local_include_dirs to cc_library_headers deps
-    include_deps = []
-    for dir in local_include_dirs:
-        dep_name = "generated__" + dir + "_includes" # may contain slashes, but valid label anyway.
-        include_deps += [dep_name]
+    include_deps = cc_library_header_suite(local_include_dirs)
 
-        # Since multiple cc_objects can refer to the same cc_library_headers dep, avoid
-        # generating duplicate deps by using native.existing_rule.
-        if native.existing_rule(dep_name) == None:
-            dep_hdrs = None
-            # The local build package may be included as "."
-            if dir == ".":
-                dep_hdrs = native.glob(["*.h"])
-            else:
-                dep_hdrs = native.glob([dir + "/**/*.h"])
-            cc_library_headers(
-                name = dep_name,
-                includes = [dir],
-                hdrs = dep_hdrs,
-            )
-
-    # Simulate hdrs_check = 'loose' by allowing src files to reference headers
-    # directly in the directories they are in.
-    globs = {}
-    for src in srcs:
-        dir_name = src.split("/")[:-1]
-        dir_name += ["*.h"]
-        dir_glob = "/".join(dir_name)
-        globs[dir_glob] = True
-    hdrs = native.glob(globs.keys())
+    hdrs = hdr_globs_for_srcs(srcs)
 
     _cc_object(
         name = name,
