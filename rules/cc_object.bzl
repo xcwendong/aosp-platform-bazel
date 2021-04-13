@@ -1,4 +1,4 @@
-load("//build/bazel/rules:cc_include_helpers.bzl", "cc_library_header_suite", "hdr_globs_for_srcs")
+load("//build/bazel/rules:cc_include_helpers.bzl", "cc_library_header_suite")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
 
 # "cc_object" module copts, taken from build/soong/cc/object.go
@@ -105,6 +105,7 @@ _cc_object = rule(
 def cc_object(
         name,
         copts = [],
+        hdrs = [],
         asflags = [],
         local_include_dirs = [],
         srcs = [],
@@ -114,8 +115,6 @@ def cc_object(
     "Build macro to correspond with the cc_object Soong module."
 
     include_deps = cc_library_header_suite(local_include_dirs)
-
-    hdrs = hdr_globs_for_srcs(srcs)
 
     _cc_object(
         name = name,
