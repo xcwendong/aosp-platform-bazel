@@ -1,10 +1,11 @@
-load("//build/bazel/rules:cc_include_helpers.bzl", "cc_library_header_suite", "hdr_globs_for_srcs")
+load("//build/bazel/rules:cc_include_helpers.bzl", "cc_library_header_suite")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
 
 def cc_library_static(
         name,
         srcs = [],
         deps = [],
+        hdrs = [],
         copts = [],
         includes = [],
         local_include_dirs = [],
@@ -15,8 +16,6 @@ def cc_library_static(
 
     # combine deps and include deps
     all_deps = deps + include_deps
-
-    hdrs = hdr_globs_for_srcs(srcs)
 
     mainlib_name = "%s_mainlib" % name
 
