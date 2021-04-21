@@ -32,16 +32,3 @@ def cc_library_header_suite(local_include_dirs):
             )
 
     return include_deps
-
-def hdr_globs_for_srcs(srcs):
-    """Return globs for headers in the directories matching the given srcs.
-
-    This simulates hdrs_check = 'loose' by allowing src files to reference headers
-    directly in the directories they are in."""
-    globs = {}
-    for src in srcs:
-        dir_name = src.split("/")[:-1]
-        dir_name += ["*.h"]
-        dir_glob = "/".join(dir_name)
-        globs[dir_glob] = True
-    return native.glob(globs.keys())
