@@ -9,13 +9,6 @@ if [[ -z ${DIST_DIR+x} ]]; then
   DIST_DIR="out/dist"
 fi
 
-function cleanup() {
-  # Restore the BUILD.bazel files that got backed up in the sync step.
-  build/bazel/scripts/milestone-2/demo.sh cleanup
-}
-trap cleanup EXIT
-
-
 # Generate BUILD files into out/soong/bp2build
 build/bazel/scripts/milestone-2/demo.sh generate
 
@@ -23,14 +16,11 @@ build/bazel/scripts/milestone-2/demo.sh generate
 # output should not be parsed as such.
 rm -f out/ninja_build
 
-# Copy bp2build files into local directory.
-build/bazel/scripts/milestone-2/demo.sh sync
-
 # Build targets under bionic/ for various architectures
-tools/bazel --max_idle_secs=5 build --color=no --curses=no --show_progress_rate_limit=5 --platforms //build/bazel/platforms:android_x86 -k //bionic/...
-tools/bazel --max_idle_secs=5 build --color=no --curses=no --show_progress_rate_limit=5 --platforms //build/bazel/platforms:android_x86_64 -k //bionic/...
-tools/bazel --max_idle_secs=5 build --color=no --curses=no --show_progress_rate_limit=5 --platforms //build/bazel/platforms:android_arm -k //bionic/...
-tools/bazel --max_idle_secs=5 build --color=no --curses=no --show_progress_rate_limit=5 --platforms //build/bazel/platforms:android_arm64 -k //bionic/...
+tools/bazel --max_idle_secs=5 build --color=no --curses=no --show_progress_rate_limit=5 --platforms //build/bazel/platforms:android_x86 --package_path=%workspace%/out/soong/workspace -k //bionic/...
+tools/bazel --max_idle_secs=5 build --color=no --curses=no --show_progress_rate_limit=5 --platforms //build/bazel/platforms:android_x86_64 --package_path=%workspace%/out/soong/workspace -k //bionic/...
+tools/bazel --max_idle_secs=5 build --color=no --curses=no --show_progress_rate_limit=5 --platforms //build/bazel/platforms:android_arm --package_path=%workspace%/out/soong/workspace -k //bionic/...
+tools/bazel --max_idle_secs=5 build --color=no --curses=no --show_progress_rate_limit=5 --platforms //build/bazel/platforms:android_arm64 --package_path=%workspace%/out/soong/workspace -k //bionic/...
 
 # Run tests.
-tools/bazel --max_idle_secs=5 test --color=no --curses=no --show_progress_rate_limit=5 --test_output=errors -k //build/bazel/tests/...
+tools/bazel --max_idle_secs=5 test --color=no --curses=no --show_progress_rate_limit=5 --test_output=errors --package_path=%workspace%/out/soong/workspace  -k //build/bazel/tests/...
