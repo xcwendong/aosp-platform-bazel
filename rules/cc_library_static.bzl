@@ -115,3 +115,4 @@ _empty_library_safeguard = rule(
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
     fragments = ["cpp"],
 )
+

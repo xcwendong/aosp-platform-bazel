@@ -1,5 +1,5 @@
 load(":cc_library_static.bzl", "cc_library_static")
-load("@rules_cc//examples:experimental_cc_shared_library.bzl", "cc_shared_library", "CcSharedLibraryInfo")
+load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
 
 def cc_library(
         name,
@@ -9,19 +9,23 @@ def cc_library(
         transitive_export_deps = [],
         user_link_flags = [],
         copts = [],
+        includes = [],
         linkopts = [],
         **kwargs):
     static_name = name + "_static"
     shared_name = name + "_shared"
-    _cc_library_proxy(name = name,
-                      static = static_name,
-                      shared = shared_name)
+    _cc_library_proxy(
+        name = name,
+        static = static_name,
+        shared = shared_name,
+    )
 
     cc_library_static(
         name = static_name,
         hdrs = hdrs,
         srcs = srcs,
         copts = copts,
+        includes = includes,
         linkopts = linkopts,
         deps = deps,
     )
@@ -37,7 +41,6 @@ def cc_library(
         roots = [static_name + "_mainlib"],
     )
 
-
 def _cc_library_proxy_impl(ctx):
     static_files = ctx.attr.static[DefaultInfo].files.to_list()
     shared_files = ctx.attr.shared[DefaultInfo].files.to_list()
@@ -50,7 +53,7 @@ def _cc_library_proxy_impl(ctx):
         DefaultInfo(
             files = depset(direct = files),
             runfiles = ctx.runfiles(files = files),
-        )
+        ),
     ]
 
 _cc_library_proxy = rule(
@@ -60,4 +63,3 @@ _cc_library_proxy = rule(
         "static": attr.label(mandatory = True, providers = [CcInfo]),
     },
 )
-
