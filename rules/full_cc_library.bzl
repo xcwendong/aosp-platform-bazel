@@ -12,8 +12,8 @@ def cc_library(
         includes = [],
         linkopts = [],
         **kwargs):
-    static_name = name + "_static"
-    shared_name = name + "_shared"
+    static_name = name + "_bp2build_cc_library_static"
+    shared_name = name + "_bp2build_cc_library_shared"
     _cc_library_proxy(
         name = name,
         static = static_name,
