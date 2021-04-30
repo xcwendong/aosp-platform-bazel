@@ -3,14 +3,16 @@ load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryI
 
 def cc_library(
         name,
+        # attributes for the static target
         srcs = [],
         hdrs = [],
         deps = [],
-        transitive_export_deps = [],
-        user_link_flags = [],
         copts = [],
         includes = [],
         linkopts = [],
+        # attributes for the shared target
+        static_deps_for_shared = [],
+        user_link_flags = [],
         **kwargs):
     static_name = name + "_bp2build_cc_library_static"
     shared_name = name + "_bp2build_cc_library_shared"
@@ -37,7 +39,7 @@ def cc_library(
         # declare all transitive static deps used by this target.  It'd be great
         # if a shared library could declare a transitive exported static dep
         # instead of needing to declare each target transitively.
-        static_deps = ["//:__subpackages__"],
+        static_deps = ["//:__subpackages__"] + static_deps_for_shared,
         roots = [static_name + "_mainlib"],
     )
 
