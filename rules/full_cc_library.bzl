@@ -13,6 +13,7 @@ def cc_library(
         # attributes for the shared target
         static_deps_for_shared = [],
         user_link_flags = [],
+        version_script = None,
         **kwargs):
     static_name = name + "_bp2build_cc_library_static"
     shared_name = name + "_bp2build_cc_library_shared"
@@ -32,6 +33,11 @@ def cc_library(
         deps = deps,
     )
 
+    additional_linker_inputs = []
+    if version_script != None:
+        user_link_flags = user_link_flags + ["-Wl,--version-script,$(location " + version_script + ")"]
+        additional_linker_inputs += [version_script]
+
     cc_shared_library(
         name = shared_name,
         user_link_flags = user_link_flags,
@@ -40,6 +46,7 @@ def cc_library(
         # if a shared library could declare a transitive exported static dep
         # instead of needing to declare each target transitively.
         static_deps = ["//:__subpackages__"] + static_deps_for_shared,
+        additional_linker_inputs = additional_linker_inputs,
         roots = [static_name + "_mainlib"],
     )
 
