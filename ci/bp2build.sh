@@ -10,7 +10,8 @@ if [[ -z ${DIST_DIR+x} ]]; then
 fi
 
 # Generate BUILD files into out/soong/bp2build
-build/bazel/scripts/milestone-2/demo.sh generate
+AOSP_ROOT="$(dirname $0)/../../.."
+GENERATE_BAZEL_FILES=true "${AOSP_ROOT}/build/soong/soong_ui.bash" --make-mode nothing --skip-soong-tests
 
 # Remove the ninja_build output marker file to communicate to buildbot that this is not a regular Ninja build, and its
 # output should not be parsed as such.
