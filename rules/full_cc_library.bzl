@@ -7,6 +7,7 @@ def cc_library(
         srcs = [],
         hdrs = [],
         deps = [],
+        dynamic_deps = [],
         copts = [],
         includes = [],
         linkopts = [],
@@ -46,6 +47,7 @@ def cc_library(
         # if a shared library could declare a transitive exported static dep
         # instead of needing to declare each target transitively.
         static_deps = ["//:__subpackages__"] + static_deps_for_shared,
+        dynamic_deps = dynamic_deps,
         additional_linker_inputs = additional_linker_inputs,
         roots = [static_name + "_mainlib"],
     )
