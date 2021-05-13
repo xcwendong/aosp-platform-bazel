@@ -62,11 +62,6 @@ def cc_library(
         deps = deps + static_deps_for_shared + whole_archive_deps + whole_archive_deps_for_shared,
     )
 
-    additional_linker_inputs = []
-    if version_script != None:
-        user_link_flags = user_link_flags + ["-Wl,--version-script,$(location " + version_script + ")"]
-        additional_linker_inputs += [version_script]
-
     cc_shared_library(
         name = shared_name,
         user_link_flags = user_link_flags,
@@ -76,7 +71,7 @@ def cc_library(
         # instead of needing to declare each target transitively.
         static_deps = ["//:__subpackages__"] + [shared_root_name],
         dynamic_deps = dynamic_deps + dynamic_deps_for_shared,
-        additional_linker_inputs = additional_linker_inputs,
+        version_script = version_script,
         roots = [shared_root_name] + whole_archive_deps + whole_archive_deps_for_shared,
     )
 
