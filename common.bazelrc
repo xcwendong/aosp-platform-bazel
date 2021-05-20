@@ -34,6 +34,9 @@ build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 # are a long term goal.
 build --strategy=CppCompile=standalone
 
+# Enable use of the implementation_deps attribute in native cc rules
+build --experimental_cc_implementation_deps
+
 # Enable building targets in //external:__subpackages__.
 common --experimental_sibling_repository_layout
 common --experimental_disable_external_package
