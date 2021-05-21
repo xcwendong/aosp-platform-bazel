@@ -9,9 +9,14 @@ def cc_library_static(
         includes = [],
         native_bridge_supported = False,  # TODO: not supported yet.
         whole_archive_deps = [],
+        rtti = False,
         **kwargs):
     "Bazel macro to correspond with the cc_library_static Soong module."
     mainlib_name = "%s_mainlib" % name
+
+    features = []
+    if rtti:
+        features += ["rtti"]
 
     # Silently drop these attributes for now:
     # - native_bridge_supported
@@ -23,6 +28,7 @@ def cc_library_static(
         deps = deps + whole_archive_deps,
         copts = copts,
         includes = includes,
+        features = features,
         **kwargs
     )
 

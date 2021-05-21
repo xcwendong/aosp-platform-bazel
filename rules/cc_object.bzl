@@ -101,7 +101,7 @@ _cc_object = rule(
             providers = [cc_common.CcToolchainInfo],
         ),
         "_android_product_variables": attr.label(
-            default = Label("//build/bazel/product_variables:android_product_variables"),
+            default = Label("//build/bazel/platforms:android_target_product_vars"),
             providers = [platform_common.TemplateVariableInfo],
         ),
     },

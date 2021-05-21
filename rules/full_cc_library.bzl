@@ -12,6 +12,7 @@ def cc_library(
         copts = [],
         includes = [],
         linkopts = [],
+        rtti = False,
         # attributes for the shared target
         dynamic_deps_for_shared = [],
         shared_copts = [],
@@ -44,6 +45,7 @@ def cc_library(
         copts = copts + static_copts,
         includes = includes,
         linkopts = linkopts,
+        rtti = rtti,
         # TODO(b/187533117): Handle whole_archive_deps differently than other deps.
         deps = deps + static_deps_for_static + whole_archive_deps + whole_archive_deps_for_static,
         # TODO(b/187746106): Handle dynamic_deps_for_static.
@@ -59,6 +61,7 @@ def cc_library(
         copts = copts + shared_copts,
         includes = includes,
         linkopts = linkopts,
+        rtti = rtti,
         deps = deps + static_deps_for_shared + whole_archive_deps + whole_archive_deps_for_shared,
     )
 
