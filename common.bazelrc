@@ -1,7 +1,7 @@
 # Platforms and toolchains for AOSP.
 #
-# Set a default target platform for builds.
-build --platforms //build/bazel/platforms:android_x86_64
+# Set default target platform for builds to android_arm because the default lunch target is aosp_arm.
+build --platforms //build/bazel/platforms:android_arm
 
 # # Use toolchain resolution to find the cc toolchain.
 build --incompatible_enable_cc_toolchain_resolution
@@ -33,6 +33,9 @@ build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 # TODO(b/186116353): This is a temporary fix, as appropriately-sandboxed actions
 # are a long term goal.
 build --strategy=CppCompile=standalone
+
+# Enable use of the implementation_deps attribute in native cc rules
+build --experimental_cc_implementation_deps
 
 # Enable building targets in //external:__subpackages__.
 common --experimental_sibling_repository_layout
