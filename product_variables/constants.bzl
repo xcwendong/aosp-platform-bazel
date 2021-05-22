@@ -16,7 +16,7 @@ _product_variables = {
     "pdk": True,
     "platform_sdk_version": True,
     "safestack": True,
-    "treble_linker_namespace": True,
+    "treble_linker_namespaces": True,
     "uml": True,
     "unbundled_build": True,
 }
