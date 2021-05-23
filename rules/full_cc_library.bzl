@@ -6,6 +6,7 @@ def cc_library(
         # attributes for both targets
         srcs = [],
         hdrs = [],
+        implementation_deps = [],
         deps = [],
         whole_archive_deps = [],
         dynamic_deps = [],
@@ -47,7 +48,8 @@ def cc_library(
         linkopts = linkopts,
         rtti = rtti,
         # TODO(b/187533117): Handle whole_archive_deps differently than other deps.
-        deps = deps + static_deps_for_static + whole_archive_deps + whole_archive_deps_for_static,
+        implementation_deps = implementation_deps + static_deps_for_static,
+        deps = deps + whole_archive_deps + whole_archive_deps_for_static,
         # TODO(b/187746106): Handle dynamic_deps_for_static.
     )
 
@@ -62,7 +64,8 @@ def cc_library(
         includes = includes,
         linkopts = linkopts,
         rtti = rtti,
-        deps = deps + static_deps_for_shared + whole_archive_deps + whole_archive_deps_for_shared,
+        implementation_deps = implementation_deps + static_deps_for_shared,
+        deps = deps + whole_archive_deps + whole_archive_deps_for_shared,
     )
 
     cc_shared_library(
