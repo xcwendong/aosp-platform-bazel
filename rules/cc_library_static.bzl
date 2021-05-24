@@ -3,6 +3,7 @@ load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
 def cc_library_static(
         name,
         srcs = [],
+        implementation_deps = [],
         deps = [],
         hdrs = [],
         copts = [],
@@ -24,6 +25,7 @@ def cc_library_static(
         name = mainlib_name,
         srcs = srcs,
         hdrs = hdrs,
+        implementation_deps = implementation_deps,
         # TODO(b/187533117): Handle whole_archive_deps differently from regular static deps.
         deps = deps + whole_archive_deps,
         copts = copts,
