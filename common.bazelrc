@@ -15,8 +15,9 @@ build --experimental_strict_action_env
 # Explicitly allow unresolved symlinks (it's an experimental Bazel feature)
 build --experimental_allow_unresolved_symlinks
 
-# Enable usage of cc_shared_library build APIs
+# Enable usage of experimental cc-related build APIs
 build --experimental_cc_shared_library
+build --experimental_starlark_cc_import
 
 # Do not tokenize copts, other than strings that consist of a single Make
 # variable.  This prevents the need to double-escape characters like backslashes
