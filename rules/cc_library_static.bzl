@@ -40,6 +40,7 @@ def cc_library_static(
             ("deps", deps + whole_archive_deps),
             ("includes", includes),
             ("features", features),
+            ("toolchains", ["//build/bazel/platforms:android_target_product_vars"]),
         ] + sorted(kwargs.items()),
     )
 
