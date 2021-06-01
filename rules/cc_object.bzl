@@ -48,7 +48,7 @@ def _cc_object_impl(ctx):
         deps_objects.append(obj[CcObjectInfo].objects)
 
     product_variables = ctx.attr._android_product_variables[platform_common.TemplateVariableInfo]
-    asflags = [flag.format(**product_variables.variables) for flag in ctx.attr.asflags]
+    asflags = [ctx.expand_make_variables("asflags", flag,  product_variables.variables) for flag in ctx.attr.asflags]
 
     srcs, private_hdrs = split_srcs_hdrs(ctx.files.srcs)
 
