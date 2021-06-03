@@ -36,7 +36,6 @@ def cc_library_static(
         [
             ("hdrs", hdrs),
             ("implementation_deps", implementation_deps),
-            # TODO(b/187533117): Handle whole_archive_deps differently from regular static deps.
             ("deps", deps + whole_archive_deps),
             ("includes", includes),
             ("features", features),
@@ -67,6 +66,7 @@ def cc_library_static(
     _cc_library_combiner(
         name = name,
         deps = [cpp_name, c_name, asm_name],
+        whole_archive_deps = whole_archive_deps,
     )
 
 # Returns a CcInfo object which combines one or more CcInfo objects, except that all linker inputs
@@ -89,6 +89,12 @@ def _combine_and_own(ctx, old_owner_labels, cc_infos):
                 objects_to_link.extend(lib.objects)
         else:
             linker_inputs.append(old_linker_input)
+    # whole archive deps are unlike regular deps: The objects in their linker inputs are used
+    # for the archive output of this rule.
+    for whole_dep in ctx.attr.whole_archive_deps:
+        for li in whole_dep[CcInfo].linking_context.linker_inputs.to_list():
+            for lib in li.libraries:
+                objects_to_link.extend(lib.objects)
     return _link_archive(ctx, objects_to_link)
 
 def _cc_library_combiner_impl(ctx):
@@ -180,6 +186,7 @@ _cc_library_combiner = rule(
         # single dependency, but cc_shared_library requires that C++ rules
         # depend on each other through the "deps" attribute.
         "deps": attr.label_list(providers = [CcInfo]),
+        "whole_archive_deps": attr.label_list(providers = [CcInfo]),
         "_cc_toolchain": attr.label(
             default = Label("@local_config_cc//:toolchain"),
             providers = [cc_common.CcToolchainInfo],

@@ -62,7 +62,7 @@ platform(
     name = "darwin_x86_64",
     constraint_values = [
         "//build/bazel/platforms/arch:x86_64",
-        "//build/bazel/platforms/os:osx",
+        "//build/bazel/platforms/os:darwin",
     ],
 )
 
