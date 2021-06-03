@@ -18,6 +18,9 @@ set -euo pipefail
 
 source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
 
+READELF="$(rlocation __main__/prebuilts/clang/host/linux-x86/${CLANG_DEFAULT_VERSION}/bin/llvm-readelf)"
+NM="$(rlocation __main__/prebuilts/clang/host/linux-x86/${CLANG_DEFAULT_VERSION}/bin/llvm-nm)"
+
 # This should be abstracted to a unit-test library when it has more uses.
 function assert_contains_regex() {
     local needle="$1"
@@ -29,19 +32,25 @@ function assert_contains_regex() {
     exit 1
 }
 
-# Test that a library is the expected filetype.
-function test_filetype() {
+# Test that a library is a static library.
+function test_is_static_library() {
     local filepath="$(readlink -f $1)"; shift
-    local regex="$1"; shift
-    local file_output="$(file ${filepath})"
-    assert_contains_regex "${regex}" "${file_output}"
+    local metadata="$($READELF -h ${filepath})"
+    assert_contains_regex "Type:.*REL (Relocatable file)" "${metadata}"
+}
+
+# Test that a library is a shared library.
+function test_is_shared_library() {
+    local filepath="$(readlink -f $1)"; shift
+    local metadata="$($READELF -h ${filepath})"
+    assert_contains_regex "Type:.*DYN (Shared object file)" "${metadata}"
 }
 
 # Test that the shared library contains a symbol
 function test_shared_library_symbols() {
     local filepath="$(readlink -f $1)"; shift
     local symbols="$1"; shift
-    local nm_output="$(nm -D "${filepath}")"
+    local nm_output="$($NM -D "${filepath}")"
     for symbol in "${symbols[@]}"
     do
         assert_contains_regex "${symbol}" "${nm_output}"
@@ -53,8 +62,8 @@ function test_ld-android() {
     local shared_library="$(rlocation __main__/bionic/linker/libld-android_bp2build_cc_library_shared.so)"
     local static_library="$(rlocation __main__/bionic/linker/libld-android_bp2build_cc_library_static.a)"
 
-    test_filetype "${shared_library}" "shared object.*dynamically linked"
-    test_filetype "${static_library}" "current ar archive"
+    test_is_shared_library "${shared_library}"
+    test_is_static_library "${static_library}"
 
     symbols=(
         __loader_add_thread_local_dtor
@@ -89,8 +98,8 @@ function test_libdl_android() {
     local shared_library="$(rlocation __main__/bionic/libdl/liblibdl_android_bp2build_cc_library_shared.so)"
     local static_library="$(rlocation __main__/bionic/libdl/liblibdl_android_bp2build_cc_library_static.a)"
 
-    test_filetype "${shared_library}" "shared object.*dynamically linked"
-    test_filetype "${static_library}" "current ar archive"
+    test_is_shared_library "${shared_library}"
+    test_is_static_library "${static_library}"
 
     symbols=(
         android_create_namespace
