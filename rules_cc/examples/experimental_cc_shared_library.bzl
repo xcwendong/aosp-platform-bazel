@@ -417,13 +417,32 @@ def _cc_shared_library_impl(ctx):
         ),
     ]
 
+def _collect_graph_structure_info_from_children(ctx, attr):
+    children = []
+    deps = getattr(ctx.rule.attr, attr, [])
+    if type(deps) == "list":
+        for dep in deps:
+            if GraphNodeInfo in dep:
+                children.append(dep[GraphNodeInfo])
+    elif deps != None and GraphNodeInfo in deps:
+        # Single dep.
+        children.append(deps[GraphNodeInfo])
+    return children
+
+
 def _graph_structure_aspect_impl(target, ctx):
     children = []
 
-    if hasattr(ctx.rule.attr, "deps"):
-        for dep in ctx.rule.attr.deps:
-            if GraphNodeInfo in dep:
-                children.append(dep[GraphNodeInfo])
+    # This is a deviation from HEAD rules_cc because full_cc_library.bzl uses
+    # static/shared (among others) attrs to combine multiple targets into one,
+    # and the aspect needs to be able to traverse them to correctly populate
+    # linker_inputs in the cc_shared_library impl.
+    children += _collect_graph_structure_info_from_children(ctx, "deps")
+    children += _collect_graph_structure_info_from_children(ctx, "whole_archive_deps")
+    children += _collect_graph_structure_info_from_children(ctx, "dynamic_deps")
+    children += _collect_graph_structure_info_from_children(ctx, "implementation_deps")
+    children += _collect_graph_structure_info_from_children(ctx, "static")
+    children += _collect_graph_structure_info_from_children(ctx, "shared")
 
     # TODO(bazel-team): Add flag to Bazel that can toggle the initialization of
     # linkable_more_than_once.

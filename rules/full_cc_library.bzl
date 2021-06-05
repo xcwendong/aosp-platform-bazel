@@ -100,6 +100,27 @@ def cc_library(
         roots = [shared_root_name] + whole_archive_deps + whole_archive_deps_for_shared,
     )
 
+# Returns a cloned copy of the given CcInfo object, except that all linker inputs
+# with owner `old_owner_label` are recreated and owned by the current target.
+#
+# This is useful in the "macro with proxy rule" pattern, as some rules upstream
+# may expect they are depending directly on a target which generates linker inputs,
+# as opposed to a proxy target which is a level of indirection to such a target.
+def _claim_ownership(ctx, old_owner_label, ccinfo):
+    linker_inputs = []
+    # This is not ideal, as it flattens a depset.
+    for old_linker_input in ccinfo.linking_context.linker_inputs.to_list():
+        if old_linker_input.owner == old_owner_label:
+            new_linker_input = cc_common.create_linker_input(
+                owner = ctx.label,
+                libraries = depset(direct = old_linker_input.libraries))
+            linker_inputs.append(new_linker_input)
+        else:
+            linker_inputs.append(old_linker_input)
+
+    linking_context = cc_common.create_linking_context(linker_inputs = depset(direct = linker_inputs))
+    return CcInfo(compilation_context = ccinfo.compilation_context, linking_context = linking_context)
+
 def _cc_library_proxy_impl(ctx):
     static_files = ctx.attr.static[DefaultInfo].files.to_list()
     shared_files = ctx.attr.shared[DefaultInfo].files.to_list()
@@ -108,7 +129,7 @@ def _cc_library_proxy_impl(ctx):
 
     return [
         ctx.attr.shared[CcSharedLibraryInfo],
-        ctx.attr.static[CcInfo],
+        _claim_ownership(ctx, ctx.attr.static.label, ctx.attr.static[CcInfo]),
         DefaultInfo(
             files = depset(direct = files),
             runfiles = ctx.runfiles(files = files),
