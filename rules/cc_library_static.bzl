@@ -1,8 +1,10 @@
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
+load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo")
 
 def cc_library_static(
         name,
         implementation_deps = [],
+        dynamic_deps = [],
         deps = [],
         hdrs = [],
         includes = [],
@@ -67,6 +69,7 @@ def cc_library_static(
         name = name,
         deps = [cpp_name, c_name, asm_name],
         whole_archive_deps = whole_archive_deps,
+        dynamic_deps = dynamic_deps, # Propagate shared object deps as linker inputs.
     )
 
 # Returns a CcInfo object which combines one or more CcInfo objects, except that all linker inputs
@@ -79,7 +82,6 @@ def _combine_and_own(ctx, old_owner_labels, cc_infos):
     combined_info = cc_common.merge_cc_infos(cc_infos=cc_infos)
 
     objects_to_link = []
-    linker_inputs = []
     # This is not ideal, as it flattens a depset.
     for old_linker_input in combined_info.linking_context.linker_inputs.to_list():
         if old_linker_input.owner in old_owner_labels:
@@ -87,14 +89,19 @@ def _combine_and_own(ctx, old_owner_labels, cc_infos):
             # The objects will be recombined into a single linker input.
             for lib in old_linker_input.libraries:
                 objects_to_link.extend(lib.objects)
-        else:
-            linker_inputs.append(old_linker_input)
     # whole archive deps are unlike regular deps: The objects in their linker inputs are used
     # for the archive output of this rule.
     for whole_dep in ctx.attr.whole_archive_deps:
         for li in whole_dep[CcInfo].linking_context.linker_inputs.to_list():
             for lib in li.libraries:
                 objects_to_link.extend(lib.objects)
+
+    # Also add cc_shared_library deps to linker inputs.
+    for dynamic_dep in ctx.attr.dynamic_deps:
+        li = dynamic_dep[CcSharedLibraryInfo].linker_input
+        for lib in li.libraries:
+            objects_to_link.extend([lib.dynamic_library])
+
     return _link_archive(ctx, objects_to_link)
 
 def _cc_library_combiner_impl(ctx):
@@ -187,6 +194,7 @@ _cc_library_combiner = rule(
         # depend on each other through the "deps" attribute.
         "deps": attr.label_list(providers = [CcInfo]),
         "whole_archive_deps": attr.label_list(providers = [CcInfo]),
+        "dynamic_deps": attr.label_list(providers = [CcSharedLibraryInfo]),
         "_cc_toolchain": attr.label(
             default = Label("@local_config_cc//:toolchain"),
             providers = [cc_common.CcToolchainInfo],

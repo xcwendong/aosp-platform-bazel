@@ -61,10 +61,10 @@ def cc_library(
         includes = includes,
         linkopts = linkopts,
         rtti = rtti,
-        # TODO(b/187533117): Handle whole_archive_deps differently than other deps.
+        whole_archive_deps = whole_archive_deps + whole_archive_deps_for_static,
         implementation_deps = implementation_deps + static_deps_for_static,
-        deps = deps + whole_archive_deps + whole_archive_deps_for_static,
-        # TODO(b/187746106): Handle dynamic_deps_for_static.
+        dynamic_deps = dynamic_deps + dynamic_deps_for_static,
+        deps = deps,
     )
 
     # The static library at the root of the shared library.
@@ -83,8 +83,10 @@ def cc_library(
         includes = includes,
         linkopts = linkopts,
         rtti = rtti,
+        whole_archive_deps = whole_archive_deps + whole_archive_deps_for_shared,
         implementation_deps = implementation_deps + static_deps_for_shared,
-        deps = deps + whole_archive_deps + whole_archive_deps_for_shared,
+        dynamic_deps = dynamic_deps + dynamic_deps_for_shared,
+        deps = deps,
     )
 
     cc_shared_library(
@@ -97,7 +99,7 @@ def cc_library(
         static_deps = ["//:__subpackages__"] + [shared_root_name],
         dynamic_deps = dynamic_deps + dynamic_deps_for_shared,
         version_script = version_script,
-        roots = [shared_root_name] + whole_archive_deps + whole_archive_deps_for_shared,
+        roots = [shared_root_name],
     )
 
 # Returns a cloned copy of the given CcInfo object, except that all linker inputs

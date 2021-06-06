@@ -158,7 +158,7 @@ ABSOLUTE_OUT_DIR="$(getoutdir)"
 # In order to be able to load JNI libraries, this directory needs to exist
 mkdir -p "${ABSOLUTE_OUT_DIR}/bazel/javatmp"
 
-ADDITIONAL_FLAGS=""
+ADDITIONAL_FLAGS=()
 if  [[ "${STANDALONE_BAZEL}" =~ ^(true|TRUE|1)$ ]]; then
     # STANDALONE_BAZEL is set.
     >&2 echo "WARNING: Using Bazel in standalone mode. This mode is not integrated with Soong and Make, and is not supported"
@@ -174,7 +174,7 @@ else
     create_bazelrc
     # Check that the Bazel synthetic workspace and other required inputs exist before handing over control to Bazel.
     verify_soong_outputs_exist
-    ADDITIONAL_FLAGS="--bazelrc=${ABSOLUTE_OUT_DIR}/bazel/path.bazelrc"
+    ADDITIONAL_FLAGS+=("--bazelrc=${ABSOLUTE_OUT_DIR}/bazel/path.bazelrc")
 fi
 
 "${ANDROID_BAZEL_PATH}" \
@@ -182,5 +182,5 @@ fi
   --output_user_root="${ABSOLUTE_OUT_DIR}/bazel/output_user_root" \
   --host_jvm_args=-Djava.io.tmpdir="${ABSOLUTE_OUT_DIR}/bazel/javatmp" \
   --bazelrc="${ANDROID_BAZELRC_PATH}" \
-  "${ADDITIONAL_FLAGS}" \
+  "${ADDITIONAL_FLAGS[@]}" \
   "$@"
