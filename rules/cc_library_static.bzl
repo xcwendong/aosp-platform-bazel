@@ -10,6 +10,7 @@ def cc_library_static(
         includes = [],
         native_bridge_supported = False,  # TODO: not supported yet.
         whole_archive_deps = [],
+        use_libcrt = True,
         rtti = False,
         # Flags for all languages
         copts = [],
@@ -29,8 +30,13 @@ def cc_library_static(
     asm_name = "%s_asm" % name
 
     features = []
+    if "features" in kwargs:
+        features = kwargs["features"]
     if rtti:
         features += ["rtti"]
+
+    if not use_libcrt:
+        features += ["use_libcrt"]
 
     # Silently drop these attributes for now:
     # - native_bridge_supported

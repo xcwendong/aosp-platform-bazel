@@ -17,6 +17,11 @@ alias(
     actual = "@platforms//os:linux",
 )
 
+alias(
+    name = "linux_glibc",
+    actual = "@platforms//os:linux",
+)
+
 constraint_value(
     name = "linux_bionic",
     constraint_setting = "@platforms//os:os",
