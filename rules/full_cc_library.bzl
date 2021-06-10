@@ -19,6 +19,7 @@ def cc_library(
         includes = [],
         linkopts = [],
         rtti = False,
+        use_libcrt = True,
         # attributes for the shared target
         dynamic_deps_for_shared = [],
         shared_srcs = [],
@@ -38,6 +39,10 @@ def cc_library(
         static_deps_for_static = [],
         whole_archive_deps_for_static = [],
         **kwargs):
+    features = []
+    if not use_libcrt:
+        features += ["-use_libcrt"]
+
     static_name = name + "_bp2build_cc_library_static"
     shared_name = name + "_bp2build_cc_library_shared"
     shared_root_name = name + "_bp2build_cc_library_shared_root"
@@ -65,6 +70,7 @@ def cc_library(
         implementation_deps = implementation_deps + static_deps_for_static,
         dynamic_deps = dynamic_deps + dynamic_deps_for_static,
         deps = deps,
+        features = features,
     )
 
     # The static library at the root of the shared library.
@@ -87,6 +93,7 @@ def cc_library(
         implementation_deps = implementation_deps + static_deps_for_shared,
         dynamic_deps = dynamic_deps + dynamic_deps_for_shared,
         deps = deps,
+        features = features,
     )
 
     cc_shared_library(
@@ -100,6 +107,7 @@ def cc_library(
         dynamic_deps = dynamic_deps + dynamic_deps_for_shared,
         version_script = version_script,
         roots = [shared_root_name],
+        features = features,
     )
 
 # Returns a cloned copy of the given CcInfo object, except that all linker inputs

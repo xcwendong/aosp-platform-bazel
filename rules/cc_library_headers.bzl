@@ -17,6 +17,8 @@ def cc_library_headers(
         hdrs = hdrs,
         includes = includes,
         native_bridge_supported = native_bridge_supported,
+        # do not automatically add libcrt dependency to header libraries
+        use_libcrt = False,
         **kwargs
     )
 
