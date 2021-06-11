@@ -1,3 +1,5 @@
+# CMD: Returns the names of modules of type $arg
+
 include "library";
 
 def modulesOfType($arg):
