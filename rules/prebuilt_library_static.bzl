@@ -1,6 +1,7 @@
 def prebuilt_library_static(
     name,
     static_library,
+    alwayslink = None,
     includes = [],
     **kwargs):
     "Bazel macro to correspond with the *_prebuilt_library_static Soong module types"
@@ -10,6 +11,14 @@ def prebuilt_library_static(
     native.cc_import(
         name=name,
         static_library=static_library,
+        alwayslink = alwayslink,
+        **kwargs,
+    )
+
+    native.cc_import(
+        name=name + "_alwayslink",
+        static_library=static_library,
+        alwayslink = True,
         **kwargs,
     )
 
