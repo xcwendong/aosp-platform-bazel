@@ -1,5 +1,6 @@
 load(":cc_library_static.bzl", "cc_library_static")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
+load(":stripped_shared_library.bzl", "stripped_shared_library")
 
 def cc_library(
         name,
@@ -38,19 +39,15 @@ def cc_library(
         static_copts = [],
         static_deps_for_static = [],
         whole_archive_deps_for_static = [],
+        strip = {},
         **kwargs):
-    features = []
-    if not use_libcrt:
-        features += ["-use_libcrt"]
-
     static_name = name + "_bp2build_cc_library_static"
     shared_name = name + "_bp2build_cc_library_shared"
     shared_root_name = name + "_bp2build_cc_library_shared_root"
-    _cc_library_proxy(
-        name = name,
-        static = static_name,
-        shared = shared_name,
-    )
+
+    features = []
+    if not use_libcrt:
+        features += ["-use_libcrt"]
 
     # The static version of the library.
     cc_library_static(
@@ -97,7 +94,7 @@ def cc_library(
     )
 
     cc_shared_library(
-        name = shared_name,
+        name = shared_name + "_unstripped",
         user_link_flags = user_link_flags,
         # b/184806113: Note this is a pretty a workaround so users don't have to
         # declare all transitive static deps used by this target.  It'd be great
@@ -108,6 +105,18 @@ def cc_library(
         version_script = version_script,
         roots = [shared_root_name],
         features = features,
+    )
+
+    stripped_shared_library(
+        name = shared_name,
+        src = shared_name + "_unstripped",
+        **strip,
+    )
+
+    _cc_library_proxy(
+        name = name,
+        static = static_name,
+        shared = shared_name,
     )
 
 # Returns a cloned copy of the given CcInfo object, except that all linker inputs
