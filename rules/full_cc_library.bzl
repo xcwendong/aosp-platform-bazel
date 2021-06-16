@@ -1,6 +1,7 @@
 load(":cc_library_static.bzl", "cc_library_static")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
 load(":stripped_shared_library.bzl", "stripped_shared_library")
+load(":generate_toc.bzl", "shared_library_toc")
 
 def cc_library(
         name,
@@ -113,10 +114,16 @@ def cc_library(
         **strip,
     )
 
+    shared_library_toc(
+        name = shared_name + "_toc",
+        src = shared_name,
+    )
+
     _cc_library_proxy(
         name = name,
         static = static_name,
         shared = shared_name,
+        table_of_contents = shared_name + "_toc",
     )
 
 # Returns a cloned copy of the given CcInfo object, except that all linker inputs
@@ -144,7 +151,9 @@ def _cc_library_proxy_impl(ctx):
     static_files = ctx.attr.static[DefaultInfo].files.to_list()
     shared_files = ctx.attr.shared[DefaultInfo].files.to_list()
 
-    files = static_files + shared_files
+    table_of_contents = ctx.file.table_of_contents
+
+    files = static_files + shared_files + [table_of_contents]
 
     return [
         ctx.attr.shared[CcSharedLibraryInfo],
@@ -160,5 +169,6 @@ _cc_library_proxy = rule(
     attrs = {
         "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo]),
         "static": attr.label(mandatory = True, providers = [CcInfo]),
+        "table_of_contents": attr.label(mandatory = True, allow_single_file = True),
     },
 )
