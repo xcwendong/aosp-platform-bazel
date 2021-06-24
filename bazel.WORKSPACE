@@ -1,12 +1,15 @@
 toplevel_output_directories(paths = ["out"])
 
 load("//build/bazel/rules:lunch.bzl", "lunch")
+load("//build/bazel/rules:soong_injection.bzl", "soong_injection_repository")
 
 lunch()
 
 register_toolchains(
     "//prebuilts/clang/host/linux-x86:all"
 )
+
+soong_injection_repository(name="soong_injection")
 
 local_repository(
     name = "rules_cc",

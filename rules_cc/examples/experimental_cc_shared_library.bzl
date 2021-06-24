@@ -109,7 +109,7 @@ def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
             if export in exports_map:
                 fail("Two shared libraries in dependencies export the same symbols. Both " +
                      exports_map[export].libraries[0].dynamic_library.short_path +
-                     " and " + linker_input.dynamic_library.short_path +
+                     " and " + linker_input.libraries[0].dynamic_library.short_path +
                      " export " + export)
             exports_map[export] = linker_input
     return exports_map
@@ -162,9 +162,20 @@ def _check_if_target_under_path(value, pattern):
     return pattern.package == value.package and pattern.name == value.name
 
 def _check_if_target_can_be_exported(target, current_label, permissions):
-    # Divergence from rules_cc: Ignore permissions, as it does not fit the model of AOSP.
-    # TODO(cparsons): Push an upstream change to disable permissions checking with a flag.
-    return True
+    if permissions == None:
+        return True
+
+    if (target.workspace_name != current_label.workspace_name or
+        _same_package_or_above(current_label, target)):
+        return True
+
+    matched_by_target = False
+    for permission in permissions:
+        for permission_target in permission[CcSharedLibraryPermissionsInfo].targets:
+            if _check_if_target_under_path(target, permission_target):
+                return True
+
+    return False
 
 def _check_if_target_should_be_exported_without_filter(target, current_label, permissions):
     return _check_if_target_should_be_exported_with_filter(target, current_label, None, permissions)
@@ -263,7 +274,7 @@ def _filter_inputs(
                     linker_input.owner,
                     ctx.label,
                     ctx.attr.exports_filter,
-                    ctx.attr.permissions,
+                    _get_permissions(ctx),
                 ):
                     exports[owner] = True
                     can_be_linked_statically = True
@@ -293,6 +304,19 @@ def _same_package_or_above(label_a, label_b):
 
     return True
 
+def _get_permissions(ctx):
+    if ctx.attr._enable_permissions_check[BuildSettingInfo].value:
+        return ctx.attr.permissions
+    return None
+
+def _process_version_script(ctx):
+    if ctx.attr.version_script == None:
+        return ([], [])
+
+    version_script = ctx.files.version_script[0]
+    version_script_arg = "-Wl,--version-script," + version_script.path
+    return ([version_script], [version_script_arg])
+
 def _cc_shared_library_impl(ctx):
     cc_common.check_experimental_cc_shared_library()
     cc_toolchain = find_cc_toolchain(ctx)
@@ -310,7 +334,7 @@ def _cc_shared_library_impl(ctx):
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
 
-        _check_if_target_should_be_exported_without_filter(export.label, ctx.label, ctx.attr.permissions)
+        _check_if_target_should_be_exported_without_filter(export.label, ctx.label, _get_permissions(ctx))
 
     preloaded_deps_direct_labels = {}
     preloaded_dep_merged_cc_info = None
@@ -335,7 +359,10 @@ def _cc_shared_library_impl(ctx):
 
     linking_context = _create_linker_context(ctx, linker_inputs)
 
-    user_link_flags = []
+    # Divergence from rules_cc: that version does not support version scripts
+    version_script, version_script_arg = _process_version_script(ctx)
+
+    user_link_flags = version_script_arg[:]
     for user_link_flag in ctx.attr.user_link_flags:
         user_link_flags.append(ctx.expand_location(user_link_flag, targets = ctx.attr.additional_linker_inputs))
 
@@ -345,7 +372,7 @@ def _cc_shared_library_impl(ctx):
         cc_toolchain = cc_toolchain,
         linking_contexts = [linking_context],
         user_link_flags = user_link_flags,
-        additional_inputs = ctx.files.additional_linker_inputs,
+        additional_inputs = ctx.files.additional_linker_inputs + version_script,
         name = ctx.label.name,
         output_type = "dynamic_library",
     )
@@ -390,13 +417,32 @@ def _cc_shared_library_impl(ctx):
         ),
     ]
 
+def _collect_graph_structure_info_from_children(ctx, attr):
+    children = []
+    deps = getattr(ctx.rule.attr, attr, [])
+    if type(deps) == "list":
+        for dep in deps:
+            if GraphNodeInfo in dep:
+                children.append(dep[GraphNodeInfo])
+    elif deps != None and GraphNodeInfo in deps:
+        # Single dep.
+        children.append(deps[GraphNodeInfo])
+    return children
+
+
 def _graph_structure_aspect_impl(target, ctx):
     children = []
 
-    if hasattr(ctx.rule.attr, "deps"):
-        for dep in ctx.rule.attr.deps:
-            if GraphNodeInfo in dep:
-                children.append(dep[GraphNodeInfo])
+    # This is a deviation from HEAD rules_cc because full_cc_library.bzl uses
+    # static/shared (among others) attrs to combine multiple targets into one,
+    # and the aspect needs to be able to traverse them to correctly populate
+    # linker_inputs in the cc_shared_library impl.
+    children += _collect_graph_structure_info_from_children(ctx, "deps")
+    children += _collect_graph_structure_info_from_children(ctx, "whole_archive_deps")
+    children += _collect_graph_structure_info_from_children(ctx, "dynamic_deps")
+    children += _collect_graph_structure_info_from_children(ctx, "implementation_deps")
+    children += _collect_graph_structure_info_from_children(ctx, "static")
+    children += _collect_graph_structure_info_from_children(ctx, "shared")
 
     # TODO(bazel-team): Add flag to Bazel that can toggle the initialization of
     # linkable_more_than_once.
@@ -447,13 +493,16 @@ cc_shared_library = rule(
         "preloaded_deps": attr.label_list(providers = [CcInfo]),
         "roots": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),
         "static_deps": attr.string_list(),
+        "version_script": attr.label(allow_single_file = True),
         "user_link_flags": attr.string_list(),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
+        "_enable_permissions_check": attr.label(default = "//examples:enable_permissions_check"),
         "_experimental_debug": attr.label(default = "//examples:experimental_debug"),
         "_incompatible_link_once": attr.label(default = "//examples:incompatible_link_once"),
     },
-    toolchains = ["@rules_cc//cc:toolchain_type"],  # copybara-use-repo-external-label
+    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],  # copybara-use-repo-external-label
     fragments = ["cpp"],
+    incompatible_use_toolchain_transition = True,
 )
 
 for_testing_dont_use_check_if_target_under_path = _check_if_target_under_path
