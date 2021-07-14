@@ -115,6 +115,7 @@ def cc_object(
         hdrs = [],
         asflags = [],
         srcs = [],
+        srcs_as = [],
         deps = [],
         native_bridge_supported = False, # TODO: not supported yet.
         **kwargs):
@@ -125,7 +126,7 @@ def cc_object(
         hdrs = hdrs,
         asflags = asflags,
         copts = _CC_OBJECT_COPTS + copts,
-        srcs = srcs,
+        srcs = srcs + srcs_as,
         deps = deps,
         **kwargs
     )
