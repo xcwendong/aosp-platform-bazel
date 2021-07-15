@@ -12,7 +12,7 @@ def cc_library_static(
         whole_archive_deps = [],
         use_libcrt = True,
         rtti = False,
-        # Flags for all languages
+        # Flags for C and C++
         copts = [],
         # C++ attributes
         srcs = [],
@@ -43,7 +43,9 @@ def cc_library_static(
     common_attrs = dict(
         [
             ("hdrs", hdrs),
-            ("implementation_deps", implementation_deps),
+            # Add dynamic_deps to implementation_deps, as the include paths from the
+            # dynamic_deps are also needed.
+            ("implementation_deps", implementation_deps + dynamic_deps),
             ("deps", deps + whole_archive_deps),
             ("includes", includes),
             ("features", features),
@@ -66,7 +68,7 @@ def cc_library_static(
     native.cc_library(
         name = asm_name,
         srcs = srcs_as,
-        copts = copts + asflags,
+        copts = asflags,
         **common_attrs
     )
 
@@ -75,7 +77,6 @@ def cc_library_static(
         name = name,
         deps = [cpp_name, c_name, asm_name],
         whole_archive_deps = whole_archive_deps,
-        dynamic_deps = dynamic_deps, # Propagate shared object deps as linker inputs.
     )
 
 # Returns a CcInfo object which combines one or more CcInfo objects, except that all linker inputs
@@ -101,12 +102,6 @@ def _combine_and_own(ctx, old_owner_labels, cc_infos):
         for li in whole_dep[CcInfo].linking_context.linker_inputs.to_list():
             for lib in li.libraries:
                 objects_to_link.extend(lib.objects)
-
-    # Also add cc_shared_library deps to linker inputs.
-    for dynamic_dep in ctx.attr.dynamic_deps:
-        li = dynamic_dep[CcSharedLibraryInfo].linker_input
-        for lib in li.libraries:
-            objects_to_link.extend([lib.dynamic_library])
 
     return _link_archive(ctx, objects_to_link)
 
@@ -164,6 +159,7 @@ def _link_archive(ctx, objects):
     args.add_all(command_line)
     args.add_all(objects)
 
+
     ctx.actions.run(
         executable = archiver_path,
         arguments = [args],
@@ -200,7 +196,6 @@ _cc_library_combiner = rule(
         # depend on each other through the "deps" attribute.
         "deps": attr.label_list(providers = [CcInfo]),
         "whole_archive_deps": attr.label_list(providers = [CcInfo]),
-        "dynamic_deps": attr.label_list(providers = [CcSharedLibraryInfo]),
         "_cc_toolchain": attr.label(
             default = Label("@local_config_cc//:toolchain"),
             providers = [cc_common.CcToolchainInfo],
