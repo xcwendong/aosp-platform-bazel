@@ -287,6 +287,12 @@ def _filter_inputs(
                     fail("We can't link " +
                          str(owner) + " either statically or dynamically")
 
+    # Divergence from rules_cc: Add all dynamic dependencies as linker inputs
+    # even if they do not contain transitive dependencies of the roots.
+    # TODO(cparsons): Push this as an option upstream..
+    for dynamic_dep_input in transitive_exports.values():
+        linker_inputs.append(dynamic_dep_input)
+
     return (exports, linker_inputs, link_once_static_libs)
 
 def _same_package_or_above(label_a, label_b):
