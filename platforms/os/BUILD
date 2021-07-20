@@ -1,4 +1,7 @@
 # Standard constraint_setting and constraint_values to be used in platforms.
+
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
 licenses(["notice"])
 
 package(
@@ -42,3 +45,10 @@ constraint_value(
     constraint_setting = "@platforms//os:os",
 )
 
+selects.config_setting_group(
+    name = "bionic",
+    match_any = [
+        ":android",
+        ":linux_bionic",
+    ],
+)
