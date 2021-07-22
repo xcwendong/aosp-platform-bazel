@@ -1,4 +1,7 @@
 # Standard constraint_setting and constraint_values to be used in platforms.
+
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
 licenses(["notice"])
 
 package(
@@ -8,6 +11,13 @@ package(
 constraint_value(
     name = "android",
     constraint_setting = "@platforms//os:os",
+)
+
+config_setting(
+    name = "android_config_setting",
+    constraint_values = [
+        ":android",
+    ],
 )
 
 # Alias to the local_jdk's toolchain constraint to make local_jdk resolve
@@ -27,6 +37,13 @@ constraint_value(
     constraint_setting = "@platforms//os:os",
 )
 
+config_setting(
+    name = "linux_bionic_config_setting",
+    constraint_values = [
+        ":linux_bionic",
+    ],
+)
+
 constraint_value(
     name = "windows",
     constraint_setting = "@platforms//os:os",
@@ -42,3 +59,10 @@ constraint_value(
     constraint_setting = "@platforms//os:os",
 )
 
+selects.config_setting_group(
+    name = "bionic",
+    match_any = [
+        ":android_config_setting",
+        ":linux_bionic_config_setting",
+    ],
+)
