@@ -39,22 +39,6 @@ config_setting(
 )
 
 config_setting(
-    name = "fuchsia_arm64",
-    constraint_values = [
-        "//build/bazel/platforms/arch:arm64",
-        "//build/bazel/platforms/os:fuchsia",
-    ],
-)
-
-config_setting(
-    name = "fuchsia_x86_64",
-    constraint_values = [
-        "//build/bazel/platforms/arch:x86_64",
-        "//build/bazel/platforms/os:fuchsia",
-    ],
-)
-
-config_setting(
     name = "linux_glibc_x86",
     constraint_values = [
         "//build/bazel/platforms/arch:x86",
