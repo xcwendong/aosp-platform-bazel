@@ -39,7 +39,6 @@ _arch_variant_to_constraints = {
     "x86_64": "//build/bazel/platforms/arch:x86_64",
     "android": "//build/bazel/platforms/os:android",
     "darwin": "//build/bazel/platforms/os:darwin",
-    "fuchsia": "//build/bazel/platforms/os:fuchsia",
     "linux": "//build/bazel/platforms/os:linux",
     "linux_bionic": "//build/bazel/platforms/os:linux_bionic",
     "windows": "//build/bazel/platforms/os:windows",

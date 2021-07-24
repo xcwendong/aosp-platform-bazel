@@ -60,8 +60,7 @@ def product_variable_config(name, product_config_vars):
     )
 
     arch = local_vars.get("DeviceArch")
-    fuchsia = local_vars.get("Fuchsia", False)
-    os = "fuchsia" if fuchsia else "android"
+    os = "android"
 
     native.platform(
         name = name,
