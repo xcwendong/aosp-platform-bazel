@@ -29,15 +29,21 @@ android_app_certificate {
     certificate: "build.bazel.examples.apex.minimal",
 }
 
+filegroup {
+  name: "build.bazel.examples.apex.minimal-file_contexts",
+  srcs: [
+    "file_contexts",
+  ],
+}
+
 apex {
     name: "build.bazel.examples.apex.minimal",
     manifest: "manifest.json",
-    // We should make a file_contexts specific for this apex, but the apex
-    // build requires file_contexts files to be under //system/sepolicy.
-    // See https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/builder.go;l=265-267;drc=9d9960f2404afa76c6445f72e8a326c2b789c6bc
-    //
-    // More info: https://android.googlesource.com/platform/system/apex/+/master/docs/howto.md#building-an-apex
-    file_contexts: ":apex.test-file_contexts",
+    file_contexts: ":build.bazel.examples.apex.minimal-file_contexts",
+
+    // So that we aren't considered a "platform APEX" and can use a file_context that lives outside of system/sepolicy/apex
+    product_specific: true,
+
     key: "build.bazel.examples.apex.minimal.key",
     min_sdk_version: "30",
 }
