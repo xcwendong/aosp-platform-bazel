@@ -50,11 +50,6 @@ constraint_value(
 )
 
 constraint_value(
-    name = "fuchsia",
-    constraint_setting = "@platforms//os:os",
-)
-
-constraint_value(
     name = "darwin",
     constraint_setting = "@platforms//os:os",
 )

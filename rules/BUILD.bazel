@@ -1,1 +1,9 @@
 exports_files(["lunch.bzl"])
+
+load(":apex_settings.bzl", "enable_apex_flag")
+
+enable_apex_flag(
+    name = "enable_apex",
+    build_setting_default = False,
+    visibility = ["//build/bazel/examples:__subpackages__"],
+)
