@@ -1,17 +1,54 @@
 load(":apex_key.bzl", "ApexKeyInfo")
 load(":apex_settings.bzl", "ApexEnabledInfo")
+load(":prebuilt_etc.bzl", "PrebuiltEtcInfo")
+load(":android_app_certificate.bzl", "AndroidAppCertificateInfo")
 
-# Create testdata layout for the APEX filesystem image as a tree artifact.
+# Create prebuilts dir for the APEX filesystem image as a tree artifact.
 def _prepare_input_dir(ctx):
+    image_apex_dir = "image.apex"
     # TODO(b/194644492): Generate this directory to contain files that should be in the APEX
     # Right now, these are testdata.
-    input_dir = ctx.actions.declare_directory("apex_testdata")
+    input_dir = ctx.actions.declare_directory(image_apex_dir)
+
+    commands = []
+
+    # Used for creating canned_fs_config, since every file and dir in the APEX are represented
+    # by an entry in the fs_config.
+    subdirs_map = {"etc": True}
+    filepaths = []
+
+    inputs = []
+    for dep in ctx.attr.prebuilts:
+        directory = "etc"
+        prebuilt_etc_info = dep[PrebuiltEtcInfo]
+
+        inputs += [prebuilt_etc_info.src]
+
+        sub_dir = prebuilt_etc_info.sub_dir
+        if sub_dir != None:
+            directory = "/".join([directory, sub_dir])
+        filename = prebuilt_etc_info.filename
+
+        filepath = "/".join([directory, filename])
+        subdirs_map[directory] = True
+        filepaths += [filepath]
+
+        # Make the subdirectories
+        command = "mkdir -p " + input_dir.path + "/" + directory
+        command += " && "
+        command += "cp -f " + prebuilt_etc_info.src.path + " " + input_dir.path + "/" + filepath
+        commands += [command]
+
+    # Scales with O(files in apex)
+    command_string = " && ".join(commands)
+
     ctx.actions.run_shell(
+        inputs = inputs,
         outputs = [input_dir],
-        mnemonic = "ApexTestDataDir",
-        command = "mkdir -p %s && touch %s/file-in-apex" % (input_dir.path, input_dir.path),
+        mnemonic = "PrepareApexInputDir",
+        command = command_string,
     )
-    return input_dir
+    return input_dir, subdirs_map.keys(), filepaths
 
 # conv_apex_manifest - Convert the JSON APEX manifest to protobuf, which is needed by apexer.
 def _convert_apex_manifest_json_to_pb(ctx):
@@ -37,13 +74,15 @@ def _convert_apex_manifest_json_to_pb(ctx):
 # file in the APEX, including apex_manifest.json and apex_manifest.pb.
 #
 # NOTE: every file must have an entry.
-def _generate_canned_fs_config(ctx):
+def _generate_canned_fs_config(ctx, dirs, filepaths):
     canned_fs_config = ctx.actions.declare_file("canned_fs_config")
-    ctx.actions.write(
-        canned_fs_config,
-        """/ 1000 1000 0755
-/apex_manifest.pb 1000 1000 0644
-/file-in-apex 1000 1000 0644""")
+    config_lines = []
+    config_lines += ["/ 1000 1000 0755"]
+    config_lines += ["/apex_manifest.json 1000 1000 0644"]
+    config_lines += ["/apex_manifest.pb 1000 1000 0644"]
+    config_lines += ["/" + filepath + " 1000 1000 0644" for filepath in filepaths]
+    config_lines += ["/" + d + " 0 2000 0755" for d in dirs]
+    ctx.actions.write(canned_fs_config, "\n".join(config_lines))
     return canned_fs_config
 
 # apexer - generate the APEX file.
@@ -54,6 +93,7 @@ def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
     privkey = apex_key_info.private_key
     pubkey = apex_key_info.public_key
     android_jar = ctx.file._android_jar
+    android_manifest = ctx.file.android_manifest
 
     # Outputs
     apex_output = ctx.actions.declare_file(ctx.attr.name + ".apex")
@@ -73,6 +113,9 @@ def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
     args.add_all(["--min_sdk_version", ctx.attr.min_sdk_version])
     args.add_all(["--payload_fs_type", "ext4"])
 
+    if android_manifest != None:
+        args.add_all(["--android_manifest", android_manifest.path])
+
     # Input dir
     args.add(input_dir.path)
     # Output APEX
@@ -87,6 +130,7 @@ def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
             privkey,
             pubkey,
             android_jar,
+            android_manifest,
         ],
         use_default_shell_env = True, # needed for APEXER_TOOL_PATH
         outputs = [apex_output],
@@ -104,9 +148,9 @@ def _apex_rule_impl(ctx):
         print("Skipping " + ctx.label.name + ". Pass --//build/bazel/rules:enable_apex=True to build APEXes.")
         return
 
-    input_dir = _prepare_input_dir(ctx)
+    input_dir, subdirs, filepaths = _prepare_input_dir(ctx)
     apex_manifest_pb = _convert_apex_manifest_json_to_pb(ctx)
-    canned_fs_config = _generate_canned_fs_config(ctx)
+    canned_fs_config = _generate_canned_fs_config(ctx, subdirs, filepaths)
 
     apex_output = _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config)
 
@@ -120,13 +164,13 @@ _apex = rule(
         "android_manifest": attr.label(allow_single_file = [".xml"]),
         "file_contexts": attr.label(allow_single_file = True),
         "key": attr.label(providers = [ApexKeyInfo]),
-        "certificate": attr.label(allow_single_file = True),
+        "certificate": attr.label(providers = [AndroidAppCertificateInfo]),
         "min_sdk_version": attr.string(),
         "updatable": attr.bool(default = True),
         "installable": attr.bool(default = True),
         "native_shared_libs": attr.label_list(),
         "binaries": attr.label_list(),
-        "prebuilts": attr.label_list(),
+        "prebuilts": attr.label_list(providers = [PrebuiltEtcInfo]),
         "_apexer": attr.label(
             allow_single_file = True,
             cfg = "host",
