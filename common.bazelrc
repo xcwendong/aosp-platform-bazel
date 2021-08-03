@@ -24,9 +24,6 @@ build --experimental_starlark_cc_import
 # and quotes in copts.
 build --features no_copts_tokenization
 
-# Disable middleman actions
-build --noexperimental_enable_aggregating_middleman
-
 # Disable local cpp toolchain detection, as it is explicitly declared in AOSP.
 build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
