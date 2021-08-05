@@ -44,3 +44,10 @@ bind(
   name = "android/dx_jar_import",
   actual = "//prebuilts/sdk:dx_jar_import",
 )
+
+# The r8.jar in prebuilts/r8 happens to have the d8 classes needed
+# for Android app building, whereas the d8.jar in prebuilts/sdk/tools doesn't.
+bind(
+  name = "android/d8_jar_import",
+  actual = "//prebuilts/r8:r8_jar_import",
+)

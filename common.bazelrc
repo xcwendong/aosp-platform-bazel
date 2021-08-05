@@ -24,9 +24,6 @@ build --experimental_starlark_cc_import
 # and quotes in copts.
 build --features no_copts_tokenization
 
-# Disable middleman actions
-build --noexperimental_enable_aggregating_middleman
-
 # Disable local cpp toolchain detection, as it is explicitly declared in AOSP.
 build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
@@ -72,6 +69,9 @@ build --experimental_google_legacy_api
 build --incompatible_java_common_parameters
 build --android_databinding_use_v3_4_args
 build --experimental_android_databinding_v2
+build --define=android_incremental_dexing_tool=d8_dexbuilder
+build --define=android_dexmerger_tool=d8_dexmerger
+build --nouse_workers_with_dexbuilder
 
 # Developer instance for result storage. This only works if you have access
 # to the Bazel GCP project. Follow the GCP gcloud client's auth instructions to
