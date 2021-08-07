@@ -121,8 +121,7 @@ def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
     # Output APEX
     args.add(apex_output.path)
 
-    ctx.actions.run(
-        inputs = [
+    inputs = [
             input_dir,
             apex_manifest_pb,
             file_contexts,
@@ -130,8 +129,12 @@ def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
             privkey,
             pubkey,
             android_jar,
-            android_manifest,
-        ],
+    ]
+    if android_manifest != None:
+      inputs.append(android_manifest)
+
+    ctx.actions.run(
+        inputs = inputs,
         use_default_shell_env = True, # needed for APEXER_TOOL_PATH
         outputs = [apex_output],
         executable = ctx.executable._apexer,
