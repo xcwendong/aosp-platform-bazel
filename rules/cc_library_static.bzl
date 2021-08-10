@@ -1,10 +1,18 @@
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo")
+load("//build/bazel/product_variables:constants.bzl", "constants")
+
+_bionic_targets = ["//bionic/libc", "//bionic/libdl", "//bionic/libm"]
+_system_dynamic_deps_defaults = select({
+    constants.ArchVariantToConstraints["linux_bionic"]: _bionic_targets,
+    constants.ArchVariantToConstraints["android"]: _bionic_targets,
+    "//conditions:default": []})
 
 def cc_library_static(
         name,
         implementation_deps = [],
         dynamic_deps = [],
+        system_dynamic_deps = None,
         deps = [],
         hdrs = [],
         includes = [],
@@ -38,6 +46,9 @@ def cc_library_static(
     if not use_libcrt:
         features += ["use_libcrt"]
 
+    if system_dynamic_deps == None:
+        system_dynamic_deps = _system_dynamic_deps_defaults
+
     # Silently drop these attributes for now:
     # - native_bridge_supported
     common_attrs = dict(
@@ -45,7 +56,7 @@ def cc_library_static(
             ("hdrs", hdrs),
             # Add dynamic_deps to implementation_deps, as the include paths from the
             # dynamic_deps are also needed.
-            ("implementation_deps", implementation_deps + dynamic_deps),
+            ("implementation_deps", implementation_deps + dynamic_deps + system_dynamic_deps),
             ("deps", deps + whole_archive_deps),
             ("includes", includes),
             ("features", features),
