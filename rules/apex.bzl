@@ -129,17 +129,25 @@ def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
             privkey,
             pubkey,
             android_jar,
+            ctx.executable._mke2fs,
+            ctx.executable._e2fsdroid,
+            ctx.executable._sefcontext_compile,
+            ctx.executable._resize2fs,
+            ctx.executable._avbtool,
+            ctx.executable._aapt2,
     ]
     if android_manifest != None:
       inputs.append(android_manifest)
 
     ctx.actions.run(
         inputs = inputs,
-        use_default_shell_env = True, # needed for APEXER_TOOL_PATH
         outputs = [apex_output],
         executable = ctx.executable._apexer,
         arguments = [args],
         mnemonic = "Apexer",
+        env = {
+            "APEXER_TOOL_PATH": ctx.executable._apexer.dirname,
+        },
     )
 
     return apex_output
@@ -174,17 +182,54 @@ _apex = rule(
         "native_shared_libs": attr.label_list(),
         "binaries": attr.label_list(),
         "prebuilts": attr.label_list(providers = [PrebuiltEtcInfo]),
+        # TODO(b/196008621): use a toolchain for host tools, instead of private attributes
+        "_aapt2": attr.label(
+            allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "@make_injection//:host/linux-x86/bin/aapt2",
+        ),
+        "_avbtool": attr.label(
+            allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "@make_injection//:host/linux-x86/bin/avbtool",
+        ),
         "_apexer": attr.label(
             allow_single_file = True,
             cfg = "host",
             executable = True,
-            default = "//build/bazel/rules/prebuilts:apexer"
+            default = "@make_injection//:host/linux-x86/bin/apexer",
+        ),
+        "_mke2fs": attr.label(
+            allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "@make_injection//:host/linux-x86/bin/mke2fs",
+        ),
+        "_resize2fs": attr.label(
+            allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "@make_injection//:host/linux-x86/bin/resize2fs",
+        ),
+        "_e2fsdroid": attr.label(
+            allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "@make_injection//:host/linux-x86/bin/e2fsdroid",
+        ),
+        "_sefcontext_compile": attr.label(
+            allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "@make_injection//:host/linux-x86/bin/sefcontext_compile",
         ),
         "_conv_apex_manifest": attr.label(
             allow_single_file = True,
             cfg = "host",
             executable = True,
-            default = "//build/bazel/rules/prebuilts:conv_apex_manifest"
+            default = "@make_injection//:host/linux-x86/bin/conv_apex_manifest",
         ),
         "_android_jar": attr.label(
             allow_single_file = True,
