@@ -48,7 +48,6 @@ BUILD_FLAGS_LIST=(
   --show_progress_rate_limit=5
   --config=bp2build
   --//build/bazel/rules:enable_apex=True
-  --action_env=APEXER_TOOL_PATH=${AOSP_ROOT}/out/soong/host/linux-x86/bin:${AOSP_ROOT}/prebuilts/sdk/tools/linux/bin
 )
 BUILD_FLAGS="${BUILD_FLAGS_LIST[@]}"
 
@@ -63,10 +62,6 @@ BUILD_TARGETS_LIST=(
   //system/timezone/apex:com.android.tzdata
 )
 BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
-
-echo "Building host tools..."
-"${AOSP_ROOT}/build/soong/soong_ui.bash" --make-mode nothing --skip-soong-tests aapt2 apexer apex_compression_tool aprotoc avbtool conv_apex_manifest deapexer dep_fixer e2fsdroid extract_apks jsonmodify make_f2fs merge_zips mke2fs resize2fs sbox sefcontext_compile sload_f2fs soong_javac_wrapper soong_zip symbol_inject zipalign zipsync
-
 
 echo "Building APEXes with Bazel..."
 ${AOSP_ROOT}/tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_x86 -k ${BUILD_TARGETS}
