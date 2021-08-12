@@ -14,6 +14,7 @@ soong_injection_repository(name="soong_injection")
 make_injection_repository(
     name = "make_injection",
     modules = [
+        # APEX tools
         "aapt2",
         "apexer",
         "avbtool",
@@ -22,6 +23,15 @@ make_injection_repository(
         "mke2fs",
         "resize2fs",
         "sefcontext_compile",
+        "signapk",
+
+        "deapexer",
+        "debugfs",
+
+        # APEX comparisons
+        "com.android.tzdata",
+        "com.android.runtime",
+        "com.android.adbd",
     ],
 )
 
@@ -32,7 +42,7 @@ local_repository(
 
 local_repository(
     name = "bazel_skylib",
-    path = "build/bazel/bazel_skylib",
+    path = "external/bazel-skylib",
 )
 
 local_repository(
@@ -50,6 +60,9 @@ register_toolchains(
 
   # Local AOSP JDK
   "//prebuilts/jdk/jdk11/linux-x86:jdk11_toolchain",
+
+  # For APEX rules
+  "//build/bazel/rules/apex:all"
 )
 
 bind(
