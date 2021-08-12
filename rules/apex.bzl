@@ -1,7 +1,7 @@
 load(":apex_key.bzl", "ApexKeyInfo")
-load(":apex_settings.bzl", "ApexEnabledInfo")
 load(":prebuilt_etc.bzl", "PrebuiltEtcInfo")
 load(":android_app_certificate.bzl", "AndroidAppCertificateInfo")
+load("//build/bazel/rules/apex:transition.bzl", "apex_transition")
 
 # Create prebuilts dir for the APEX filesystem image as a tree artifact.
 def _prepare_input_dir(ctx):
@@ -51,14 +51,14 @@ def _prepare_input_dir(ctx):
     return input_dir, subdirs_map.keys(), filepaths
 
 # conv_apex_manifest - Convert the JSON APEX manifest to protobuf, which is needed by apexer.
-def _convert_apex_manifest_json_to_pb(ctx):
+def _convert_apex_manifest_json_to_pb(ctx, apex_toolchain):
     apex_manifest_json = ctx.file.manifest
     apex_manifest_pb = ctx.actions.declare_file("apex_manifest.pb")
 
     ctx.actions.run(
         outputs = [apex_manifest_pb],
         inputs = [ctx.file.manifest],
-        executable = ctx.executable._conv_apex_manifest,
+        executable = apex_toolchain.conv_apex_manifest,
         arguments = [
             "proto",
             apex_manifest_json.path,
@@ -86,13 +86,13 @@ def _generate_canned_fs_config(ctx, dirs, filepaths):
     return canned_fs_config
 
 # apexer - generate the APEX file.
-def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
+def _run_apexer(ctx, apex_toolchain, input_dir, apex_manifest_pb, canned_fs_config):
     # Inputs
     file_contexts = ctx.file.file_contexts
     apex_key_info = ctx.attr.key[ApexKeyInfo]
     privkey = apex_key_info.private_key
     pubkey = apex_key_info.public_key
-    android_jar = ctx.file._android_jar
+    android_jar = apex_toolchain.android_jar
     android_manifest = ctx.file.android_manifest
 
     # Outputs
@@ -121,8 +121,7 @@ def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
     # Output APEX
     args.add(apex_output.path)
 
-    ctx.actions.run(
-        inputs = [
+    inputs = [
             input_dir,
             apex_manifest_pb,
             file_contexts,
@@ -130,13 +129,25 @@ def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
             privkey,
             pubkey,
             android_jar,
-            android_manifest,
-        ],
-        use_default_shell_env = True, # needed for APEXER_TOOL_PATH
+            apex_toolchain.mke2fs,
+            apex_toolchain.e2fsdroid,
+            apex_toolchain.sefcontext_compile,
+            apex_toolchain.resize2fs,
+            apex_toolchain.avbtool,
+            apex_toolchain.aapt2,
+    ]
+    if android_manifest != None:
+      inputs.append(android_manifest)
+
+    ctx.actions.run(
+        inputs = inputs,
         outputs = [apex_output],
-        executable = ctx.executable._apexer,
+        executable = apex_toolchain.apexer,
         arguments = [args],
         mnemonic = "Apexer",
+        env = {
+            "APEXER_TOOL_PATH": apex_toolchain.apexer.dirname,
+        },
     )
 
     return apex_output
@@ -144,15 +155,13 @@ def _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config):
 
 # See the APEX section in the README on how to use this rule.
 def _apex_rule_impl(ctx):
-    if not ctx.attr._enable_apex[ApexEnabledInfo].enabled:
-        print("Skipping " + ctx.label.name + ". Pass --//build/bazel/rules:enable_apex=True to build APEXes.")
-        return
+    apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
 
     input_dir, subdirs, filepaths = _prepare_input_dir(ctx)
-    apex_manifest_pb = _convert_apex_manifest_json_to_pb(ctx)
+    apex_manifest_pb = _convert_apex_manifest_json_to_pb(ctx, apex_toolchain)
     canned_fs_config = _generate_canned_fs_config(ctx, subdirs, filepaths)
 
-    apex_output = _run_apexer(ctx, input_dir, apex_manifest_pb, canned_fs_config)
+    apex_output = _run_apexer(ctx, apex_toolchain, input_dir, apex_manifest_pb, canned_fs_config)
 
     files_to_build = depset([apex_output])
     return [DefaultInfo(files = files_to_build)]
@@ -168,28 +177,13 @@ _apex = rule(
         "min_sdk_version": attr.string(),
         "updatable": attr.bool(default = True),
         "installable": attr.bool(default = True),
-        "native_shared_libs": attr.label_list(),
-        "binaries": attr.label_list(),
-        "prebuilts": attr.label_list(providers = [PrebuiltEtcInfo]),
-        "_apexer": attr.label(
-            allow_single_file = True,
-            cfg = "host",
-            executable = True,
-            default = "//build/bazel/rules/prebuilts:apexer"
-        ),
-        "_conv_apex_manifest": attr.label(
-            allow_single_file = True,
-            cfg = "host",
-            executable = True,
-            default = "//build/bazel/rules/prebuilts:conv_apex_manifest"
-        ),
-        "_android_jar": attr.label(
-            allow_single_file = True,
-            cfg = "host",
-            default = "//prebuilts/sdk/current:public/android.jar",
-        ),
-        "_enable_apex": attr.label(default = "//build/bazel/rules:enable_apex")
+        "native_shared_libs": attr.label_list(cfg = apex_transition),
+        "binaries": attr.label_list(cfg = apex_transition),
+        "prebuilts": attr.label_list(providers = [PrebuiltEtcInfo], cfg = apex_transition),
+        # Required to use apex_transition. This is an acknowledgement to the risks of memory bloat when using transitions.
+        "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
     },
+    toolchains = ["//build/bazel/rules/apex:apex_toolchain_type"],
 )
 
 def apex(

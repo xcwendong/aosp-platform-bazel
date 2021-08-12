@@ -3,6 +3,14 @@ load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryI
 load(":stripped_shared_library.bzl", "stripped_shared_library")
 load(":generate_toc.bzl", "shared_library_toc")
 
+def _add_lists_defaulting_to_none(a, b):
+    """Adds two lists a and b, but is well behaved with a `None` default."""
+    if a == None:
+      return b
+    if b == None:
+      return a
+    return a + b
+
 def cc_library(
         name,
         # attributes for both targets
@@ -18,6 +26,7 @@ def cc_library(
         deps = [],
         whole_archive_deps = [],
         dynamic_deps = [],
+        system_dynamic_deps = None,
         includes = [],
         linkopts = [],
         rtti = False,
@@ -53,6 +62,8 @@ def cc_library(
         whole_archive_deps = whole_archive_deps + static.get("whole_archive_deps", []),
         implementation_deps = implementation_deps + static.get("static_deps", []),
         dynamic_deps = dynamic_deps + static.get("dynamic_deps", []),
+        system_dynamic_deps = _add_lists_defaulting_to_none(system_dynamic_deps,
+                                                            static.get("system_dynamic_deps", None)),
         deps = deps,
         features = features,
     )
@@ -76,6 +87,8 @@ def cc_library(
         whole_archive_deps = whole_archive_deps + shared.get("whole_archive_deps", []),
         implementation_deps = implementation_deps + shared.get("static_deps", []),
         dynamic_deps = dynamic_deps + shared.get("dynamic_deps", []),
+        system_dynamic_deps = _add_lists_defaulting_to_none(system_dynamic_deps,
+                                                            shared.get("system_dynamic_deps", None)),
         deps = deps,
         features = features,
     )
