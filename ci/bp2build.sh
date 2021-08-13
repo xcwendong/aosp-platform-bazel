@@ -40,10 +40,6 @@ BUILD_TARGETS_LIST=(
   //external/...
   //prebuilts/clang/host/linux-x86:all
   //build/bazel/...
-  --
-  # TODO(b/194639753): remove once android_app cc targets build
-  -//build/bazel/examples/android_app/java/com/app:jni
-  -//build/bazel/examples/android_app/java/com/app:jni_dep
 )
 BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
 tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_x86 -k ${BUILD_TARGETS}
