@@ -58,9 +58,6 @@ register_toolchains(
   # For native android_binary
   "//prebuilts/sdk:android_sdk_tools_for_native_android_binary",
 
-  # Local AOSP JDK
-  "//prebuilts/jdk/jdk11/linux-x86:jdk11_toolchain",
-
   # For APEX rules
   "//build/bazel/rules/apex:all"
 )

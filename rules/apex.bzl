@@ -171,7 +171,7 @@ _apex = rule(
     attrs = {
         "manifest": attr.label(allow_single_file = [".json"]),
         "android_manifest": attr.label(allow_single_file = [".xml"]),
-        "file_contexts": attr.label(allow_single_file = True),
+        "file_contexts": attr.label(allow_single_file = True, mandatory = True),
         "key": attr.label(providers = [ApexKeyInfo]),
         "certificate": attr.label(providers = [AndroidAppCertificateInfo]),
         "min_sdk_version": attr.string(),
@@ -201,6 +201,11 @@ def apex(
     prebuilts = [],
     **kwargs):
     "Bazel macro to correspond with the APEX bundle Soong module."
+
+    # If file_contexts is not specified, then use the default from //system/sepolicy/apex.
+    # https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/builder.go;l=259-263;drc=b02043b84d86fe1007afef1ff012a2155172215c
+    if file_contexts == None:
+        file_contexts = "//system/sepolicy/apex:" + name + "-file_contexts"
 
     _apex(
         name = name,
