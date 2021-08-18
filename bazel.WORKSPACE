@@ -32,6 +32,7 @@ make_injection_repository(
         "com.android.tzdata",
         "com.android.runtime",
         "com.android.adbd",
+	"build.bazel.examples.apex.minimal",
     ],
 )
 
