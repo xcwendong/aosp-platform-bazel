@@ -14,14 +14,17 @@ def _impl(rctx):
 
     rctx.report_progress("Building modules with Soong: %s" % str(modules))
     out_dir = str(build_dir.dirname) + "/make_injection"
-    exec_result = rctx.execute(args, environment = {
-        "OUT_DIR": out_dir,
-        # TODO(b/196224107): Make these customizable based on product config inputs.
-        "TARGET_PRODUCT": "aosp_arm",
-        "TARGET_BUILD_VARIANT": "userdebug",
-    })
+    exec_result = rctx.execute(
+        args,
+        environment = {
+            "OUT_DIR": out_dir,
+            # TODO(b/196224107): Make these customizable based on product config inputs.
+            "TARGET_PRODUCT": "aosp_arm",
+            "TARGET_BUILD_VARIANT": "userdebug",
+        },
+        quiet = False, # stream stdout so it shows progress
+    )
     if exec_result.return_code != 0:
-        fail(exec_result.stdout)
         fail(exec_result.stderr)
 
     rctx.symlink(out_dir + "/host/linux-x86", "host/linux-x86")
