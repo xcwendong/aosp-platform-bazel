@@ -89,19 +89,31 @@ case $(uname -s) in
 esac
 
 function verify_soong_outputs_exist() {
-    local to_check=(
-        "${ABSOLUTE_OUT_DIR}/soong/workspace"
-        "${ABSOLUTE_OUT_DIR}/.path"
+    local to_check="${ABSOLUTE_OUT_DIR}/.path"
+    local no_soong=0
+    if [[ ! -d "${to_check}" ]]; then
+      no_soong=1
+    fi
+
+    local bazel_configs=(
+        "bp2build"
+        "queryview"
     )
-    for d in "${to_check[@]}"
+    local valid_bazel_config=0
+    for c in "${bazel_configs[@]}"
     do
-        if [[ ! -d "${d}" ]]; then
-            >&2 echo "Error: ${d} does not exist. Have you ran bp2build?"
-            >&2 echo "Run bp2build with the command: GENERATE_BAZEL_FILES=1 m nothing"
-            >&2 echo "Alternatively, invoke Bazel using 'b' with the command: source envsetup.sh; b query/build/test <targets>"
-            exit 1
+        if [[ -d "${ABSOLUTE_OUT_DIR}/soong/""${c}" ]]; then
+          valid_bazel_config=1
         fi
     done
+
+    if [[ "${no_soong}" -eq "1" || "${valid_bazel_config}" -eq "0" ]]; then
+        >&2 echo "Error: missing generated Bazel files. Have you run bp2build or queryview?"
+        >&2 echo "Run bp2build with the command: GENERATE_BAZEL_FILES=1 m nothing"
+        >&2 echo "Run queryview with the command: m queryview"
+        >&2 echo "Alternatively, for non-queryview applications, invoke Bazel using 'b' with the command: source envsetup.sh; b query/build/test <targets>"
+        exit 1
+    fi
 }
 
 function create_bazelrc() {
