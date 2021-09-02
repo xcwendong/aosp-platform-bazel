@@ -8,6 +8,7 @@ build --incompatible_enable_cc_toolchain_resolution
 
 # Ensure that the host_javabase always use @local_jdk, the checked-in JDK.
 build --tool_java_runtime_version=local_jdk
+build --java_runtime_version=local_jdk
 
 # Lock down the PATH variable in actions to /usr/bin and /usr/local/bin.
 build --experimental_strict_action_env
@@ -72,6 +73,7 @@ build --experimental_android_databinding_v2
 build --define=android_incremental_dexing_tool=d8_dexbuilder
 build --define=android_dexmerger_tool=d8_dexmerger
 build --nouse_workers_with_dexbuilder
+build --fat_apk_cpu=k8
 
 # Developer instance for result storage. This only works if you have access
 # to the Bazel GCP project. Follow the GCP gcloud client's auth instructions to
