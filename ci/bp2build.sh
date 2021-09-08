@@ -11,7 +11,7 @@ fi
 
 # Generate BUILD files into out/soong/bp2build
 AOSP_ROOT="$(dirname $0)/../../.."
-GENERATE_BAZEL_FILES=true "${AOSP_ROOT}/build/soong/soong_ui.bash" --make-mode nothing --skip-soong-tests
+"${AOSP_ROOT}/build/soong/soong_ui.bash" --make-mode nothing --skip-soong-tests bp2build
 
 # Remove the ninja_build output marker file to communicate to buildbot that this is not a regular Ninja build, and its
 # output should not be parsed as such.
