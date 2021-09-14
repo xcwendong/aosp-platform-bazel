@@ -1,4 +1,5 @@
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
+load(":cc_library_static.bzl", "get_includes_paths")
 load(":cc_constants.bzl", "constants")
 
 # "cc_object" module copts, taken from build/soong/cc/object.go
@@ -58,11 +59,18 @@ def _cc_object_impl(ctx):
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         srcs = srcs,
-        includes = ctx.attr.includes,
+        includes = get_includes_paths(ctx, ctx.attr.local_includes) + get_includes_paths(ctx, ctx.attr.absolute_includes, package_relative=False),
         public_hdrs = ctx.files.hdrs,
         private_hdrs = private_hdrs,
         user_compile_flags = ctx.attr.copts + asflags,
         compilation_contexts = compilation_contexts,
+    )
+
+    # do not propagate includes
+    compilation_context = cc_common.create_compilation_context(
+        headers = compilation_context.headers,
+        defines = compilation_context.defines,
+        local_defines = compilation_context.local_defines,
     )
 
     objects_to_link = cc_common.merge_compilation_outputs(compilation_outputs=deps_objects + [compilation_outputs])
@@ -92,7 +100,8 @@ _cc_object = rule(
     attrs = {
         "srcs": attr.label_list(allow_files = constants.all_dot_exts),
         "hdrs": attr.label_list(allow_files = constants.hdr_dot_exts),
-        "includes": attr.string_list(),
+        "absolute_includes": attr.string_list(),
+        "local_includes": attr.string_list(),
         "copts": attr.string_list(),
         "asflags": attr.string_list(),
         "deps": attr.label_list(providers=[CcInfo, CcObjectInfo]),
