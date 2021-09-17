@@ -72,6 +72,8 @@ def cc_library_static(
     # - native_bridge_supported
     common_attrs = dict(
         [
+            # TODO(b/199917423): This may be superfluous. Investigate and possibly remove.
+            ("linkstatic", True),
             ("hdrs", hdrs),
             # Add dynamic_deps to implementation_deps, as the include paths from the
             # dynamic_deps are also needed.
