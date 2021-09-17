@@ -1,3 +1,4 @@
+load("@bazel_skylib//lib:collections.bzl", "collections")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo")
 load("//build/bazel/product_variables:constants.bzl", "constants")
@@ -71,6 +72,8 @@ def cc_library_static(
     # - native_bridge_supported
     common_attrs = dict(
         [
+            # TODO(b/199917423): This may be superfluous. Investigate and possibly remove.
+            ("linkstatic", True),
             ("hdrs", hdrs),
             # Add dynamic_deps to implementation_deps, as the include paths from the
             # dynamic_deps are also needed.
@@ -132,7 +135,9 @@ def _combine_and_own(ctx, old_owner_labels, cc_infos):
         for li in whole_dep[CcInfo].linking_context.linker_inputs.to_list():
             for lib in li.libraries:
                 objects_to_link.extend(lib.objects)
-
+    # Remove duplicate objects, which may come about from whole_archive_deps,
+    # as these may also themselves be transitive deps.
+    objects_to_link = collections.uniq(objects_to_link)
     return _link_archive(ctx, objects_to_link)
 
 def _cc_library_combiner_impl(ctx):
