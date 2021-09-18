@@ -1,7 +1,6 @@
-load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo")
 load(":cc_library_common.bzl", "claim_ownership")
 load(":cc_library_static.bzl", "cc_library_static")
-load(":cc_library_shared.bzl", "cc_library_shared")
+load(":cc_library_shared.bzl", "CcSharedLibraryInfo", "CcTocInfo", "cc_library_shared")
 
 def _add_lists_defaulting_to_none(a, b):
     """Adds two lists a and b, but is well behaved with a `None` default."""
@@ -124,6 +123,7 @@ def _cc_library_proxy_impl(ctx):
 
     return [
         ctx.attr.shared[CcSharedLibraryInfo],
+        ctx.attr.shared[CcTocInfo],
         claim_ownership(ctx, ctx.attr.static[CcInfo], ctx.attr.static.label),
         DefaultInfo(
             files = depset(direct = files),
@@ -134,7 +134,7 @@ def _cc_library_proxy_impl(ctx):
 _cc_library_proxy = rule(
     implementation = _cc_library_proxy_impl,
     attrs = {
-        "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo]),
+        "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo, CcTocInfo]),
         "static": attr.label(mandatory = True, providers = [CcInfo]),
     },
 )
