@@ -253,7 +253,7 @@ def get_includes_paths(ctx, dirs, package_relative = True):
     execution_relative_dirs = []
     for rel_dir in dirs:
         if rel_dir == ".":
-          rel_dir = ""
+            rel_dir = ""
         execution_rel_dir = rel_dir
         if package_relative:
             execution_rel_dir = ctx.label.package
@@ -263,7 +263,7 @@ def get_includes_paths(ctx, dirs, package_relative = True):
 
         # to support generated files, we also need to export includes relatives to the bin directory
         if not execution_rel_dir.startswith("/"):
-          execution_relative_dirs.append(ctx.bin_dir.path + "/" + execution_rel_dir)
+            execution_relative_dirs.append(ctx.bin_dir.path + "/" + execution_rel_dir)
     return execution_relative_dirs
 
 def _cc_includes_impl(ctx):

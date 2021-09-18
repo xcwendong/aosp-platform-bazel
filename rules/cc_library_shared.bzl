@@ -1,8 +1,11 @@
-load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
 load(":cc_library_common.bzl", "claim_ownership")
 load(":cc_library_static.bzl", "cc_library_static")
+load("@rules_cc//examples:experimental_cc_shared_library.bzl", "cc_shared_library", _CcSharedLibraryInfo = "CcSharedLibraryInfo")
 load(":stripped_shared_library.bzl", "stripped_shared_library")
-load(":generate_toc.bzl", "shared_library_toc")
+load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
+
+CcTocInfo = _CcTocInfo
+CcSharedLibraryInfo = _CcSharedLibraryInfo
 
 def cc_library_shared(
         name,
@@ -111,12 +114,13 @@ def _cc_library_shared_proxy_impl(ctx):
     files = root_files + shared_files + [ctx.file.table_of_contents]
 
     return [
-        ctx.attr.shared[CcSharedLibraryInfo],
-        claim_ownership(ctx, ctx.attr.root[CcInfo], ctx.attr.root.label, ctx.attr.shared.label),
         DefaultInfo(
             files = depset(direct = files),
             runfiles = ctx.runfiles(files = files),
         ),
+        ctx.attr.shared[CcSharedLibraryInfo],
+        ctx.attr.table_of_contents[CcTocInfo],
+        claim_ownership(ctx, ctx.attr.root[CcInfo], ctx.attr.root.label, ctx.attr.shared.label),
     ]
 
 _cc_library_shared_proxy = rule(
@@ -124,6 +128,6 @@ _cc_library_shared_proxy = rule(
     attrs = {
         "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo]),
         "root": attr.label(mandatory = True, providers = [CcInfo]),
-        "table_of_contents": attr.label(mandatory = True, allow_single_file = True),
+        "table_of_contents": attr.label(mandatory = True, allow_single_file = True, providers = [CcTocInfo]),
     },
 )
