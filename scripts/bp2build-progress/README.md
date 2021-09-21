@@ -3,13 +3,13 @@
 This directory contains tools to generate reports and .png graphs of the
 bp2build conversion progress, for any module.
 
+This tool relies on `json-module-graph` and `bp2build` to be buildable targets
+for this branch.
+
 ## Prerequisites
 
 * `/usr/bin/dot`: turning dot graphviz files into .pngs
 * `/usr/bin/jq`: running the query scripts over the json-module-graph.
-* `converted.txt`: a static file list of module names converted by bp2build.
-  This is created manually, but we could make bp2build emit such a file
-  automatically in @soong_injection. Tracked in b/199837056.
 
 ## Instructions
 
