@@ -1,3 +1,11 @@
+def add_lists_defaulting_to_none(a, b):
+    """Adds two lists a and b, but is well behaved with a `None` default."""
+    if a == None:
+        return b
+    if b == None:
+        return a
+    return a + b
+
 # Returns a cloned copy of the given CcInfo object, except that all linker inputs
 # with owner `old_owner_label` are recreated and owned `new_owner_label`,
 # defaulting to `ctx.label`.

@@ -148,26 +148,40 @@ digraph mygraph {{
 def generate_report(modules, converted, name_to_kind, module):
     report_lines = []
 
-    report_lines.append("bp2build progress report for: %s\n" % module)
-    report_lines.append("Ignored module types: %s" % IGNORED_KINDS)
-    report_lines.append("Transitive dependency closure:")
+    report_lines.append("# bp2build progress report for: %s\n" % module)
+    report_lines.append("Ignored module types: %s\n" % IGNORED_KINDS)
+    report_lines.append("# Transitive dependency closure:")
 
-    blocked_modules_report = collections.defaultdict(list)
+    # Map of [number of unconverted deps] to list of entries,
+    # with each entry being the string: "<module>: <comma separated list of unconverted modules>"
+    blocked_modules = collections.defaultdict(list)
+
+    # Map of unconverted modules to the number of modules they're blocking
+    # (i.e. number of reverse deps)
+    all_unconverted_modules = collections.defaultdict(int)
 
     for module, deps in modules.items():
         unconverted_deps = list(filter(lambda dep: dep not in converted, list(deps)))
+        for dep in unconverted_deps:
+            all_unconverted_modules[dep] += 1
+
         unconverted_count = len(unconverted_deps)
         if module not in converted:
             report_entry = "%s [%s]: %s" % (module, name_to_kind.get(module), ", ".join(unconverted_deps))
-            blocked_modules_report[unconverted_count].append(report_entry)
+            blocked_modules[unconverted_count].append(report_entry)
 
-    for count, modules in sorted(blocked_modules_report.items()):
+    for count, modules in sorted(blocked_modules.items()):
         report_lines.append("\n%d unconverted deps remaining:" % count)
         for module_string in modules:
             report_lines.append("  " + module_string)
 
     report_lines.append("\n")
-    report_lines.append("Converted modules:\n\n%s" % "\n".join(sorted(converted)))
+    report_lines.append("# Unconverted deps of adbd:\n")
+    for count, dep in sorted(((count, dep) for dep,count in all_unconverted_modules.items()), reverse=True):
+        report_lines.append("%s: blocking %d modules" % (dep, count))
+
+    report_lines.append("\n")
+    report_lines.append("# Converted modules:\n\n%s" % "\n".join(sorted(converted)))
 
     report_lines.append("\n")
     report_lines.append(

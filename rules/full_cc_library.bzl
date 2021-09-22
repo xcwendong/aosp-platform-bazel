@@ -1,14 +1,6 @@
-load(":cc_library_common.bzl", "claim_ownership")
+load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "claim_ownership")
 load(":cc_library_static.bzl", "cc_library_static")
 load(":cc_library_shared.bzl", "CcSharedLibraryInfo", "CcTocInfo", "cc_library_shared")
-
-def _add_lists_defaulting_to_none(a, b):
-    """Adds two lists a and b, but is well behaved with a `None` default."""
-    if a == None:
-        return b
-    if b == None:
-        return a
-    return a + b
 
 def cc_library(
         name,
@@ -66,7 +58,7 @@ def cc_library(
         whole_archive_deps = whole_archive_deps + static.get("whole_archive_deps", []),
         implementation_deps = implementation_deps + static.get("static_deps", []),
         dynamic_deps = dynamic_deps + static.get("dynamic_deps", []),
-        system_dynamic_deps = _add_lists_defaulting_to_none(
+        system_dynamic_deps = add_lists_defaulting_to_none(
             system_dynamic_deps,
             static.get("system_dynamic_deps", None),
         ),
@@ -98,7 +90,7 @@ def cc_library(
         rtti = rtti,
         whole_archive_deps = whole_archive_deps + shared.get("whole_archive_deps", []),
         implementation_deps = implementation_deps + shared.get("static_deps", []),
-        system_dynamic_deps = _add_lists_defaulting_to_none(
+        system_dynamic_deps = add_lists_defaulting_to_none(
             system_dynamic_deps,
             shared.get("system_dynamic_deps", None),
         ),
