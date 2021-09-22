@@ -1,4 +1,4 @@
-load(":cc_library_common.bzl", "claim_ownership")
+load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "claim_ownership")
 load(":cc_library_static.bzl", "cc_library_static")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "cc_shared_library", _CcSharedLibraryInfo = "CcSharedLibraryInfo")
 load(":stripped_shared_library.bzl", "stripped_shared_library")
@@ -82,7 +82,7 @@ def cc_library_shared(
         # if a shared library could declare a transitive exported static dep
         # instead of needing to declare each target transitively.
         static_deps = ["//:__subpackages__"] + [shared_root_name],
-        dynamic_deps = dynamic_deps,
+        dynamic_deps = add_lists_defaulting_to_none(dynamic_deps, system_dynamic_deps),
         version_script = version_script,
         roots = [shared_root_name],
         features = features,
