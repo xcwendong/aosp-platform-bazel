@@ -7,7 +7,7 @@ def cc_library_headers(
         hdrs = [],
         export_includes = [],
         export_system_includes = [],
-        native_bridge_supported = False, # TODO: not supported yet.
+        native_bridge_supported = False,  # TODO: not supported yet.
         **kwargs):
     "Bazel macro to correspond with the cc_library_headers Soong module."
 
@@ -23,4 +23,3 @@ def cc_library_headers(
         use_libcrt = False,
         **kwargs
     )
-
