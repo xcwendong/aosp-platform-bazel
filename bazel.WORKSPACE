@@ -11,29 +11,32 @@ register_toolchains(
 )
 
 soong_injection_repository(name="soong_injection")
+
+# This is a repository rule to allow Bazel builds to depend on Soong-built
+# prebuilts for migration purposes.
 make_injection_repository(
     name = "make_injection",
-    modules = [
+    binaries = [
         # APEX tools
         "aapt2",
         "apexer",
         "avbtool",
         "conv_apex_manifest",
+        "deapexer",
+        "debugfs",
         "e2fsdroid",
         "mke2fs",
         "resize2fs",
         "sefcontext_compile",
         "signapk",
-
-        "deapexer",
-        "debugfs",
-
-        # APEX comparisons
-        "com.android.tzdata",
-        "com.android.runtime",
-        "com.android.adbd",
-	"build.bazel.examples.apex.minimal",
     ],
+    target_module_files = {
+        # For APEX comparisons
+        "com.android.tzdata": ["system/apex/com.android.tzdata.apex"],
+        "com.android.runtime": ["system/apex/com.android.runtime.apex"],
+        "com.android.adbd": ["system/apex/com.android.adbd.apex"],
+        "build.bazel.examples.apex.minimal": ["system/product/apex/build.bazel.examples.apex.minimal.apex"],
+    },
 )
 
 local_repository(
