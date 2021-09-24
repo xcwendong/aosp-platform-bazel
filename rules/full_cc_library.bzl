@@ -1,6 +1,6 @@
-load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "claim_ownership")
-load(":cc_library_static.bzl", "cc_library_static")
+load(":cc_library_common.bzl", "add_lists_defaulting_to_none")
 load(":cc_library_shared.bzl", "CcSharedLibraryInfo", "CcTocInfo", "cc_library_shared")
+load(":cc_library_static.bzl", "CcStaticLibraryInfo", "cc_library_static")
 
 def cc_library(
         name,
@@ -116,11 +116,13 @@ def _cc_library_proxy_impl(ctx):
     return [
         ctx.attr.shared[CcSharedLibraryInfo],
         ctx.attr.shared[CcTocInfo],
-        claim_ownership(ctx, ctx.attr.static[CcInfo], ctx.attr.static.label),
+        # Propagate includes from the static variant.
+        CcInfo(compilation_context = ctx.attr.static[CcInfo].compilation_context),
         DefaultInfo(
             files = depset(direct = files),
             runfiles = ctx.runfiles(files = files),
         ),
+        ctx.attr.static[CcStaticLibraryInfo],
     ]
 
 _cc_library_proxy = rule(
