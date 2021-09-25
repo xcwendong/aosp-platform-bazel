@@ -1,4 +1,5 @@
 load(":cc_library_common.bzl", "system_dynamic_deps_defaults")
+load(":stl.bzl", "static_stl_deps")
 load("@bazel_skylib//lib:collections.bzl", "collections")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo")
@@ -8,19 +9,21 @@ CcStaticLibraryInfo = provider(fields = ["root_static_archive", "objects"])
 
 def cc_library_static(
         name,
+        deps = [],
         implementation_deps = [],
         dynamic_deps = [],
+        implementation_dynamic_deps = [],
+        whole_archive_deps = [],
         system_dynamic_deps = None,
-        deps = [],
         export_includes = [],
         export_system_includes = [],
         local_includes = [],
         absolute_includes = [],
         hdrs = [],
         native_bridge_supported = False,  # TODO: not supported yet.
-        whole_archive_deps = [],
         use_libcrt = True,
         rtti = False,
+        stl = "",
         # Flags for C and C++
         copts = [],
         # C++ attributes
@@ -56,14 +59,15 @@ def cc_library_static(
         name = exports_name,
         includes = export_includes,
         system_includes = export_system_includes,
-        deps = deps,
+        # whole archive deps always re-export their includes, etc
+        deps = deps + whole_archive_deps + dynamic_deps,
     )
 
     _cc_includes(
         name = locals_name,
         includes = local_includes,
         absolute_includes = absolute_includes,
-        deps = implementation_deps + dynamic_deps + system_dynamic_deps + whole_archive_deps,
+        deps = implementation_deps + implementation_dynamic_deps + system_dynamic_deps + static_stl_deps(stl),
     )
 
     # Silently drop these attributes for now:

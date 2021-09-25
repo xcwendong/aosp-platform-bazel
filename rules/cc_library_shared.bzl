@@ -1,5 +1,6 @@
 load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "system_dynamic_deps_defaults")
 load(":cc_library_static.bzl", "cc_library_static")
+load(":stl.bzl", "shared_stl_deps")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "cc_shared_library", _CcSharedLibraryInfo = "CcSharedLibraryInfo")
 load(":stripped_shared_library.bzl", "stripped_shared_library")
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
@@ -12,6 +13,7 @@ def cc_library_shared(
         # Common arguments between shared_root and the shared library
         features = [],
         dynamic_deps = [],
+        implementation_dynamic_deps = [],
 
         # Ultimately _static arguments for shared_root production
         srcs = [],
@@ -25,7 +27,6 @@ def cc_library_shared(
         implementation_deps = [],
         deps = [],
         whole_archive_deps = [],
-        root_dynamic_deps = [],
         system_dynamic_deps = None,
         export_includes = [],
         export_system_includes = [],
@@ -34,6 +35,7 @@ def cc_library_shared(
         linkopts = [],
         rtti = False,
         use_libcrt = True,
+        stl = "",
 
         # Purely _shared arguments
         user_link_flags = [],
@@ -69,10 +71,12 @@ def cc_library_shared(
         absolute_includes = absolute_includes,
         linkopts = linkopts,
         rtti = rtti,
-        implementation_deps = implementation_deps,
+        stl = stl,
         dynamic_deps = dynamic_deps,
+        implementation_deps = implementation_deps,
+        implementation_dynamic_deps = implementation_dynamic_deps,
         system_dynamic_deps = system_dynamic_deps,
-        deps = deps,
+        deps = deps + whole_archive_deps,
         features = features,
     )
 
@@ -90,6 +94,10 @@ def cc_library_shared(
         name = deps_stub,
         deps = deps)
 
+    shared_dynamic_deps = add_lists_defaulting_to_none(dynamic_deps, system_dynamic_deps,
+                                                      implementation_dynamic_deps,
+                                                      shared_stl_deps(stl))
+
     cc_shared_library(
         name = unstripped_name,
         user_link_flags = user_link_flags,
@@ -98,7 +106,7 @@ def cc_library_shared(
         # if a shared library could declare a transitive exported static dep
         # instead of needing to declare each target transitively.
         static_deps = ["//:__subpackages__"] + [shared_root_name, imp_deps_stub, deps_stub],
-        dynamic_deps = add_lists_defaulting_to_none(dynamic_deps, system_dynamic_deps),
+        dynamic_deps = shared_dynamic_deps,
         version_script = version_script,
         roots = [shared_root_name, imp_deps_stub, deps_stub] + whole_archive_deps,
         features = features,
