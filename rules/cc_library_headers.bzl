@@ -21,5 +21,6 @@ def cc_library_headers(
         native_bridge_supported = native_bridge_supported,
         # do not automatically add libcrt dependency to header libraries
         use_libcrt = False,
+        stl = "none",
         **kwargs
     )

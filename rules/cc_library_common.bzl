@@ -10,10 +10,14 @@ system_dynamic_deps_defaults = select({
     "//conditions:default": [],
 })
 
-def add_lists_defaulting_to_none(a, b):
-    """Adds two lists a and b, but is well behaved with a `None` default."""
-    if a == None:
-        return b
-    if b == None:
-        return a
-    return a + b
+def add_lists_defaulting_to_none(*args):
+    """Adds multiple lists, but is well behaved with a `None` default."""
+    combined = None
+    for arg in args:
+      if arg != None:
+        if combined == None:
+          combined = arg
+        else:
+          combined += arg
+
+    return combined

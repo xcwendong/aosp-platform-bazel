@@ -17,6 +17,7 @@ def cc_library(
         deps = [],
         whole_archive_deps = [],
         dynamic_deps = [],
+        implementation_dynamic_deps = [],
         system_dynamic_deps = None,
         export_includes = [],
         export_system_includes = [],
@@ -25,6 +26,7 @@ def cc_library(
         linkopts = [],
         rtti = False,
         use_libcrt = True,
+        stl = "",
         user_link_flags = [],
         version_script = None,
         strip = {},
@@ -55,14 +57,16 @@ def cc_library(
         absolute_includes = absolute_includes,
         linkopts = linkopts,
         rtti = rtti,
+        stl = stl,
         whole_archive_deps = whole_archive_deps + static.get("whole_archive_deps", []),
-        implementation_deps = implementation_deps + static.get("static_deps", []),
+        implementation_deps = implementation_deps + static.get("implementation_deps", []),
         dynamic_deps = dynamic_deps + static.get("dynamic_deps", []),
+        implementation_dynamic_deps = implementation_dynamic_deps + static.get("implementation_dynamic_deps", []),
         system_dynamic_deps = add_lists_defaulting_to_none(
             system_dynamic_deps,
             static.get("system_dynamic_deps", None),
         ),
-        deps = deps,
+        deps = deps + static.get("deps", []),
         features = features,
     )
 
@@ -72,6 +76,7 @@ def cc_library(
         # Common arguments
         features = features,
         dynamic_deps = dynamic_deps + shared.get("dynamic_deps", []),
+        implementation_dynamic_deps = implementation_dynamic_deps + shared.get("implementation_dynamic_deps", []),
 
         # shared_root static arguments
         hdrs = hdrs,
@@ -88,13 +93,14 @@ def cc_library(
         absolute_includes = absolute_includes,
         linkopts = linkopts,
         rtti = rtti,
+        stl = stl,
         whole_archive_deps = whole_archive_deps + shared.get("whole_archive_deps", []),
-        implementation_deps = implementation_deps + shared.get("static_deps", []),
+        deps = deps + shared.get("deps", []),
+        implementation_deps = implementation_deps + shared.get("implementation_deps", []),
         system_dynamic_deps = add_lists_defaulting_to_none(
             system_dynamic_deps,
             shared.get("system_dynamic_deps", None),
         ),
-        deps = deps,
 
         # Shared library arguments
         user_link_flags = user_link_flags,
