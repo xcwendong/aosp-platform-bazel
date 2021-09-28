@@ -41,8 +41,15 @@ BUILD_TARGETS_LIST=(
   //external/...
   //packages/apps/Music/...
   //packages/apps/QuickSearchBox/...
+  //packages/apps/WallpaperPicker/...
   //prebuilts/clang/host/linux-x86:all
   //system/...
+  # TODO(b/201242197): vendor remote_coverage_tools or cut dependency on the repo.
+  --
+  -//build/bazel/tests/apex:build.bazel.examples.apex.minimal_content_diff_test
+  -//build/bazel/tests/apex:com.android.tzdata_content_diff_test
+  -//build/bazel/tests/bionic:compare_libc_stripping
+  -//build/bazel/tests/bionic:verify_bionic_outputs
 )
 BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
 tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_x86 -k ${BUILD_TARGETS}
@@ -51,7 +58,9 @@ tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/pla
 tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_arm64 -k ${BUILD_TARGETS}
 
 # Run tests.
-tools/bazel --max_idle_secs=5 test ${BUILD_FLAGS} ${TEST_FLAGS} //build/bazel/tests/...
+# TODO(b/201242197): Re-enable tests by vendoring remote_coverage_tools or cut
+# dependency on the repo.
+# tools/bazel --max_idle_secs=5 test ${BUILD_FLAGS} ${TEST_FLAGS} //build/bazel/tests/...
 
 # Test copying of some files to $DIST_DIR (set above, or from the CI invocation).
 tools/bazel --max_idle_secs=5 run //build/bazel_common_rules/dist:dist_bionic_example --config=bp2build -- --dist_dir="${DIST_DIR}"
