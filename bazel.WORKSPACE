@@ -82,3 +82,12 @@ bind(
   name = "android/d8_jar_import",
   actual = "//prebuilts/r8:r8_jar_import",
 )
+
+# TODO(b/201242197): Avoid downloading remote_coverage_tools (on CI) by creating
+# a stub workspace. Test rules (e.g. sh_test) depend on this external dep, but
+# we don't support coverage yet. Either vendor the external dep into AOSP, or
+# cut the dependency from test rules to the external repo.
+local_repository(
+    name = "remote_coverage_tools",
+    path = "build/bazel/rules/coverage/remote_coverage_tools",
+)
