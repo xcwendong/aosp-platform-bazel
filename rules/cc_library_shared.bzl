@@ -1,5 +1,6 @@
-load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "claim_ownership")
+load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "system_dynamic_deps_defaults")
 load(":cc_library_static.bzl", "cc_library_static")
+load(":stl.bzl", "shared_stl_deps")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "cc_shared_library", _CcSharedLibraryInfo = "CcSharedLibraryInfo")
 load(":stripped_shared_library.bzl", "stripped_shared_library")
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
@@ -12,6 +13,7 @@ def cc_library_shared(
         # Common arguments between shared_root and the shared library
         features = [],
         dynamic_deps = [],
+        implementation_dynamic_deps = [],
 
         # Ultimately _static arguments for shared_root production
         srcs = [],
@@ -25,7 +27,6 @@ def cc_library_shared(
         implementation_deps = [],
         deps = [],
         whole_archive_deps = [],
-        root_dynamic_deps = [],
         system_dynamic_deps = None,
         export_includes = [],
         export_system_includes = [],
@@ -34,6 +35,7 @@ def cc_library_shared(
         linkopts = [],
         rtti = False,
         use_libcrt = True,
+        stl = "",
 
         # Purely _shared arguments
         user_link_flags = [],
@@ -46,6 +48,9 @@ def cc_library_shared(
     unstripped_name = name + "_unstripped"
     stripped_name = name + "_stripped"
     toc_name = name + "_toc"
+
+    if system_dynamic_deps == None:
+        system_dynamic_deps = system_dynamic_deps_defaults
 
     # The static library at the root of the shared library.
     # This may be distinct from the static version of the library if e.g.
@@ -66,13 +71,32 @@ def cc_library_shared(
         absolute_includes = absolute_includes,
         linkopts = linkopts,
         rtti = rtti,
-        whole_archive_deps = whole_archive_deps,
-        implementation_deps = implementation_deps,
+        stl = stl,
         dynamic_deps = dynamic_deps,
+        implementation_deps = implementation_deps,
+        implementation_dynamic_deps = implementation_dynamic_deps,
         system_dynamic_deps = system_dynamic_deps,
-        deps = deps,
+        deps = deps + whole_archive_deps,
         features = features,
     )
+
+    # implementation_deps and deps are to be linked into the shared library via
+    # --no-whole-archive. In order to do so, they need to be dependencies of
+    # a "root" of the cc_shared_library, but may not be roots themselves.
+    # Below we define stub roots (which themselves have no srcs) in order to facilitate
+    # this.
+    imp_deps_stub = name + "_implementation_deps"
+    deps_stub = name + "_deps"
+    native.cc_library(
+        name = imp_deps_stub,
+        deps = implementation_deps)
+    native.cc_library(
+        name = deps_stub,
+        deps = deps)
+
+    shared_dynamic_deps = add_lists_defaulting_to_none(dynamic_deps, system_dynamic_deps,
+                                                      implementation_dynamic_deps,
+                                                      shared_stl_deps(stl))
 
     cc_shared_library(
         name = unstripped_name,
@@ -81,10 +105,10 @@ def cc_library_shared(
         # declare all transitive static deps used by this target.  It'd be great
         # if a shared library could declare a transitive exported static dep
         # instead of needing to declare each target transitively.
-        static_deps = ["//:__subpackages__"] + [shared_root_name],
-        dynamic_deps = add_lists_defaulting_to_none(dynamic_deps, system_dynamic_deps),
+        static_deps = ["//:__subpackages__"] + [shared_root_name, imp_deps_stub, deps_stub],
+        dynamic_deps = shared_dynamic_deps,
         version_script = version_script,
-        roots = [shared_root_name],
+        roots = [shared_root_name, imp_deps_stub, deps_stub] + whole_archive_deps,
         features = features,
         **kwargs
     )
@@ -120,7 +144,8 @@ def _cc_library_shared_proxy_impl(ctx):
         ),
         ctx.attr.shared[CcSharedLibraryInfo],
         ctx.attr.table_of_contents[CcTocInfo],
-        claim_ownership(ctx, ctx.attr.root[CcInfo], ctx.attr.root.label, ctx.attr.shared.label),
+        # Propagate only includes from the root. Do not re-propagate linker inputs.
+        CcInfo(compilation_context = ctx.attr.root[CcInfo].compilation_context)
     ]
 
 _cc_library_shared_proxy = rule(
