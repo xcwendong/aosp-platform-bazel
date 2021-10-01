@@ -89,14 +89,19 @@ def cc_library_shared(
     deps_stub = name + "_deps"
     native.cc_library(
         name = imp_deps_stub,
-        deps = implementation_deps)
+        deps = implementation_deps,
+    )
     native.cc_library(
         name = deps_stub,
-        deps = deps)
+        deps = deps,
+    )
 
-    shared_dynamic_deps = add_lists_defaulting_to_none(dynamic_deps, system_dynamic_deps,
-                                                      implementation_dynamic_deps,
-                                                      shared_stl_deps(stl))
+    shared_dynamic_deps = add_lists_defaulting_to_none(
+        dynamic_deps,
+        system_dynamic_deps,
+        implementation_dynamic_deps,
+        shared_stl_deps(stl),
+    )
 
     cc_shared_library(
         name = unstripped_name,
@@ -145,7 +150,7 @@ def _cc_library_shared_proxy_impl(ctx):
         ctx.attr.shared[CcSharedLibraryInfo],
         ctx.attr.table_of_contents[CcTocInfo],
         # Propagate only includes from the root. Do not re-propagate linker inputs.
-        CcInfo(compilation_context = ctx.attr.root[CcInfo].compilation_context)
+        CcInfo(compilation_context = ctx.attr.root[CcInfo].compilation_context),
     ]
 
 _cc_library_shared_proxy = rule(
