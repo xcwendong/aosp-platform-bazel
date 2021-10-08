@@ -1,4 +1,4 @@
-load(":cc_library_common.bzl", "add_lists_defaulting_to_none")
+load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "disable_crt_link")
 load(":cc_library_shared.bzl", "CcSharedLibraryInfo", "CcTocInfo", "cc_library_shared")
 load(":cc_library_static.bzl", "CcStaticLibraryInfo", "cc_library_static")
 
@@ -25,6 +25,7 @@ def cc_library(
         absolute_includes = [],
         linkopts = [],
         rtti = False,
+        link_crt = True,
         use_libcrt = True,
         stl = "",
         user_link_flags = [],
@@ -39,6 +40,11 @@ def cc_library(
     features = []
     if not use_libcrt:
         features += ["-use_libcrt"]
+
+    # Force crtbegin and crtend linking unless explicitly disabled (i.e. bionic
+    # libraries do this)
+    if link_crt == False:
+        features = disable_crt_link(features)
 
     # The static version of the library.
     cc_library_static(
@@ -106,6 +112,7 @@ def cc_library(
         user_link_flags = user_link_flags,
         version_script = version_script,
         strip = strip,
+        link_crt = link_crt,
     )
 
     _cc_library_proxy(

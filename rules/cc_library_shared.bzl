@@ -1,4 +1,4 @@
-load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "system_dynamic_deps_defaults")
+load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "system_dynamic_deps_defaults", "disable_crt_link")
 load(":cc_library_static.bzl", "cc_library_static")
 load(":stl.bzl", "shared_stl_deps")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "cc_shared_library", _CcSharedLibraryInfo = "CcSharedLibraryInfo")
@@ -36,6 +36,7 @@ def cc_library_shared(
         rtti = False,
         use_libcrt = True,
         stl = "",
+        link_crt = True,
 
         # Purely _shared arguments
         user_link_flags = [],
@@ -51,6 +52,11 @@ def cc_library_shared(
 
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
+
+    # Force crtbegin and crtend linking unless explicitly disabled (i.e. bionic
+    # libraries do this)
+    if link_crt == False:
+        features = disable_crt_link(features)
 
     # The static library at the root of the shared library.
     # This may be distinct from the static version of the library if e.g.
