@@ -45,7 +45,7 @@ def cc_library_static(
 
     features = []
     if "features" in kwargs:
-        features = kwargs["features"]
+        features += kwargs["features"]
     if rtti:
         features += ["rtti"]
 

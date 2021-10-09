@@ -38,6 +38,8 @@ def cc_library(
     shared_name = name + "_bp2build_cc_library_shared"
 
     features = []
+    if "features" in kwargs:
+        features += kwargs["features"]
     if not use_libcrt:
         features += ["-use_libcrt"]
 
