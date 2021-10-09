@@ -42,7 +42,14 @@ def _cc_object_impl(ctx):
         ctx = ctx,
         cc_toolchain = cc_toolchain,
         requested_features = ctx.features,
-        unsupported_features = ctx.disabled_features + ["linker_flags"],
+        unsupported_features = ctx.disabled_features + [
+            "linker_flags",
+            "pack_dynamic_relocations",
+            "diasble_pack_relocations",
+            "dynamic_executable",
+            "dynamic_linker",
+            "no_undefined_symbols",
+        ],
     )
 
     compilation_contexts = []
