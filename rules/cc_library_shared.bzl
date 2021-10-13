@@ -36,6 +36,7 @@ def cc_library_shared(
         rtti = False,
         use_libcrt = True,
         stl = "",
+        cpp_std = "",
         link_crt = True,
 
         # Purely _shared arguments
@@ -78,6 +79,7 @@ def cc_library_shared(
         linkopts = linkopts,
         rtti = rtti,
         stl = stl,
+        cpp_std = cpp_std,
         dynamic_deps = dynamic_deps,
         implementation_deps = implementation_deps,
         implementation_dynamic_deps = implementation_dynamic_deps,
