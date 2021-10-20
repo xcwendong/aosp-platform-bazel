@@ -223,6 +223,7 @@ _cc_library_combiner = rule(
         ),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
+    provides = [CcInfo],
     fragments = ["cpp"],
 )
 
@@ -286,4 +287,5 @@ _cc_includes = rule(
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
     fragments = ["cpp"],
+    provides = [CcInfo],
 )
