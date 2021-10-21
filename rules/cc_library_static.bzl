@@ -27,7 +27,6 @@ def cc_library_static(
         cpp_std = "",
         # Flags for C and C++
         copts = [],
-        linkopts = [],
         # C++ attributes
         srcs = [],
         cppflags = [],
@@ -37,7 +36,8 @@ def cc_library_static(
         # asm attributes
         srcs_as = [],
         asflags = [],
-        features = []):
+        features = [],
+        alwayslink = None):
     "Bazel macro to correspond with the cc_library_static Soong module."
     exports_name = "%s_exports" % name
     locals_name = "%s_locals" % name
@@ -86,7 +86,7 @@ def cc_library_static(
             ("deps", [exports_name]),
             ("features", toolchain_features),
             ("toolchains", ["//build/bazel/platforms:android_target_product_vars"]),
-            ("linkopts", linkopts)
+            ("alwayslink", alwayslink),
         ]
     )
 
@@ -225,6 +225,7 @@ _cc_library_combiner = rule(
         ),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
+    provides = [CcInfo],
     fragments = ["cpp"],
 )
 
@@ -288,4 +289,5 @@ _cc_includes = rule(
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
     fragments = ["cpp"],
+    provides = [CcInfo],
 )
