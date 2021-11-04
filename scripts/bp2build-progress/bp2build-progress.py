@@ -36,6 +36,7 @@ import subprocess
 import collections
 import datetime
 import xml.etree.ElementTree
+import sys
 
 # This list of module types are omitted from the report and graph
 # for brevity and simplicity. Presence in this list doesn't mean
@@ -368,8 +369,15 @@ def main():
 
   # The main module graph containing _all_ modules in the Soong build,
   # and the list of converted modules.
-  module_graph, converted = generate_module_info(top_level_module,
-                                                 use_queryview)
+  try:
+    module_graph, converted = generate_module_info(top_level_module,
+                                                   use_queryview)
+  except subprocess.CalledProcessError as err:
+    print("Error running: '%s':", ' '.join(err.cmd))
+    print("Output:\n%s" % err.output.decode('utf-8'))
+    print("Error:\n%s" % err.stderr.decode('utf-8'))
+    sys.exit(-1)
+
   module_adjacency_list = None
   if use_queryview:
     module_adjacency_list = adjacency_list_from_queryview_xml(module_graph)
