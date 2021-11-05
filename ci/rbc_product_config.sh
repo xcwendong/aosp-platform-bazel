@@ -51,8 +51,7 @@ for arg in $@; do
         die "Invalid product name: $arg. Example: aosp_arm64-userdebug"
 done
 
-[[ -f build/bazel/ci/rbc_product_config.sh ]] || \
-    die "Must be run from android root"
+cd "$(readlink -f "$(dirname "$0")"/../../..)"
 
 # Verify that diff will return nonzero on different files
 ! diff -q <(echo "foo") <(echo "bar") >/dev/null 2>/dev/null || \
