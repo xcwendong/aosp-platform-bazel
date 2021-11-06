@@ -69,7 +69,7 @@ def generate_module_info(module, use_queryview):
   module_info_target = "queryview" if use_queryview else "json-module-graph"
 
   # Run soong to build json-module-graph and bp2build/soong_injection
-  result = subprocess.run(
+  subprocess.check_output(
       [
           "build/soong/soong_ui.bash",
           "--make-mode",
@@ -77,7 +77,6 @@ def generate_module_info(module, use_queryview):
           "bp2build",
           module_info_target,
       ],
-      capture_output=True,
       cwd=src_root_dir,
       env={
           # Use aosp_arm as the canonical target product.
@@ -85,35 +84,28 @@ def generate_module_info(module, use_queryview):
           "TARGET_BUILD_VARIANT": "userdebug",
       },
   )
-  result.check_returncode()
 
   module_info = None
   if use_queryview:
-    result = subprocess.run(
+    result = subprocess.check_output(
         [
             "tools/bazel", "query", "--config=queryview", "--output=xml",
             'deps(attr("soong_module_name", "^{}$", //...))'.format(module)
         ],
         cwd=src_root_dir,
-        capture_output=True,
-        encoding="utf-8",
     )
-    result.check_returncode()
-    module_graph = xml.etree.ElementTree.fromstring(result.stdout)
+    module_graph = xml.etree.ElementTree.fromstring(result)
     module_info = module_graph
   else:
     # Run query.sh on the module graph for the top level module
-    result = subprocess.run(
+    result = subprocess.check_output(
         [
             "build/bazel/json_module_graph/query.sh", "fullTransitiveDeps",
             "out/soong/module-graph.json", module
         ],
         cwd=src_root_dir,
-        capture_output=True,
-        encoding="utf-8",
     )
-    result.check_returncode()
-    module_graph = json.loads(result.stdout)
+    module_graph = json.loads(result)
     module_info = module_graph
 
   # Parse the list of converted module names from bp2build
@@ -237,7 +229,7 @@ def generate_report(modules, converted, input_module):
   )
   report_lines.append(
       "Generated at: %s" %
-      datetime.datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"))
+      datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S %z"))
   print("\n".join(report_lines))
 
 
@@ -358,7 +350,6 @@ def main():
       "--use_queryview",
       type=bool,
       default=False,
-      action=argparse.BooleanOptionalAction,
       required=False,
       help="whether to use queryview or module_info")
   args = parser.parse_args()
