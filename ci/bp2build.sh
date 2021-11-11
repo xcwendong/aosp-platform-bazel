@@ -59,3 +59,6 @@ if [[ ! -f "${DIST_DIR}/bionic/libc/liblibc_bp2build_cc_library_shared_stripped.
   >&2 echo "Expected dist dir to exist at ${DIST_DIR} and contain the libc shared library, but the file was not found."
   exit 1
 fi
+
+"${AOSP_ROOT}"/build/bazel/scripts/bp2build-progress/bp2build-progress.py report adbd --use_queryview=true > "${DIST_DIR}"/bp2build_adbd_report.txt
+"${AOSP_ROOT}"/build/bazel/scripts/bp2build-progress/bp2build-progress.py graph adbd --use_queryview=true > "${DIST_DIR}"/bp2build_adbd_graph.dot
