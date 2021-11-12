@@ -55,7 +55,7 @@ tools/bazel --max_idle_secs=5 test ${BUILD_FLAGS} ${TEST_FLAGS} //build/bazel/te
 
 # Test copying of some files to $DIST_DIR (set above, or from the CI invocation).
 tools/bazel --max_idle_secs=5 run //build/bazel_common_rules/dist:dist_bionic_example --config=bp2build -- --dist_dir="${DIST_DIR}"
-if [[ ! -f "${DIST_DIR}/bionic/libc/liblibc_bp2build_cc_library_shared_stripped.so" ]]; then
+if [[ ! -f "${DIST_DIR}/bionic/libc/libc.so" ]]; then
   >&2 echo "Expected dist dir to exist at ${DIST_DIR} and contain the libc shared library, but the file was not found."
   exit 1
 fi

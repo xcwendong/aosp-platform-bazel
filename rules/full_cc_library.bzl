@@ -131,6 +131,7 @@ def cc_library(
         # Shared library arguments
         strip = strip,
         link_crt = link_crt,
+        soname = name + ".so",
     )
 
     _cc_library_proxy(
@@ -151,7 +152,12 @@ def _cc_library_proxy_impl(ctx):
         CcInfo(compilation_context = ctx.attr.static[CcInfo].compilation_context),
         DefaultInfo(
             files = depset(direct = files),
-            runfiles = ctx.runfiles(files = files),
+            # Runfiles to be added if this is referenced via the "data" attribute, generally
+            # for tests.
+            data_runfiles = ctx.runfiles(files = files),
+            # Shared library runfiles -- to indicate that only the shared library output needs to be
+            # present at runtime (as a dynamic dependency).
+            default_runfiles = ctx.runfiles(files = ctx.attr.shared[DefaultInfo].default_runfiles.files.to_list()),
         ),
         ctx.attr.static[CcStaticLibraryInfo],
     ]

@@ -59,12 +59,15 @@ def _cc_object_impl(ctx):
         cc_toolchain = cc_toolchain,
         requested_features = ctx.features,
         unsupported_features = ctx.disabled_features + [
-            "linker_flags",
-            "pack_dynamic_relocations",
-            "diasble_pack_relocations",
+            "disable_pack_relocations",
             "dynamic_executable",
             "dynamic_linker",
+            "linker_flags",
             "no_undefined_symbols",
+            "pack_dynamic_relocations",
+            "strip_debug_symbols",
+            # TODO(cparsons): Look into disabling this feature for nocrt toolchain?
+            "use_libcrt",
         ],
     )
 
