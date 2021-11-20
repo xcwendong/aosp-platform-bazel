@@ -60,7 +60,7 @@ tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/pla
 ###########
 # Run tests
 ###########
-tools/bazel --max_idle_secs=5 test ${BUILD_FLAGS} ${TEST_FLAGS} //build/bazel/tests/...
+tools/bazel --max_idle_secs=5 test ${BUILD_FLAGS} ${TEST_FLAGS} //build/bazel/tests/... //build/bazel/rules/apex/...
 
 # Test copying of some files to $DIST_DIR (set above, or from the CI invocation).
 tools/bazel --max_idle_secs=5 run //build/bazel_common_rules/dist:dist_bionic_example --config=bp2build -- --dist_dir="${DIST_DIR}"
