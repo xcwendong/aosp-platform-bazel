@@ -16,13 +16,13 @@ limitations under the License.
 
 load(":apex_key.bzl", "ApexKeyInfo")
 load(":prebuilt_etc.bzl", "PrebuiltEtcInfo")
+load(":sh_binary.bzl", "ShBinaryInfo")
 load(":android_app_certificate.bzl", "AndroidAppCertificateInfo")
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition")
 load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "apex_cc_aspect")
 
 # Prepare the input files info for bazel_apexer_wrapper to generate APEX filesystem image.
 def _prepare_apexer_wrapper_inputs(ctx):
-
     # apex_manifest[(image_file_dirname, image_file_basename)] = bazel_output_file
     apex_manifest = {}
 
@@ -57,6 +57,23 @@ def _prepare_apexer_wrapper_inputs(ctx):
             filename = dep.label.name
 
         apex_manifest[(directory, filename)] = prebuilt_etc_info.src
+
+    # Handle binaries
+    for dep in ctx.attr.binaries:
+        # TODO: Support more binaries than just sh_binary
+        sh_binary_info = dep[ShBinaryInfo]
+        default_info = dep[DefaultInfo]
+        if sh_binary_info != None:
+            directory = "bin"
+            if sh_binary_info.sub_dir != None and sh_binary_info.sub_dir != "":
+                directory = "/".join([directory, sh_binary_info.sub_dir])
+
+            if sh_binary_info.filename != None and sh_binary_info.filename != "":
+                filename = sh_binary_info.filename
+            else:
+                filename = dep.label.name
+
+            apex_manifest[(directory, filename)] = default_info.files_to_run.executable
 
     apex_content_inputs = []
 
@@ -175,7 +192,7 @@ _apex = rule(
         "updatable": attr.bool(default = True),
         "installable": attr.bool(default = True),
         "native_shared_libs": attr.label_list(providers = [ApexCcInfo], aspects = [apex_cc_aspect], cfg = apex_transition),
-        "binaries": attr.label_list(cfg = apex_transition),
+        "binaries": attr.label_list(providers = [ShBinaryInfo], cfg = apex_transition),
         "prebuilts": attr.label_list(providers = [PrebuiltEtcInfo], cfg = apex_transition),
         # Required to use apex_transition. This is an acknowledgement to the risks of memory bloat when using transitions.
         "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
