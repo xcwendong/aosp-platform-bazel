@@ -61,6 +61,9 @@ def cc_library_shared(
         # Purely _shared arguments
         strip = {},
         soname = "",
+
+        # TODO(b/202299295): Handle data attribute.
+        data = [],
         **kwargs):
     "Bazel macro to correspond with the cc_library_shared Soong module."
 
