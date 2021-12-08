@@ -55,7 +55,10 @@ def cc_library_static(
         srcs_as = [],
         asflags = [],
         features = [],
-        alwayslink = None):
+        alwayslink = None,
+        target_compatible_with = [],
+        # TODO(b/202299295): Handle data attribute.
+        data = []):
     "Bazel macro to correspond with the cc_library_static Soong module."
     exports_name = "%s_exports" % name
     locals_name = "%s_locals" % name
@@ -219,7 +222,7 @@ def _cc_library_combiner_impl(ctx):
         outputs = [output_file],
     )
     return [
-        DefaultInfo(files = depset([output_file])),
+        DefaultInfo(files = depset(direct = [output_file]), data_runfiles = ctx.runfiles(files = [output_file])),
         CcInfo(compilation_context = combined_info.compilation_context, linking_context = linking_context),
         CcStaticLibraryInfo(root_static_archive = output_file, objects = objects_to_link),
     ]
