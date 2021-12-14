@@ -91,4 +91,4 @@ for m in "${BP2BUILD_PROGRESS_MODULES[@]}"; do
 done
 
 # Dist the entire workspace of generated BUILD files, rooted from out/soong/bp2build.
-tar -czvf "${DIST_DIR}/bp2build_generated_workspace.tar.gz" -C out/soong/bp2build .
+tar -czf "${DIST_DIR}/bp2build_generated_workspace.tar.gz" -C out/soong/bp2build .

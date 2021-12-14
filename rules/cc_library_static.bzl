@@ -58,8 +58,10 @@ def cc_library_static(
         alwayslink = None,
         target_compatible_with = [],
         # TODO(b/202299295): Handle data attribute.
-        data = []):
+        data = [],
+        use_version_lib = False):
     "Bazel macro to correspond with the cc_library_static Soong module."
+
     exports_name = "%s_exports" % name
     locals_name = "%s_locals" % name
     cpp_name = "%s_cpp" % name
@@ -68,6 +70,10 @@ def cc_library_static(
 
     toolchain_features = []
     toolchain_features += features
+
+    if use_version_lib:
+      libbuildversionLabel = "//build/soong/cc/libbuildversion:libbuildversion"
+      whole_archive_deps = whole_archive_deps + [libbuildversionLabel]
 
     if rtti:
         toolchain_features += ["rtti"]
