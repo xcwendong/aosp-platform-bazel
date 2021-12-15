@@ -32,6 +32,7 @@ def cc_library_static(
         whole_archive_deps = [],
         implementation_whole_archive_deps = [],
         system_dynamic_deps = None,
+        export_absolute_includes = [],
         export_includes = [],
         export_system_includes = [],
         local_includes = [],
@@ -90,6 +91,7 @@ def cc_library_static(
     _cc_includes(
         name = exports_name,
         includes = export_includes,
+        absolute_includes = export_absolute_includes,
         system_includes = export_system_includes,
         # whole archive deps always re-export their includes, etc
         deps = deps + whole_archive_deps + dynamic_deps,

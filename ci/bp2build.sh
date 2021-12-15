@@ -85,10 +85,13 @@ bp2build_progress_script="${AOSP_ROOT}/build/bazel/scripts/bp2build-progress/bp2
 bp2build_progress_output_dir="${DIST_DIR}/bp2build-progress"
 mkdir -p "${bp2build_progress_output_dir}"
 
+report_args=""
 for m in "${BP2BUILD_PROGRESS_MODULES[@]}"; do
-  "${bp2build_progress_script}" report "${m}" --use_queryview=true > "${bp2build_progress_output_dir}/${m}_report.txt"
-  "${bp2build_progress_script}" graph "${m}" --use_queryview=true > "${bp2build_progress_output_dir}/${m}_graph.dot"
+  report_args="$report_args -m ""${m}"
+  "${bp2build_progress_script}" graph  -m "${m}" --use_queryview=true > "${bp2build_progress_output_dir}/${m}_graph.dot"
 done
+
+"${bp2build_progress_script}" report ${report_args} --use_queryview=true > "${bp2build_progress_output_dir}/progress_report.txt"
 
 # Dist the entire workspace of generated BUILD files, rooted from out/soong/bp2build.
 tar -czf "${DIST_DIR}/bp2build_generated_workspace.tar.gz" -C out/soong/bp2build .
