@@ -47,11 +47,12 @@ def cc_library_shared(
         whole_archive_deps = [],
         system_dynamic_deps = None,
         export_includes = [],
+        export_absolute_includes = [],
         export_system_includes = [],
         local_includes = [],
         absolute_includes = [],
         rtti = False,
-        use_libcrt = True,
+        use_libcrt = True,  # FIXME: Unused below?
         stl = "",
         cpp_std = "",
         c_std = "",
@@ -64,8 +65,14 @@ def cc_library_shared(
 
         # TODO(b/202299295): Handle data attribute.
         data = [],
+
+        use_version_lib = False,
         **kwargs):
     "Bazel macro to correspond with the cc_library_shared Soong module."
+
+    if use_version_lib:
+      libbuildversionLabel = "//build/soong/cc/libbuildversion:libbuildversion"
+      whole_archive_deps = whole_archive_deps + [libbuildversionLabel]
 
     shared_root_name = name + "_root"
     unstripped_name = name + "_unstripped"
@@ -94,6 +101,7 @@ def cc_library_shared(
         conlyflags = conlyflags,
         asflags = asflags,
         export_includes = export_includes,
+        export_absolute_includes = export_absolute_includes,
         export_system_includes = export_system_includes,
         local_includes = local_includes,
         absolute_includes = absolute_includes,
@@ -107,6 +115,7 @@ def cc_library_shared(
         system_dynamic_deps = system_dynamic_deps,
         deps = deps + whole_archive_deps,
         features = features,
+        use_version_lib = use_version_lib,
     )
 
     stl_static, stl_shared = shared_stl_deps(stl)

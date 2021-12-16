@@ -32,6 +32,7 @@ def cc_library_static(
         whole_archive_deps = [],
         implementation_whole_archive_deps = [],
         system_dynamic_deps = None,
+        export_absolute_includes = [],
         export_includes = [],
         export_system_includes = [],
         local_includes = [],
@@ -58,8 +59,10 @@ def cc_library_static(
         alwayslink = None,
         target_compatible_with = [],
         # TODO(b/202299295): Handle data attribute.
-        data = []):
+        data = [],
+        use_version_lib = False):
     "Bazel macro to correspond with the cc_library_static Soong module."
+
     exports_name = "%s_exports" % name
     locals_name = "%s_locals" % name
     cpp_name = "%s_cpp" % name
@@ -68,6 +71,10 @@ def cc_library_static(
 
     toolchain_features = []
     toolchain_features += features
+
+    if use_version_lib:
+      libbuildversionLabel = "//build/soong/cc/libbuildversion:libbuildversion"
+      whole_archive_deps = whole_archive_deps + [libbuildversionLabel]
 
     if rtti:
         toolchain_features += ["rtti"]
@@ -84,6 +91,7 @@ def cc_library_static(
     _cc_includes(
         name = exports_name,
         includes = export_includes,
+        absolute_includes = export_absolute_includes,
         system_includes = export_system_includes,
         # whole archive deps always re-export their includes, etc
         deps = deps + whole_archive_deps + dynamic_deps,
