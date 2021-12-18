@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load(":cc_library_common.bzl", "create_ccinfo_for_includes", "system_dynamic_deps_defaults")
+load(":cc_library_common.bzl", "create_ccinfo_for_includes", "is_external_directory", "system_dynamic_deps_defaults")
 load(":stl.bzl", "static_stl_deps")
 load("@bazel_skylib//lib:collections.bzl", "collections")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
@@ -71,6 +71,12 @@ def cc_library_static(
 
     toolchain_features = []
     toolchain_features += features
+
+    if is_external_directory(native.package_name()):
+      toolchain_features += [
+          "-non_external_compiler_flags",
+          "external_compiler_flags",
+      ]
 
     if use_version_lib:
       libbuildversionLabel = "//build/soong/cc/libbuildversion:libbuildversion"
