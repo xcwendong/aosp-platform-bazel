@@ -32,7 +32,7 @@ def cc_library_shared(
         dynamic_deps = [],
         implementation_dynamic_deps = [],
         linkopts = [],
-
+        target_compatible_with = [],
         # Ultimately _static arguments for shared_root production
         srcs = [],
         srcs_c = [],
@@ -116,6 +116,7 @@ def cc_library_shared(
         deps = deps + whole_archive_deps,
         features = features,
         use_version_lib = use_version_lib,
+        target_compatible_with = target_compatible_with,
     )
 
     stl_static, stl_shared = shared_stl_deps(stl)
@@ -130,10 +131,12 @@ def cc_library_shared(
     native.cc_library(
         name = imp_deps_stub,
         deps = implementation_deps + stl_static,
+        target_compatible_with = target_compatible_with,
     )
     native.cc_library(
         name = deps_stub,
         deps = deps,
+        target_compatible_with = target_compatible_with,
     )
 
     shared_dynamic_deps = add_lists_defaulting_to_none(
@@ -158,18 +161,21 @@ def cc_library_shared(
         additional_linker_inputs = additional_linker_inputs,
         roots = [shared_root_name, imp_deps_stub, deps_stub] + whole_archive_deps,
         features = features,
+        target_compatible_with = target_compatible_with,
         **kwargs
     )
 
     stripped_shared_library(
         name = stripped_name,
         src = unstripped_name,
+        target_compatible_with = target_compatible_with,
         **strip
     )
 
     shared_library_toc(
         name = toc_name,
         src = stripped_name,
+        target_compatible_with = target_compatible_with,
     )
 
     _cc_library_shared_proxy(
@@ -178,6 +184,7 @@ def cc_library_shared(
         root = shared_root_name,
         table_of_contents = toc_name,
         output_file = soname,
+        target_compatible_with = target_compatible_with,
     )
 
 def _swap_shared_linker_input(ctx, shared_info, new_output):
