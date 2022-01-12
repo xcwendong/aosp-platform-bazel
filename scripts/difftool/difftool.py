@@ -69,6 +69,11 @@ def file_differences(left_path, right_path):
   Returns the empty list if these files are deemed "similar enough"."""
 
   errors = []
+  if not left_path.is_file():
+    errors += ["%s does not exist" % left_path]
+  if not right_path.is_file():
+    errors += ["%s does not exist" % right_path]
+
   result = subprocess.run(["diff", str(left_path), str(right_path)],
                           check=False, capture_output=True, encoding="utf-8")
   if result.returncode != 0:
@@ -77,13 +82,19 @@ def file_differences(left_path, right_path):
 
 
 def parse_collection_info(info_file_path):
+  """Parses the collection info file at the given path and returns details."""
   if not info_file_path.is_file():
-    raise Exception("Expected file %s was not found. " +
-                    "Did you run collect.py for this " +
-                    "directory?" % info_file_path)
+    raise Exception("Expected file %s was not found. " % info_file_path +
+                    "Did you run collect.py for this directory?")
 
-  ninja_path = pathlib.Path(info_file_path.read_text())
-  return ninja_path
+  info_contents = info_file_path.read_text().splitlines()
+  ninja_path = pathlib.Path(info_contents[0])
+  target_file = None
+
+  if len(info_contents) > 1 and info_contents[1]:
+    target_file = info_contents[1]
+
+  return (ninja_path, target_file)
 
 
 def main():
@@ -95,36 +106,50 @@ def main():
                       help="the 'left' directory to compare build outputs " +
                       "from. This must be the target of an invocation of " +
                       "collect.py.")
-  parser.add_argument("left_output_file",
+  parser.add_argument("--left_file", dest="left_file", default=None,
                       help="the output file (relative to execution root) for " +
                       "the 'left' build invocation.")
   parser.add_argument("right_dir",
                       help="the 'right' directory to compare build outputs " +
                       "from. This must be the target of an invocation of " +
                       "collect.py.")
-  parser.add_argument("right_output_file",
+  parser.add_argument("--right_file", dest="right_file", default=None,
                       help="the output file (relative to execution root) " +
                       "for the 'right' build invocation.")
+  parser.add_argument("--allow_missing_file",
+                      action=argparse.BooleanOptionalAction,
+                      default=False,
+                      help="allow a missing output file; this is useful to " +
+                      "compare actions even in the absence of an output file.")
   args = parser.parse_args()
 
   mode = args.mode
-
-  left_path = pathlib.Path(args.left_dir).joinpath(args.left_output_file)
-  right_path = pathlib.Path(args.right_dir).joinpath(args.right_output_file)
-  if not left_path.is_file():
-    raise RuntimeError("Expected file %s was not found. " % left_path)
-  if not right_path.is_file():
-    raise RuntimeError("Expected file %s was not found. " % right_path)
-
   left_diffinfo = pathlib.Path(args.left_dir).joinpath(
       _COLLECTION_INFO_FILENAME)
   right_diffinfo = pathlib.Path(args.right_dir).joinpath(
       _COLLECTION_INFO_FILENAME)
 
-  left_ninja_path = pathlib.Path(args.left_dir).joinpath(
-      parse_collection_info(left_diffinfo))
-  right_ninja_path = pathlib.Path(args.right_dir).joinpath(
-      parse_collection_info(right_diffinfo))
+  left_ninja_name, left_file = parse_collection_info(left_diffinfo)
+  right_ninja_name, right_file = parse_collection_info(right_diffinfo)
+  if args.left_file:
+    left_file = args.left_file
+  if args.right_file:
+    right_file = args.right_file
+
+  if left_file is None:
+    raise Exception("No left file specified. Either run collect.py with a " +
+                    "target file, or specify --left_file.")
+  if right_file is None:
+    raise Exception("No right file specified. Either run collect.py with a " +
+                    "target file, or specify --right_file.")
+
+  left_path = pathlib.Path(args.left_dir).joinpath(left_file)
+  right_path = pathlib.Path(args.right_dir).joinpath(right_file)
+  if not args.allow_missing_file:
+    if not left_path.is_file():
+      raise RuntimeError("Expected file %s was not found. " % left_path)
+    if not right_path.is_file():
+      raise RuntimeError("Expected file %s was not found. " % right_path)
 
   file_diff_errors = file_differences(left_path, right_path)
 
@@ -132,13 +157,15 @@ def main():
     for err in file_diff_errors:
       print(err)
     if mode == "rich":
+      left_ninja_path = pathlib.Path(args.left_dir).joinpath(left_ninja_name)
+      right_ninja_path = pathlib.Path(args.right_dir).joinpath(right_ninja_name)
       print("======== ACTION COMPARISON: ========")
       print("=== LEFT:\n")
-      left_command = collect_commands(left_ninja_path, args.left_output_file)
+      left_command = collect_commands(left_ninja_path, left_file)
       print(left_command.splitlines()[-1])
       print()
       print("=== RIGHT:\n")
-      right_command = collect_commands(right_ninja_path, args.right_output_file)
+      right_command = collect_commands(right_ninja_path, right_file)
       print(right_command.splitlines()[-1])
       print()
     sys.exit(1)
