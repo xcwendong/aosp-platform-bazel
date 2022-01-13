@@ -67,7 +67,6 @@ def main():
 
   ninja_file = pathlib.Path(args.ninja_file)
   main_ninja_basename = ninja_file.name
-
   shutil.copy2(args.ninja_file, os.path.join(dest, main_ninja_basename))
 
   for subninja_file in subninja_files(ninja_file):
