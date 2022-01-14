@@ -24,6 +24,7 @@ load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "apex_cc_aspect")
 
 # Prepare the input files info for bazel_apexer_wrapper to generate APEX filesystem image.
 def _prepare_apexer_wrapper_inputs(ctx):
+    # dictionary to return in the format:
     # apex_manifest[(image_file_dirname, image_file_basename)] = bazel_output_file
     apex_manifest = {}
 
@@ -34,14 +35,8 @@ def _prepare_apexer_wrapper_inputs(ctx):
         # TODO: Update apex_transition to split (1:4) the deps, one for each target platform
         # Then ApexCcInfo would only return a single lib_files field
 
-        for lib_file in apex_cc_info.lib_files:
+        for lib_file in apex_cc_info.lib_files.to_list():
             apex_manifest[("lib", lib_file.basename)] = lib_file
-
-        for lib64_file in apex_cc_info.lib64_files:
-            apex_manifest[("lib64", lib64_file.basename)] = lib64_file
-
-        for lib_arm_file in apex_cc_info.lib_arm_files:
-            apex_manifest[("lib/arm", lib_arm_file.basename)] = lib_arm_file
 
     # Handle prebuilts
     for dep in ctx.attr.prebuilts:
