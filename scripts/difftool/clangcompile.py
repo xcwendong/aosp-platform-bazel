@@ -95,6 +95,8 @@ def _custom_flag_group(x):
   See commands.parse_flag_groups documentation for signature details."""
   if x.startswith("-I") and len(x) > 2:
     return ("I", x[2:])
+  if x.startswith("-W") and len(x) > 2:
+    return (x)
   elif x == "-c":
     return x
   return None
