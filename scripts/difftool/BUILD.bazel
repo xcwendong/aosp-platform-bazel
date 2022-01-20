@@ -12,6 +12,12 @@ py_library(
     ],
 )
 
+py_test(
+    name = "difftool_test",
+    srcs = ["difftool_test.py"],
+    deps = [":difftool"],
+)
+
 py_binary(
     name = "difftool",
     srcs = ["difftool.py"],
