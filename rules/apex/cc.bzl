@@ -17,12 +17,15 @@ limitations under the License.
 ApexCcInfo = provider(
     "Info needed to use CC targets in APEXes",
     fields = {
-        "lib_files": "File references to lib .so files produced by the CC target",
+        "transitive_shared_libs": "File references to transitive .so libs produced by the CC targets and should be included in the APEX.",
     },
 )
 
 def _apex_cc_aspect_impl(target, ctx):
     shared_object_files = []
+
+    # Transitive deps containing shared libraries to be propagated the apex.
+    transitive_deps = []
 
     # TODO(b/207812332): Filter out the ones with stable APIs
 
@@ -32,19 +35,22 @@ def _apex_cc_aspect_impl(target, ctx):
             if output_file.extension == "so":
                 shared_object_files.append(output_file)
         if hasattr(ctx.rule.attr, "shared"):
-            shared_object_files.extend(ctx.rule.attr.shared[ApexCcInfo].lib_files.to_list())
+            transitive_deps.append(ctx.rule.attr.shared)
     elif ctx.rule.kind == "cc_shared_library" and hasattr(ctx.rule.attr, "dynamic_deps"):
         # Propagate along the dynamic_deps edge
         for dep in ctx.rule.attr.dynamic_deps:
-            shared_object_files.extend(dep[ApexCcInfo].lib_files.to_list())
+            transitive_deps.append(dep)
     elif ctx.rule.kind == "stripped_shared_library" and hasattr(ctx.rule.attr, "src"):
         # Propagate along the src edge
-        shared_object_files = ctx.rule.attr.src[ApexCcInfo].lib_files.to_list()
+        transitive_deps.append(ctx.rule.attr.src)
 
     return [
         ApexCcInfo(
             # TODO: Rely on a split transition across arches to happen earlier
-            lib_files = depset(shared_object_files),
+            transitive_shared_libs = depset(
+                shared_object_files,
+                transitive = [dep[ApexCcInfo].transitive_shared_libs for dep in transitive_deps],
+            )
         ),
     ]
 
