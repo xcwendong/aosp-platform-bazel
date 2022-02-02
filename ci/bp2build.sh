@@ -88,8 +88,9 @@ fi
 # Generate bp2build progress reports and graphs for these modules into the dist
 # dir so that they can be downloaded from the CI artifact list.
 BP2BUILD_PROGRESS_MODULES=(
-  adbd
-  com.android.adbd
+  com.android.runtime
+  com.android.neuralnetworks
+  com.android.media.swcodec
 )
 bp2build_progress_script="${AOSP_ROOT}/build/bazel/scripts/bp2build-progress/bp2build-progress.py"
 bp2build_progress_output_dir="${DIST_DIR}/bp2build-progress"
