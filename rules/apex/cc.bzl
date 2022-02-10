@@ -101,6 +101,9 @@ def _apex_cc_aspect_impl(target, ctx):
         # Propagate along the dynamic_deps edge
         for dep in ctx.rule.attr.dynamic_deps:
             transitive_deps.append(dep)
+    elif ctx.rule.kind == "_bssl_hash_injection" and hasattr(ctx.rule.attr, "src"):
+        # Propagate along the src edge
+        transitive_deps.append(ctx.rule.attr.src)
     elif ctx.rule.kind == "stripped_shared_library" and hasattr(ctx.rule.attr, "src"):
         # Propagate along the src edge
         transitive_deps.append(ctx.rule.attr.src)
