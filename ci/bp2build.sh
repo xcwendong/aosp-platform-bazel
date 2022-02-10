@@ -77,9 +77,6 @@ HOST_INCOMPATIBLE_TARGETS=(
   -//system/timezone/apex:com.android.tzdata
   -//build/bazel/tests/apex/...
 
-  # TODO(b/217757720): linkopts using ${<val} for make substitution rather than $${<val}
-  -//bionic/benchmarks/spawn/...
-
   # TODO(b/217927043): Determine how to address targets that are device only
   -//system/core/libpackagelistparser:all
   -//external/icu/libicu:all
