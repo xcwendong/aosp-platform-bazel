@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load(":proto_file_utils.bzl", "proto_file_utils")
+load("//build/bazel/rules:proto_file_utils.bzl", "proto_file_utils")
 load(":cc_library_common.bzl", "create_ccinfo_for_includes")
 load(":cc_library_static.bzl", "cc_library_static")
 load("@bazel_skylib//lib:paths.bzl", "paths")
