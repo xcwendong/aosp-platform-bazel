@@ -1,5 +1,3 @@
-# CMD: Prints the module named $arg in a slightly more concise way
-
 include "library";
 
 def printModule($mod):
