@@ -27,7 +27,11 @@ def _generate_and_declare_output_files(
     for name in file_names:
         short_path = name.short_path
         for typ, ext in type_dictionary.items():
-            out_name = paths.replace_extension(short_path, ext)
+            # prefix with label.name to prevent collisions between targets
+            # if proto compliation becomes an aspect, can prefix with output
+            # information instead to allow reuse, e.g. multiple cc `lite`
+            # libraries containing the same proto file
+            out_name = paths.join(ctx.label.name, paths.replace_extension(short_path, ext))
             declared = ctx.actions.declare_file(out_name)
             ret[typ].append(declared)
 
@@ -68,7 +72,8 @@ def _generate_proto_action(
     transitive_proto_srcs = proto_info.transitive_imports
 
     tools = []
-    dir_out = ctx.bin_dir.path + "/" + ctx.label.package
+    # prefix with label.name to prevent collisions between targets
+    dir_out = paths.join(ctx.bin_dir.path, ctx.label.package, ctx.label.name)
     args = ctx.actions.args()
     if plugin_executable:
         tools.add(plugin_executable)
