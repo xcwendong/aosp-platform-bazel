@@ -69,6 +69,7 @@ HOST_INCOMPATIBLE_TARGETS=(
   -//packages/modules/adb/apex:com.android.adbd
   -//system/timezone/apex:com.android.tzdata
   -//build/bazel/tests/apex/...
+  -//build/bazel/ci/dist/...
 
   # TODO(b/217927043): Determine how to address targets that are device only
   -//system/core/libpackagelistparser:all
@@ -91,12 +92,13 @@ tools/bazel --max_idle_secs=5 build ${FLAGS} \
 ###########
 tools/bazel --max_idle_secs=5 test ${FLAGS} //build/bazel/tests/... //build/bazel/rules/apex/...
 
-# Test copying of some files to $DIST_DIR (set above, or from the CI invocation).
-tools/bazel --max_idle_secs=5 run //build/bazel_common_rules/dist:dist_bionic_example --config=bp2build --config=ci -- --dist_dir="${DIST_DIR}"
-if [[ ! -f "${DIST_DIR}/bionic/libc/libc.so" ]]; then
-  >&2 echo "Expected dist dir to exist at ${DIST_DIR} and contain the libc shared library, but the file was not found."
-  exit 1
-fi
+###########
+# Dist mainline modules
+###########
+tools/bazel --max_idle_secs=5 run //build/bazel/ci/dist:mainline_modules ${FLAGS} --platforms=//build/bazel/platforms:android_x86 -- --dist_dir="${DIST_DIR}/mainline_modules_x86"
+tools/bazel --max_idle_secs=5 run //build/bazel/ci/dist:mainline_modules ${FLAGS} --platforms=//build/bazel/platforms:android_x86_64 -- --dist_dir="${DIST_DIR}/mainline_modules_x86_64"
+tools/bazel --max_idle_secs=5 run //build/bazel/ci/dist:mainline_modules ${FLAGS} --platforms=//build/bazel/platforms:android_arm -- --dist_dir="${DIST_DIR}/mainline_modules_arm"
+tools/bazel --max_idle_secs=5 run //build/bazel/ci/dist:mainline_modules ${FLAGS} --platforms=//build/bazel/platforms:android_arm64 -- --dist_dir="${DIST_DIR}/mainline_modules_arm64"
 
 ###################
 # bp2build-progress
