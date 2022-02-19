@@ -30,6 +30,9 @@ The following commands are available:
   input and what values they take
 * `variantTransitions`  summarizes the variant transitions in the transitive
   closure of the given module
+* `fullTransitiveDepsProperties` returns the properties set (including via
+  defaults) grouped by module type of the modules in the transitive closure of
+  the given module
 
 It's best to filter the full module graph to the part you are interested in
 because `jq` isn't too fast on the full graph.
