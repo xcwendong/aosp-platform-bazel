@@ -18,12 +18,17 @@ load(":apex_key.bzl", "ApexKeyInfo")
 load(":prebuilt_etc.bzl", "PrebuiltEtcInfo")
 load(":sh_binary.bzl", "ShBinaryInfo")
 load("//build/bazel/rules/cc:stripped_cc_common.bzl", "StrippedCcBinaryInfo")
-load(":android_app_certificate.bzl", "AndroidAppCertificateInfo")
+load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition", "shared_lib_transition_32", "shared_lib_transition_64")
 load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "apex_cc_aspect")
 
 DIR_LIB = "lib"
 DIR_LIB64 = "lib64"
+
+ApexInfo = provider(
+    "ApexInfo has no field currently and is used by apex rule dependents to ensure an attribute is a target of apex rule.",
+    fields = {},
+)
 
 # Prepare the input files info for bazel_apexer_wrapper to generate APEX filesystem image.
 def _prepare_apexer_wrapper_inputs(ctx):
@@ -280,7 +285,7 @@ def _apex_rule_impl(ctx):
         _run_signapk(ctx, compressed_apex_output_file, signed_capex, private_key, public_key, "BazelCompressedApexSigning")
 
     files_to_build = depset([output_file])
-    return [DefaultInfo(files = files_to_build)]
+    return [DefaultInfo(files = files_to_build), ApexInfo()]
 
 _apex = rule(
     implementation = _apex_rule_impl,
@@ -399,6 +404,5 @@ def apex(
         # $ bazel build //path/to/module:com.android.module.capex
         apex_output = apex_output,
         capex_output = capex_output,
-
         **kwargs
     )
