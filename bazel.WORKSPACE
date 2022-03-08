@@ -19,7 +19,6 @@ make_injection_repository(
         "aapt2",
         "apex_compression_tool",
         "apexer",
-        "avbtool",
         "conv_apex_manifest",
         "deapexer",
         "debugfs",

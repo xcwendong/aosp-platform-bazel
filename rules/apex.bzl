@@ -167,7 +167,16 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
         min_sdk_version = "10000"
     args.add_all(["--min_sdk_version", min_sdk_version])
     args.add_all(["--bazel_apexer_wrapper_manifest", bazel_apexer_wrapper_manifest])
-    args.add_all(["--apexer_tool_path", apex_toolchain.apexer.dirname])
+    args.add_all(["--apexer_path", apex_toolchain.apexer])
+    # apexer needs the list of directories containing all auxilliary tools invoked during
+    # the creation of an apex
+    avbtool_files = apex_toolchain.avbtool[DefaultInfo].files_to_run
+    apexer_tool_paths = [
+        apex_toolchain.apexer.dirname,
+        avbtool_files.executable.dirname,
+    ]
+
+    args.add_all(["--apexer_tool_path", ":".join(apexer_tool_paths)])
     args.add_all(["--apex_output_file", apex_output_file])
 
     if android_manifest != None:
@@ -180,12 +189,16 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
         privkey,
         pubkey,
         android_jar,
+    ]
+
+    tools = [
+        avbtool_files,
+
         apex_toolchain.apexer,
         apex_toolchain.mke2fs,
         apex_toolchain.e2fsdroid,
         apex_toolchain.sefcontext_compile,
         apex_toolchain.resize2fs,
-        apex_toolchain.avbtool,
         apex_toolchain.aapt2,
     ]
 
@@ -194,6 +207,7 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
 
     ctx.actions.run(
         inputs = inputs,
+        tools = tools,
         outputs = [apex_output_file],
         executable = ctx.executable._bazel_apexer_wrapper,
         arguments = [args],
@@ -237,8 +251,12 @@ def _run_apex_compression_tool(ctx, apex_toolchain, input_file, output_file_name
     # Inputs
     inputs = [
         input_file,
+    ]
+
+    avbtool_files = apex_toolchain.avbtool[DefaultInfo].files_to_run
+    tools = [
+        avbtool_files,
         apex_toolchain.apex_compression_tool,
-        apex_toolchain.avbtool,
         apex_toolchain.soong_zip,
     ]
 
@@ -249,12 +267,14 @@ def _run_apex_compression_tool(ctx, apex_toolchain, input_file, output_file_name
     # Arguments
     args = ctx.actions.args()
     args.add_all(["compress"])
-    args.add_all(["--apex_compression_tool", apex_toolchain.soong_zip.dirname])
+    tool_dirs = [apex_toolchain.soong_zip.dirname, avbtool_files.executable.dirname]
+    args.add_all(["--apex_compression_tool", ":".join(tool_dirs)])
     args.add_all(["--input", input_file])
     args.add_all(["--output", compressed_file])
 
     ctx.actions.run(
         inputs = inputs,
+        tools = tools,
         outputs = outputs,
         executable = apex_toolchain.apex_compression_tool,
         arguments = [args],
