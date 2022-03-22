@@ -237,7 +237,7 @@ apex_aab = rule(
             allow_single_file = True,
             cfg = "host",
             executable = True,
-            default = "@make_injection//:host/linux-x86/bin/aapt2",
+            default = "//prebuilts/sdk/tools:linux/bin/aapt2",
         ),
         "_merge_zips": attr.label(
             allow_single_file = True,
