@@ -20,7 +20,6 @@ make_injection_repository(
         "apexer",
         "conv_apex_manifest",
         "deapexer",
-        "merge_zips",
         "sefcontext_compile",
     ],
     target_module_files = {
