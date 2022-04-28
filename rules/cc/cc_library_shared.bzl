@@ -14,12 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load(":cc_library_common.bzl", "add_lists_defaulting_to_none", "disable_crt_link", "system_dynamic_deps_defaults")
+load(
+    ":cc_library_common.bzl",
+    "add_lists_defaulting_to_none",
+    "disable_crt_link",
+    "parse_sdk_version",
+    "system_dynamic_deps_defaults",
+)
 load(":cc_library_static.bzl", "cc_library_static")
-load(":cc_stub_library.bzl", "cc_stub_gen", "CcStubInfo")
+load(":cc_stub_library.bzl", "CcStubInfo", "cc_stub_gen")
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
 load(":stl.bzl", "shared_stl_deps")
 load(":stripped_cc_common.bzl", "stripped_shared_library")
+load(":versioned_cc_common.bzl", "versioned_shared_library")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "cc_shared_library", _CcSharedLibraryInfo = "CcSharedLibraryInfo")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
 
@@ -66,18 +73,14 @@ def cc_library_shared(
 
         # TODO(b/202299295): Handle data attribute.
         data = [],
-
         use_version_lib = False,
-
         stubs_symbol_file = None,
         stubs_versions = [],
         inject_bssl_hash = False,
+        sdk_version = "",
+        min_sdk_version = "",
         **kwargs):
     "Bazel macro to correspond with the cc_library_shared Soong module."
-
-    if use_version_lib:
-        libbuildversionLabel = "//build/soong/cc/libbuildversion:libbuildversion"
-        whole_archive_deps = whole_archive_deps + [libbuildversionLabel]
 
     shared_root_name = name + "_root"
     unstripped_name = name + "_unstripped"
@@ -91,6 +94,12 @@ def cc_library_shared(
     # libraries do this)
     if link_crt == False:
         features = disable_crt_link(features)
+
+    if min_sdk_version:
+        features = features + [
+            "sdk_version_" + parse_sdk_version(min_sdk_version),
+            "-sdk_version_default",
+        ]
 
     # The static library at the root of the shared library.
     # This may be distinct from the static version of the library if e.g.
@@ -154,6 +163,7 @@ def cc_library_shared(
     if len(soname) == 0:
         soname = name + ".so"
     soname_flag = "-Wl,-soname," + soname
+
     cc_shared_library(
         name = unstripped_name,
         user_link_flags = linkopts + [soname_flag],
@@ -177,9 +187,16 @@ def cc_library_shared(
         inject_bssl_hash = inject_bssl_hash,
     )
 
+    versioned_name = name + "_versioned"
+    versioned_shared_library(
+        name = versioned_name,
+        src = hashed_name,
+        stamp_build_number = use_version_lib,
+    )
+
     stripped_shared_library(
         name = stripped_name,
-        src = hashed_name,
+        src = versioned_name,
         target_compatible_with = target_compatible_with,
         **strip
     )
@@ -235,10 +252,11 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, target_compatible_w
         version = version,
         target_compatible_with = target_compatible_with,
     )
+
     # The static library at the root of the stub shared library.
     cc_library_static(
         name = name + "_root",
-        srcs_c = [name + "_files"], # compile the stub.c file
+        srcs_c = [name + "_files"],  # compile the stub.c file
         features = disable_crt_link(features) + \
             [
                 # Enable the stub library compile flags
@@ -258,6 +276,7 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, target_compatible_w
         stl = "none",
         system_dynamic_deps = [],
     )
+
     # Create a .so for the stub library. This library is self contained, has
     # no deps, and doesn't link against crt.
     cc_shared_library(
@@ -410,10 +429,10 @@ _bssl_hash_injection = rule(
     implementation = _bssl_hash_injection_impl,
     attrs = {
         "src": attr.label(
-             mandatory = True,
-             # TODO(b/217908237): reenable allow_single_file
-             # allow_single_file = True,
-             providers = [CcSharedLibraryInfo]
+            mandatory = True,
+            # TODO(b/217908237): reenable allow_single_file
+            # allow_single_file = True,
+            providers = [CcSharedLibraryInfo],
         ),
         "inject_bssl_hash": attr.bool(
             default = False,
