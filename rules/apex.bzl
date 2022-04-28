@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 load(":apex_key.bzl", "ApexKeyInfo")
-load(":prebuilt_etc.bzl", "PrebuiltEtcInfo")
+load(":prebuilt_file.bzl", "PrebuiltFileInfo")
 load(":sh_binary.bzl", "ShBinaryInfo")
 load("//build/bazel/rules/cc:stripped_cc_common.bzl", "StrippedCcBinaryInfo")
 load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
@@ -52,19 +52,12 @@ def _prepare_apexer_wrapper_inputs(ctx):
 
     # Handle prebuilts
     for dep in ctx.attr.prebuilts:
-        # TODO: Support more prebuilts than just PrebuiltEtc
-        prebuilt_etc_info = dep[PrebuiltEtcInfo]
-
-        directory = "etc"
-        if prebuilt_etc_info.sub_dir != None and prebuilt_etc_info.sub_dir != "":
-            directory = "/".join([directory, prebuilt_etc_info.sub_dir])
-
-        if prebuilt_etc_info.filename != None and prebuilt_etc_info.filename != "":
-            filename = prebuilt_etc_info.filename
+        prebuilt_file_info = dep[PrebuiltFileInfo]
+        if prebuilt_file_info.filename:
+            filename = prebuilt_file_info.filename
         else:
             filename = dep.label.name
-
-        apex_manifest[(directory, filename)] = prebuilt_etc_info.src
+        apex_manifest[(prebuilt_file_info.dir, filename)] = prebuilt_file_info.src
 
     # Handle binaries
     for dep in ctx.attr.binaries:
@@ -168,12 +161,23 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
     args.add_all(["--min_sdk_version", min_sdk_version])
     args.add_all(["--bazel_apexer_wrapper_manifest", bazel_apexer_wrapper_manifest])
     args.add_all(["--apexer_path", apex_toolchain.apexer])
+
     # apexer needs the list of directories containing all auxilliary tools invoked during
     # the creation of an apex
     avbtool_files = apex_toolchain.avbtool[DefaultInfo].files_to_run
+    e2fsdroid_files = apex_toolchain.e2fsdroid[DefaultInfo].files_to_run
+    mke2fs_files = apex_toolchain.mke2fs[DefaultInfo].files_to_run
+    resize2fs_files = apex_toolchain.resize2fs[DefaultInfo].files_to_run
     apexer_tool_paths = [
+        # These are built by make_injection
         apex_toolchain.apexer.dirname,
+
+        # These are real Bazel targets
+        apex_toolchain.aapt2.dirname,
         avbtool_files.executable.dirname,
+        e2fsdroid_files.executable.dirname,
+        mke2fs_files.executable.dirname,
+        resize2fs_files.executable.dirname,
     ]
 
     args.add_all(["--apexer_tool_path", ":".join(apexer_tool_paths)])
@@ -193,13 +197,13 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
 
     tools = [
         avbtool_files,
+        e2fsdroid_files,
+        mke2fs_files,
+        resize2fs_files,
+        apex_toolchain.aapt2,
 
         apex_toolchain.apexer,
-        apex_toolchain.mke2fs,
-        apex_toolchain.e2fsdroid,
         apex_toolchain.sefcontext_compile,
-        apex_toolchain.resize2fs,
-        apex_toolchain.aapt2,
     ]
 
     if android_manifest != None:
@@ -339,7 +343,7 @@ _apex = rule(
             ],
             cfg = apex_transition,
         ),
-        "prebuilts": attr.label_list(providers = [PrebuiltEtcInfo], cfg = apex_transition),
+        "prebuilts": attr.label_list(providers = [PrebuiltFileInfo], cfg = apex_transition),
         "apex_output": attr.output(doc = "signed .apex output"),
         "capex_output": attr.output(doc = "signed .capex output"),
 
