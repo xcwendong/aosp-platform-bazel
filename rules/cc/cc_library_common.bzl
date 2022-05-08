@@ -16,6 +16,7 @@ limitations under the License.
 
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
+load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 
 _bionic_targets = ["//bionic/libc", "//bionic/libdl", "//bionic/libm"]
 _static_bionic_targets = ["//bionic/libc:libc_bp2build_cc_library_static", "//bionic/libdl:libdl_bp2build_cc_library_static", "//bionic/libm:libm_bp2build_cc_library_static"]
@@ -63,7 +64,11 @@ def get_includes_paths(ctx, dirs, package_relative = True):
             execution_rel_dir = ctx.label.package
             if len(rel_dir) > 0:
                 execution_rel_dir = execution_rel_dir + "/" + rel_dir
-        execution_relative_dirs.append(execution_rel_dir)
+        # To allow this repo to be used as an external one.
+        repo_prefix_dir = execution_rel_dir
+        if ctx.label.workspace_root != "":
+            repo_prefix_dir = ctx.label.workspace_root + "/" + execution_rel_dir
+        execution_relative_dirs.append(repo_prefix_dir)
 
         # to support generated files, we also need to export includes relatives to the bin directory
         if not execution_rel_dir.startswith("/"):
@@ -115,8 +120,17 @@ def is_external_directory(package_name):
     return secondary_path.contains("google")
   return False
 
+def parse_sdk_version(version):
+    future_version = "10000"
 
-
-
-
-
+    if version == "" or version == "current":
+        return future_version
+    elif version.isdigit() and int(version) in api_levels.values():
+        return version
+    elif version in api_levels.keys():
+        return str(api_levels[version])
+    # We need to handle this case properly later
+    elif version == "apex_inherit":
+        return future_version
+    else:
+        fail("Unknown sdk version: %s" % (version))

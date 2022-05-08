@@ -14,8 +14,6 @@ function die() {
 function usage() {
     cat <<EOF >&2
 Usage: $myname [-p] [-b] [-q] [-r] <product-variant> [product-variant ...]
-  -p: Test RBC product configuration. This is implied if -b is not supplied
-  -b: Test RBC board configuration. This is implied if -p is not supplied
   -q: Quiet. Suppress all output other than a failure message
   -r: Retain Ninja files
 EOF
@@ -38,22 +36,20 @@ mypath=$(realpath "$0")
 declare -r mydir=${mypath%/*/*/*/*}
 declare -r myname=${mypath#${mydir}/}
 
-flags_mk=(RBC_NO_PRODUCT_GRAPH=true DISABLE_ARTIFACT_PATH_REQUIREMENTS=true)
-flags_rbc=()
+flags_rbc=(RBC_PRODUCT_CONFIG=true)
 quiet=
 while getopts "bkpqr" o; do
     case "${o}" in
         k) ;;  # backward compatibility to be removed later
         q) quiet=true ;;
-        b) flags_rbc+=(RBC_BOARD_CONFIG=true) ;;
-        p) flags_rbc+=(RBC_PRODUCT_CONFIG=true) ;;
+        b) ;;  # backward compatibility to be removed later
+        p) ;;  # backward compatibility to be removed later
         r) retain_files=t ;;
         *) usage ;;
     esac
 done
 shift $((OPTIND-1))
 [[ $# -gt 0 ]] || usage
-((${#flags_rbc[@]})) || flags_rbc+=(RBC_PRODUCT_CONFIG=true RBC_BOARD_CONFIG=true)
 
 cd $mydir
 rc=0
@@ -69,7 +65,7 @@ for arg in $@; do
     build RBC $product $variant ${flags_rbc[@]} && \
       rm -rf $saved_ninja_dir && mkdir -p $saved_ninja_dir/soong && \
       (for f in ${ninja_files[@]}; do mv -f out/$f $saved_ninja_dir/$f || exit 1; done) && \
-      build baseline $product $variant ${flags_mk[@]}
+      build baseline $product $variant
     rc=$?
 
     # Compare Ninja files

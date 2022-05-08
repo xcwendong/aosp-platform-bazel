@@ -3,6 +3,14 @@
 # Set default target platform for builds to rely on product config's arch and os variables
 build --platforms //build/bazel/platforms:android_target
 
+# Configs to group/simplify target platform specific flags.
+build:android_x86_64 --platforms=//build/bazel/platforms:android_x86_64
+build:android_x86 --platforms=//build/bazel/platforms:android_x86
+build:android_arm64 --platforms=//build/bazel/platforms:android_arm64
+build:android_arm --platforms=//build/bazel/platforms:android_arm
+
+build:linux_x86_64 --platforms=//build/bazel/platforms:linux_x86_64
+
 # Use the target platform (android_x86, android_arm) in the bazel-out/ output
 # directory name fragment instead of the CPU (darwin, k8). This avoids
 # thrashing the output directory when switching between top level target
@@ -15,6 +23,12 @@ build --incompatible_enable_cc_toolchain_resolution
 # Ensure that the host_javabase always use @local_jdk, the checked-in JDK.
 build --tool_java_runtime_version=local_jdk
 build --java_runtime_version=local_jdk
+
+# Disable errorprone to continue making progress on java and android conversion
+# while we determine how errorprone will be handled in Bazel-only builds b/227504307.
+# TODO(b/227504307): Remove --javacopt="-XepDisableAllChecks" after implementing
+# the correct solution around errorprone.
+build --javacopt="-XepDisableAllChecks"
 
 # Lock down the PATH variable in actions to /usr/bin and /usr/local/bin.
 build --experimental_strict_action_env

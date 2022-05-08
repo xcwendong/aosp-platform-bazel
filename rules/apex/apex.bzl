@@ -15,15 +15,21 @@ limitations under the License.
 """
 
 load(":apex_key.bzl", "ApexKeyInfo")
-load(":prebuilt_etc.bzl", "PrebuiltEtcInfo")
-load(":sh_binary.bzl", "ShBinaryInfo")
+load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
+load("//build/bazel/rules:sh_binary.bzl", "ShBinaryInfo")
 load("//build/bazel/rules/cc:stripped_cc_common.bzl", "StrippedCcBinaryInfo")
-load(":android_app_certificate.bzl", "AndroidAppCertificateInfo")
+load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition", "shared_lib_transition_32", "shared_lib_transition_64")
 load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "apex_cc_aspect")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 DIR_LIB = "lib"
 DIR_LIB64 = "lib64"
+
+ApexInfo = provider(
+    "ApexInfo has no field currently and is used by apex rule dependents to ensure an attribute is a target of apex rule.",
+    fields = {},
+)
 
 # Prepare the input files info for bazel_apexer_wrapper to generate APEX filesystem image.
 def _prepare_apexer_wrapper_inputs(ctx):
@@ -47,19 +53,12 @@ def _prepare_apexer_wrapper_inputs(ctx):
 
     # Handle prebuilts
     for dep in ctx.attr.prebuilts:
-        # TODO: Support more prebuilts than just PrebuiltEtc
-        prebuilt_etc_info = dep[PrebuiltEtcInfo]
-
-        directory = "etc"
-        if prebuilt_etc_info.sub_dir != None and prebuilt_etc_info.sub_dir != "":
-            directory = "/".join([directory, prebuilt_etc_info.sub_dir])
-
-        if prebuilt_etc_info.filename != None and prebuilt_etc_info.filename != "":
-            filename = prebuilt_etc_info.filename
+        prebuilt_file_info = dep[PrebuiltFileInfo]
+        if prebuilt_file_info.filename:
+            filename = prebuilt_file_info.filename
         else:
             filename = dep.label.name
-
-        apex_manifest[(directory, filename)] = prebuilt_etc_info.src
+        apex_manifest[(prebuilt_file_info.dir, filename)] = prebuilt_file_info.src
 
     # Handle binaries
     for dep in ctx.attr.binaries:
@@ -149,6 +148,8 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
 
     # Arguments
     args = ctx.actions.args()
+    if ctx.attr._apexer_verbose[BuildSettingInfo].value:
+        args.add_all(["--verbose", True])
     args.add_all(["--manifest", apex_manifest_pb.path])
     args.add_all(["--file_contexts", file_contexts.path])
     args.add_all(["--key", privkey.path])
@@ -162,7 +163,27 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
         min_sdk_version = "10000"
     args.add_all(["--min_sdk_version", min_sdk_version])
     args.add_all(["--bazel_apexer_wrapper_manifest", bazel_apexer_wrapper_manifest])
-    args.add_all(["--apexer_tool_path", apex_toolchain.apexer.dirname])
+    args.add_all(["--apexer_path", apex_toolchain.apexer])
+
+    # apexer needs the list of directories containing all auxilliary tools invoked during
+    # the creation of an apex
+    avbtool_files = apex_toolchain.avbtool[DefaultInfo].files_to_run
+    e2fsdroid_files = apex_toolchain.e2fsdroid[DefaultInfo].files_to_run
+    mke2fs_files = apex_toolchain.mke2fs[DefaultInfo].files_to_run
+    resize2fs_files = apex_toolchain.resize2fs[DefaultInfo].files_to_run
+    apexer_tool_paths = [
+        # These are built by make_injection
+        apex_toolchain.apexer.dirname,
+
+        # These are real Bazel targets
+        apex_toolchain.aapt2.dirname,
+        avbtool_files.executable.dirname,
+        e2fsdroid_files.executable.dirname,
+        mke2fs_files.executable.dirname,
+        resize2fs_files.executable.dirname,
+    ]
+
+    args.add_all(["--apexer_tool_path", ":".join(apexer_tool_paths)])
     args.add_all(["--apex_output_file", apex_output_file])
 
     if android_manifest != None:
@@ -175,13 +196,17 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
         privkey,
         pubkey,
         android_jar,
-        apex_toolchain.apexer,
-        apex_toolchain.mke2fs,
-        apex_toolchain.e2fsdroid,
-        apex_toolchain.sefcontext_compile,
-        apex_toolchain.resize2fs,
-        apex_toolchain.avbtool,
+    ]
+
+    tools = [
+        avbtool_files,
+        e2fsdroid_files,
+        mke2fs_files,
+        resize2fs_files,
         apex_toolchain.aapt2,
+
+        apex_toolchain.apexer,
+        apex_toolchain.sefcontext_compile,
     ]
 
     if android_manifest != None:
@@ -189,6 +214,7 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
 
     ctx.actions.run(
         inputs = inputs,
+        tools = tools,
         outputs = [apex_output_file],
         executable = ctx.executable._bazel_apexer_wrapper,
         arguments = [args],
@@ -232,8 +258,12 @@ def _run_apex_compression_tool(ctx, apex_toolchain, input_file, output_file_name
     # Inputs
     inputs = [
         input_file,
+    ]
+
+    avbtool_files = apex_toolchain.avbtool[DefaultInfo].files_to_run
+    tools = [
+        avbtool_files,
         apex_toolchain.apex_compression_tool,
-        apex_toolchain.avbtool,
         apex_toolchain.soong_zip,
     ]
 
@@ -244,12 +274,14 @@ def _run_apex_compression_tool(ctx, apex_toolchain, input_file, output_file_name
     # Arguments
     args = ctx.actions.args()
     args.add_all(["compress"])
-    args.add_all(["--apex_compression_tool", apex_toolchain.soong_zip.dirname])
+    tool_dirs = [apex_toolchain.soong_zip.dirname, avbtool_files.executable.dirname]
+    args.add_all(["--apex_compression_tool", ":".join(tool_dirs)])
     args.add_all(["--input", input_file])
     args.add_all(["--output", compressed_file])
 
     ctx.actions.run(
         inputs = inputs,
+        tools = tools,
         outputs = outputs,
         executable = apex_toolchain.apex_compression_tool,
         arguments = [args],
@@ -280,7 +312,7 @@ def _apex_rule_impl(ctx):
         _run_signapk(ctx, compressed_apex_output_file, signed_capex, private_key, public_key, "BazelCompressedApexSigning")
 
     files_to_build = depset([output_file])
-    return [DefaultInfo(files = files_to_build)]
+    return [DefaultInfo(files = files_to_build), ApexInfo()]
 
 _apex = rule(
     implementation = _apex_rule_impl,
@@ -314,7 +346,7 @@ _apex = rule(
             ],
             cfg = apex_transition,
         ),
-        "prebuilts": attr.label_list(providers = [PrebuiltEtcInfo], cfg = apex_transition),
+        "prebuilts": attr.label_list(providers = [PrebuiltFileInfo], cfg = apex_transition),
         "apex_output": attr.output(doc = "signed .apex output"),
         "capex_output": attr.output(doc = "signed .capex output"),
 
@@ -343,6 +375,10 @@ _apex = rule(
         ),
         "_arm64_constraint": attr.label(
             default = Label("//build/bazel/platforms/arch:arm64"),
+        ),
+        "_apexer_verbose": attr.label(
+            default = "//build/bazel/rules/apex:apexer_verbose",
+            doc = "If enabled, make apexer log verbosely.",
         ),
     },
     toolchains = ["//build/bazel/rules/apex:apex_toolchain_type"],
@@ -399,6 +435,5 @@ def apex(
         # $ bazel build //path/to/module:com.android.module.capex
         apex_output = apex_output,
         capex_output = capex_output,
-
         **kwargs
     )

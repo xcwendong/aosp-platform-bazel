@@ -2,7 +2,8 @@ load("//build/bazel/rules:soong_injection.bzl", "soong_injection_repository")
 load("//build/bazel/rules:make_injection.bzl", "make_injection_repository")
 
 register_toolchains(
-    "//prebuilts/clang/host/linux-x86:all"
+    "//prebuilts/build-tools:py_toolchain",
+    "//prebuilts/clang/host/linux-x86:all",
 )
 
 # This repository provides files that Soong emits during bp2build (other than
@@ -16,31 +17,24 @@ make_injection_repository(
     name = "make_injection",
     binaries = [
         # APEX tools
-        "aapt2",
         "apex_compression_tool",
         "apexer",
-        "avbtool",
         "conv_apex_manifest",
         "deapexer",
-        "debugfs",
-        "e2fsdroid",
-        "mke2fs",
-        "resize2fs",
         "sefcontext_compile",
-        "signapk",
-        "soong_zip",
     ],
     target_module_files = {
         # For APEX comparisons
         "com.android.tzdata": ["system/apex/com.android.tzdata.apex"],
-        "com.android.runtime": ["system/apex/com.android.runtime.apex"],
         "com.android.adbd": ["system/apex/com.android.adbd.capex"],
         "build.bazel.examples.apex.minimal": ["system/product/apex/build.bazel.examples.apex.minimal.apex"],
     },
     watch_android_bp_files = [
         "//:build/bazel/examples/apex/minimal/Android.bp", # for build.bazel.examples.apex.minimal
         "//:packages/modules/adbd/apex/Android.bp", # for com.android.adbd
-        # TODO(b/210399979) - add the other .bp files to watch for the other modules built in these rule
+        "//:system/apex/apexer/Android.bp", # for apexer, conv_apex_manifest
+        "//:system/apex/tools/apex_compression_tool", # for apex_compression_tool, deapexer
+        "//:external/selinux/libselinux/Android.bp", # for sefcontext_compile
     ],
 )
 

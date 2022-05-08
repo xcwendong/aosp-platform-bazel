@@ -17,7 +17,15 @@
 
 set -xeuo pipefail
 
-apexer_tool_path="${RUNFILES_DIR}/__main__/external/make_injection/host/linux-x86/bin"
+prebuilt_tool_path="${RUNFILES_DIR}/__main__/external/make_injection/host/linux-x86/bin"
+apexer_tool_path="${RUNFILES_DIR}/__main__/external/make_injection/host/linux-x86/bin/apexer"
+avb_tool_path="${RUNFILES_DIR}/__main__/external/avb"
+e2fsdroid_path="${RUNFILES_DIR}/__main__/external/e2fsprogs/contrib/android"
+mke2fs_path="${RUNFILES_DIR}/__main__/external/e2fsprogs/misc"
+resize2fs_path="${RUNFILES_DIR}/__main__/external/e2fsprogs/resize"
+debugfs_path="${RUNFILES_DIR}/__main__/external/e2fsprogs/debugfs"
+soong_zip_path="${RUNFILES_DIR}/__main__/prebuilts/build-tools/linux-x86/bin"
+aapt2_path="${RUNFILES_DIR}/__main__/prebuilts/sdk/tools/linux/bin"
 android_jar="${RUNFILES_DIR}/__main__/prebuilts/sdk/current/public/android.jar"
 
 input_dir=$(mktemp -d)
@@ -52,7 +60,7 @@ ln -s "${input_dir}/two_level_sym_in_execroot" "${input_dir}/three_level_sym_in_
 manifest_dir=$(mktemp -d)
 manifest_file="${manifest_dir}/apex_manifest.pb"
 echo '{"name": "com.android.example.apex", "version": 1}' > "${manifest_dir}/apex_manifest.json"
-"${apexer_tool_path}/conv_apex_manifest" proto "${manifest_dir}/apex_manifest.json" -o ${manifest_file}
+"${prebuilt_tool_path}/conv_apex_manifest" proto "${manifest_dir}/apex_manifest.json" -o ${manifest_file}
 
 # Create the file_contexts file
 file_contexts_file=$(mktemp)
@@ -74,6 +82,8 @@ dir6,two_level_sym_not_in_execroot,"${input_dir}/two_level_sym_not_in_execroot"
 dir7,three_level_sym_in_execroot,"${input_dir}/three_level_sym_in_execroot"
 " > ${bazel_apexer_wrapper_manifest_file}
 
+apexer_tool_paths=${prebuilt_tool_path}:${avb_tool_path}:${avb_tool_path}:${e2fsdroid_path}:${mke2fs_path}:${resize2fs_path}:${debugfs_path}:${soong_zip_path}:${aapt2_path}
+
 #############################################
 # run bazel_apexer_wrapper
 #############################################
@@ -81,7 +91,8 @@ dir7,three_level_sym_in_execroot,"${input_dir}/three_level_sym_in_execroot"
   --manifest ${manifest_file} \
   --file_contexts ${file_contexts_file} \
   --key "${RUNFILES_DIR}/__main__/build/bazel/rules/apex/test.pem" \
-  --apexer_tool_path ${apexer_tool_path} \
+  --apexer_path ${apexer_tool_path} \
+  --apexer_tool_paths "${apexer_tool_paths}" \
   --apex_output_file ${output_file} \
   --bazel_apexer_wrapper_manifest ${bazel_apexer_wrapper_manifest_file} \
   --android_jar_path ${android_jar}
@@ -89,7 +100,7 @@ dir7,three_level_sym_in_execroot,"${input_dir}/three_level_sym_in_execroot"
 #############################################
 # check the result
 #############################################
-"${apexer_tool_path}/deapexer" --debugfs_path="${apexer_tool_path}/debugfs" extract ${output_file} ${output_dir}
+"${prebuilt_tool_path}/deapexer" --debugfs_path="${debugfs_path}/debugfs" extract ${output_file} ${output_dir}
 
 # The expected mounted tree should be something like this:
 # /tmp/tmp.9u7ViPlMr7

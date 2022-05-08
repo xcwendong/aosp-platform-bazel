@@ -315,14 +315,6 @@ def _get_permissions(ctx):
         return ctx.attr.permissions
     return None
 
-def _process_version_script(ctx):
-    if ctx.attr.version_script == None:
-        return ([], [])
-
-    version_script = ctx.files.version_script[0]
-    version_script_arg = "-Wl,--version-script," + version_script.path
-    return ([version_script], [version_script_arg])
-
 def _cc_shared_library_impl(ctx):
     cc_common.check_experimental_cc_shared_library()
     cc_toolchain = find_cc_toolchain(ctx)
@@ -365,10 +357,7 @@ def _cc_shared_library_impl(ctx):
 
     linking_context = _create_linker_context(ctx, linker_inputs)
 
-    # Divergence from rules_cc: that version does not support version scripts
-    version_script, version_script_arg = _process_version_script(ctx)
-
-    user_link_flags = version_script_arg[:]
+    user_link_flags = []
     for user_link_flag in ctx.attr.user_link_flags:
         user_link_flags.append(ctx.expand_location(user_link_flag, targets = ctx.attr.additional_linker_inputs))
 
@@ -378,7 +367,7 @@ def _cc_shared_library_impl(ctx):
         cc_toolchain = cc_toolchain,
         linking_contexts = [linking_context],
         user_link_flags = user_link_flags,
-        additional_inputs = ctx.files.additional_linker_inputs + version_script,
+        additional_inputs = ctx.files.additional_linker_inputs,
         name = ctx.label.name,
         output_type = "dynamic_library",
     )
@@ -499,7 +488,6 @@ cc_shared_library = rule(
         "preloaded_deps": attr.label_list(providers = [CcInfo]),
         "roots": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),
         "static_deps": attr.string_list(),
-        "version_script": attr.label(allow_single_file = True),
         "user_link_flags": attr.string_list(),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
         "_enable_permissions_check": attr.label(default = "//examples:enable_permissions_check"),
