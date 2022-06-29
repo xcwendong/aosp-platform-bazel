@@ -19,8 +19,6 @@ load(":cc_library_common.bzl", "create_ccinfo_for_includes")
 load(":cc_library_static.bzl", "cc_library_static")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-CcProtoGenInfo = provider(fields = ["headers", "sources"])
-
 _SOURCES_KEY = "sources"
 _HEADERS_KEY = "headers"
 
@@ -58,11 +56,7 @@ def _cc_proto_sources_gen_rule_impl(ctx):
 
     return [
         DefaultInfo(files = depset(direct = srcs + hdrs)),
-        create_ccinfo_for_includes(ctx, includes = includes),
-        CcProtoGenInfo(
-            headers = hdrs,
-            sources = srcs,
-        ),
+        create_ccinfo_for_includes(ctx, hdrs = hdrs, includes = includes),
     ]
 
 _cc_proto_sources_gen = rule(
@@ -92,7 +86,7 @@ If not provided, defaults to full protos.
         ),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
-    provides = [CcInfo, CcProtoGenInfo],
+    provides = [CcInfo],
 )
 
 def _src_extension(is_cc):
@@ -123,36 +117,6 @@ def _generate_cc_proto_action(
         mnemonic = "CcProtoGen",
     )
 
-def _cc_proto_sources_impl(ctx):
-    srcs = ctx.attr.src[CcProtoGenInfo].sources
-    return [
-        DefaultInfo(files = depset(direct = srcs)),
-    ]
-
-_cc_proto_sources = rule(
-    implementation = _cc_proto_sources_impl,
-    attrs = {
-        "src": attr.label(
-            providers = [CcProtoGenInfo],
-        ),
-    },
-)
-
-def _cc_proto_headers_impl(ctx):
-    hdrs = ctx.attr.src[CcProtoGenInfo].headers
-    return [
-        DefaultInfo(files = depset(direct = hdrs)),
-    ]
-
-_cc_proto_headers = rule(
-    implementation = _cc_proto_headers_impl,
-    attrs = {
-        "src": attr.label(
-            providers = [CcProtoGenInfo],
-        ),
-    },
-)
-
 def _cc_proto_library(
         name,
         deps = [],
@@ -161,8 +125,6 @@ def _cc_proto_library(
         out_format = None,
         proto_dep = None):
     proto_lib_name = name + "_proto_gen"
-    srcs_name = name + "_proto_sources"
-    hdrs_name = name + "_proto_headers"
 
     _cc_proto_sources_gen(
         name = proto_lib_name,
@@ -171,20 +133,9 @@ def _cc_proto_library(
         out_format = out_format,
     )
 
-    _cc_proto_sources(
-        name = srcs_name,
-        src = proto_lib_name,
-    )
-
-    _cc_proto_headers(
-        name = hdrs_name,
-        src = proto_lib_name,
-    )
-
     cc_library_static(
         name = name,
-        srcs = [":" + srcs_name],
-        hdrs = [":" + hdrs_name],
+        srcs = [":" + proto_lib_name],
         deps = [
             proto_lib_name,
             proto_dep,

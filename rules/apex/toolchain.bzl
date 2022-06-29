@@ -28,6 +28,7 @@ ApexToolchainInfo = provider(
         "android_jar",
         "apex_compression_tool",
         "soong_zip",
+        "jsonmodify",
     ],
 )
 
@@ -36,15 +37,16 @@ def _apex_toolchain_impl(ctx):
         toolchain_info = ApexToolchainInfo(
             aapt2 = ctx.file.aapt2,
             avbtool = ctx.attr.avbtool,
-            apexer = ctx.file.apexer,
+            apexer = ctx.attr.apexer,
             mke2fs = ctx.attr.mke2fs,
             resize2fs = ctx.attr.resize2fs,
             e2fsdroid = ctx.attr.e2fsdroid,
-            sefcontext_compile = ctx.file.sefcontext_compile,
-            conv_apex_manifest = ctx.file.conv_apex_manifest,
+            sefcontext_compile = ctx.attr.sefcontext_compile,
+            conv_apex_manifest = ctx.attr.conv_apex_manifest,
             android_jar = ctx.file.android_jar,
-            apex_compression_tool = ctx.file.apex_compression_tool,
+            apex_compression_tool = ctx.attr.apex_compression_tool,
             soong_zip = ctx.file.soong_zip,
+            jsonmodify = ctx.attr.jsonmodify,
         ),
     )
     return [toolchain_info]
@@ -52,19 +54,20 @@ def _apex_toolchain_impl(ctx):
 apex_toolchain = rule(
     implementation = _apex_toolchain_impl,
     attrs = {
-        "aapt2": attr.label(allow_single_file = True, cfg = "host", executable = True),
-        "avbtool": attr.label(cfg = "host", executable = True),
-        "apexer": attr.label(allow_single_file = True, cfg = "host", executable = True),
-        "mke2fs": attr.label(cfg = "host", executable = True),
-        "resize2fs": attr.label(cfg = "host", executable = True),
-        "e2fsdroid": attr.label(cfg = "host", executable = True),
-        "sefcontext_compile": attr.label(allow_single_file = True, cfg = "host", executable = True),
-        "conv_apex_manifest": attr.label(allow_single_file = True, cfg = "host", executable = True),
-        "android_jar": attr.label(allow_single_file = True, cfg = "host"),
-        "apex_compression_tool": attr.label(allow_single_file = True, cfg = "host", executable = True),
+        "aapt2": attr.label(allow_single_file = True, cfg = "host", executable = True, mandatory = True),
+        "avbtool": attr.label(cfg = "host", executable = True, mandatory = True),
+        "apexer": attr.label(cfg = "host", executable = True, mandatory = True),
+        "mke2fs": attr.label(cfg = "host", executable = True, mandatory = True),
+        "resize2fs": attr.label(cfg = "host", executable = True, mandatory = True),
+        "e2fsdroid": attr.label(cfg = "host", executable = True, mandatory = True),
+        "sefcontext_compile": attr.label(cfg = "host", executable = True, mandatory = True),
+        "conv_apex_manifest": attr.label(cfg = "host", executable = True, mandatory = True),
+        "android_jar": attr.label(allow_single_file = True, cfg = "host", mandatory = True),
+        "apex_compression_tool": attr.label(cfg = "host", executable = True, mandatory = True),
+        "jsonmodify": attr.label(cfg = "host", executable = True, mandatory = True),
         # soong_zip is added as a dependency of apex_compression_tool which uses
         # soong_zip to compress APEX files. avbtool is also used in apex_compression tool
         # and has been added to apex toolchain previously.
-        "soong_zip": attr.label(allow_single_file = True, cfg = "host", executable = True),
+        "soong_zip": attr.label(allow_single_file = True, cfg = "host", executable = True, mandatory = True),
     },
 )

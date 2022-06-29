@@ -53,6 +53,8 @@ if [ ! "$TOP" ]; then
     exit 1
 fi
 
+ABSOLUTE_OUT_DIR="$(getoutdir)"
+
 case $(uname -s) in
     Darwin)
         ANDROID_BAZEL_PATH="${TOP}/prebuilts/bazel/darwin-x86_64/bazel"
@@ -74,13 +76,17 @@ case $(uname -s) in
         #   If one runs Bazel without soong_ui, then this  directory wouldn't
         #   exist, making standalone Bazel execution's PATH variable stricter than
         #   Bazel execution within soong_ui.
-        RESTRICTED_PATH="${TOP}/prebuilts/build-tools/path/darwin-x86:${TOP}/out/.path"
+        RESTRICTED_PATH="${TOP}/prebuilts/build-tools/path/darwin-x86:${ABSOLUTE_OUT_DIR}/.path"
         ;;
     Linux)
         ANDROID_BAZEL_PATH="${TOP}/prebuilts/bazel/linux-x86_64/bazel"
         ANDROID_BAZELRC_NAME="linux.bazelrc"
         ANDROID_BAZEL_JDK_PATH="${TOP}/prebuilts/jdk/jdk11/linux-x86"
-        RESTRICTED_PATH="${TOP}/prebuilts/build-tools/path/linux-x86:${TOP}/out/.path"
+        RESTRICTED_PATH="${TOP}/prebuilts/build-tools/path/linux-x86:${ABSOLUTE_OUT_DIR}/.path"
+
+        # Used for --sandbox_tmpfs_path. Bazel doesn't create this
+        # directory automatically. See linux.bazelrc for more information.
+        mkdir -p /tmp/bazel/sandbox
         ;;
     *)
         >&2 echo "Bazel is supported on Linux and Darwin only. Your OS is not supported for Bazel usage, based on 'uname -s': $(uname -s)"
@@ -164,8 +170,6 @@ else
     >&2 echo "Couldn't locate JDK to use for Bazel"
     exit 1
 fi
-
-ABSOLUTE_OUT_DIR="$(getoutdir)"
 
 # In order to be able to load JNI libraries, this directory needs to exist
 mkdir -p "${ABSOLUTE_OUT_DIR}/bazel/javatmp"

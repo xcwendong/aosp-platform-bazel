@@ -78,8 +78,6 @@ cc_stub_gen = rule(
         "version": attr.string(mandatory = True, default = "current"),
         # Private attributes
         "_api_levels_file": attr.label(default = "@soong_injection//api_levels:api_levels.json", allow_single_file = True),
-        # TODO(b/199038020): Use //build/soong/cc/ndkstubgen when py_runtime is set up on CI for hermetic python usage.
-        # "_ndkstubgen": attr.label(default = "@make_injection//:host/linux-x86/bin/ndkstubgen", executable = True, cfg = "host", allow_single_file = True),
         "_ndkstubgen": attr.label(default = "//build/soong/cc/ndkstubgen", executable = True, cfg = "host"),
     }, ARCH_CONSTRAINT_ATTRS),
 )

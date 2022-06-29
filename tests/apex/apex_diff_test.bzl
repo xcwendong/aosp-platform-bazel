@@ -11,23 +11,23 @@ def apex_diff_test(
     native.genrule(
         name = name + "_apex1_deapex",
         tools = [
-            "@make_injection//:host/linux-x86/bin/deapexer",
+            "//system/apex/tools:deapexer",
             "//external/e2fsprogs/debugfs:debugfs",
         ],
         srcs = [apex1],
         outs = [name + ".apex1.txt"],
-        cmd = "$(location @make_injection//:host/linux-x86/bin/deapexer) --debugfs_path=$(location //external/e2fsprogs/debugfs:debugfs) list $< > $@",
+        cmd = "$(location //system/apex/tools:deapexer) --debugfs_path=$(location //external/e2fsprogs/debugfs:debugfs) list $< > $@",
     )
 
     native.genrule(
         name = name + "_apex2_deapex",
         tools = [
-            "@make_injection//:host/linux-x86/bin/deapexer",
+            "//system/apex/tools:deapexer",
             "//external/e2fsprogs/debugfs:debugfs",
         ],
         srcs = [apex2],
         outs = [name + ".apex2.txt"],
-        cmd = "$(location @make_injection//:host/linux-x86/bin/deapexer) --debugfs_path=$(location //external/e2fsprogs/debugfs:debugfs) list $< > $@",
+        cmd = "$(location //system/apex/tools:deapexer) --debugfs_path=$(location //external/e2fsprogs/debugfs:debugfs) list $< > $@",
     )
 
     if expected_diff == None:

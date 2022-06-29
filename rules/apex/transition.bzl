@@ -35,7 +35,6 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 def _create_apex_configuration(attr, additional = {}):
     return dicts.add({
         "//build/bazel/rules/apex:apex_name": attr.name,  # Name of the APEX
-        "//build/bazel/rules/apex:min_sdk_version": attr.min_sdk_version,  # Min SDK version of the APEX
     }, additional)
 
 def _impl(settings, attr):
@@ -48,7 +47,6 @@ apex_transition = transition(
     inputs = [],
     outputs = [
         "//build/bazel/rules/apex:apex_name",
-        "//build/bazel/rules/apex:min_sdk_version",
     ],
 )
 
@@ -57,6 +55,7 @@ def _impl_shared_lib_transition_32(settings, attr):
     # destination target (i.e. an APEX dependency).
 
     direct_deps = [str(dep) for dep in attr.native_shared_libs_32]
+    direct_deps += [str(dep) for dep in attr.binaries]
 
     # TODO: We need to check if this is a x86 or arm arch then only set one platform
     # instead of this 1:2 split to avoid performance hit.
@@ -76,7 +75,6 @@ shared_lib_transition_32 = transition(
     inputs = [],
     outputs = [
         "//build/bazel/rules/apex:apex_name",
-        "//build/bazel/rules/apex:min_sdk_version",
         "//build/bazel/rules/apex:apex_direct_deps",
         "//command_line_option:platforms",
     ],
@@ -87,6 +85,7 @@ def _impl_shared_lib_transition_64(settings, attr):
     # destination target (i.e. an APEX dependency).
 
     direct_deps = [str(dep) for dep in attr.native_shared_libs_64]
+    direct_deps += [str(dep) for dep in attr.binaries]
 
     # TODO: We need to check if this is a x86 or arm arch then only set one platform
     # instead of this 1:2 split to avoid performance hit.
@@ -106,7 +105,6 @@ shared_lib_transition_64 = transition(
     inputs = [],
     outputs = [
         "//build/bazel/rules/apex:apex_name",
-        "//build/bazel/rules/apex:min_sdk_version",
         "//build/bazel/rules/apex:apex_direct_deps",
         "//command_line_option:platforms",
     ],

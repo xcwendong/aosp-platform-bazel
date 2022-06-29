@@ -55,15 +55,15 @@ build --proto_compiler=//external/protobuf:aprotoc
 # are a long term goal.
 build --strategy=CppCompile=standalone
 
-# Enable use of the implementation_deps attribute in native cc rules
-build --experimental_cc_implementation_deps
+# Enable use of the interface_deps attribute in native cc rules
+build --experimental_cc_interface_deps
+
+# Use the llvm_coverage_map_format feature to turn on native code coverage.
+build --experimental_use_llvm_covmap
 
 # Enable building targets in //external:__subpackages__.
 common --experimental_sibling_repository_layout
 common --experimental_disable_external_package
-
-# Enable toplevel_output_directories and Ninja executor in Bazel
-common --experimental_ninja_actions
 
 # Increase refresh rate of command line UI for improved perceived responsiveness.
 common --show_progress_rate_limit=0.05

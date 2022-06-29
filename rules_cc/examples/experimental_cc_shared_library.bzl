@@ -223,6 +223,7 @@ def _filter_inputs(
         dependency_linker_inputs.extend(export[CcInfo].linking_context.linker_inputs.to_list())
         graph_structure_aspect_nodes.append(export[GraphNodeInfo])
 
+
     can_be_linked_dynamically = {}
     for linker_input in dependency_linker_inputs:
         owner = str(linker_input.owner)
@@ -234,7 +235,6 @@ def _filter_inputs(
         can_be_linked_dynamically,
         preloaded_deps_direct_labels,
     )
-
     exports = {}
     owners_seen = {}
     for linker_input in dependency_linker_inputs:
@@ -286,12 +286,6 @@ def _filter_inputs(
                 else:
                     fail("We can't link " +
                          str(owner) + " either statically or dynamically")
-
-    # Divergence from rules_cc: Add all dynamic dependencies as linker inputs
-    # even if they do not contain transitive dependencies of the roots.
-    # TODO(cparsons): Push this as an option upstream..
-    for dynamic_dep_input in transitive_exports.values():
-        linker_inputs.append(dynamic_dep_input)
 
     return (exports, linker_inputs, link_once_static_libs)
 
@@ -437,6 +431,7 @@ def _graph_structure_aspect_impl(target, ctx):
     children += _collect_graph_structure_info_from_children(ctx, "dynamic_deps")
     children += _collect_graph_structure_info_from_children(ctx, "implementation_deps")
     children += _collect_graph_structure_info_from_children(ctx, "static")
+    children += _collect_graph_structure_info_from_children(ctx, "root")
     children += _collect_graph_structure_info_from_children(ctx, "shared")
 
     # TODO(bazel-team): Add flag to Bazel that can toggle the initialization of

@@ -17,7 +17,6 @@ limitations under the License.
 """A macro to handle build number stamping."""
 
 load(":stripped_cc_common.bzl", "StrippedCcBinaryInfo")
-load("@rules_cc//examples:experimental_cc_shared_library.bzl", "CcSharedLibraryInfo")
 
 def stamp_build_number(ctx, prefix = "", extension = ""):
     if len(ctx.files.src) != 1:
@@ -100,6 +99,7 @@ def _versioned_shared_library_impl(ctx):
     return [
         DefaultInfo(files = depset([out_file])),
         ctx.attr.src[CcSharedLibraryInfo],
+        ctx.attr.src[OutputGroupInfo],
     ]
 
 versioned_shared_library = rule(

@@ -5,4 +5,4 @@ def java_library(name = "", srcs = [], deps = [], javacopts = [], **kwargs):
     # HashtableContains error is reported when compiling //external/bouncycastle:bouncycastle-bcpkix-unbundled
     opts = ["-Xep:HashtableContains:OFF"] + javacopts
 
-    native.java_library(name, srcs = srcs, deps = deps, javacopts = opts, **kwargs)
+    native.java_library(name = name, srcs = srcs, deps = deps, javacopts = opts, **kwargs)

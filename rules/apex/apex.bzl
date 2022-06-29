@@ -22,20 +22,49 @@ load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCerti
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition", "shared_lib_transition_32", "shared_lib_transition_64")
 load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "apex_cc_aspect")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-
-DIR_LIB = "lib"
-DIR_LIB64 = "lib64"
+load("@bazel_skylib//lib:paths.bzl", "paths")
 
 ApexInfo = provider(
-    "ApexInfo has no field currently and is used by apex rule dependents to ensure an attribute is a target of apex rule.",
-    fields = {},
+    "ApexInfo exports metadata about this apex.",
+    fields = {
+        "provides_native_libs": "Labels of native shared libs that this apex provides.",
+        "requires_native_libs": "Labels of native shared libs that this apex requires.",
+        "unsigned_output": "Unsigned .apex file.",
+        "signed_output": "Signed .apex file.",
+    },
 )
 
-# Prepare the input files info for bazel_apexer_wrapper to generate APEX filesystem image.
-def _prepare_apexer_wrapper_inputs(ctx):
-    # dictionary to return in the format:
-    # apex_manifest[(image_file_dirname, image_file_basename)] = bazel_output_file
-    apex_manifest = {}
+def _create_file_mapping(ctx):
+    """Create a file mapping for the APEX filesystem image.
+
+    This returns a Dict[File, str] where the dictionary keys
+    are the input files, and the values are the paths that these
+    files should have in the apex staging dir / filesystem image.
+    """
+
+    # Dictionary mapping from the path of each dependency to it's path in the apex
+    file_mapping = {}
+    requires = {}
+    provides = {}
+
+    def _add_libs_32_target(key):
+        if len(ctx.split_attr.native_shared_libs_32.keys()) > 0:
+            _add_lib_file("lib", ctx.split_attr.native_shared_libs_32[key])
+
+    def _add_libs_64_target(key_32, key_64):
+        _add_libs_32_target(key_32)
+        if len(ctx.split_attr.native_shared_libs_64.keys()) > 0:
+            _add_lib_file("lib64", ctx.split_attr.native_shared_libs_64[key_64])
+
+    def _add_lib_file(dir, libs):
+        for dep in libs:
+            apex_cc_info = dep[ApexCcInfo]
+            for lib in apex_cc_info.requires_native_libs.to_list():
+                requires[lib] = True
+            for lib in apex_cc_info.provides_native_libs.to_list():
+                provides[lib] = True
+            for lib_file in apex_cc_info.transitive_shared_libs.to_list():
+                file_mapping[lib_file] = paths.join(dir, lib_file.basename)
 
     x86_constraint = ctx.attr._x86_constraint[platform_common.ConstraintValueInfo]
     x86_64_constraint = ctx.attr._x86_64_constraint[platform_common.ConstraintValueInfo]
@@ -43,13 +72,13 @@ def _prepare_apexer_wrapper_inputs(ctx):
     arm64_constraint = ctx.attr._arm64_constraint[platform_common.ConstraintValueInfo]
 
     if ctx.target_platform_has_constraint(x86_constraint):
-        _add_libs_32_target(ctx, "x86", apex_manifest)
+        _add_libs_32_target("x86")
     elif ctx.target_platform_has_constraint(x86_64_constraint):
-        _add_libs_64_target(ctx, "x86", "x86_64", apex_manifest)
+        _add_libs_64_target("x86", "x86_64")
     elif ctx.target_platform_has_constraint(arm_constraint):
-        _add_libs_32_target(ctx, "arm", apex_manifest)
+        _add_libs_32_target("arm")
     elif ctx.target_platform_has_constraint(arm64_constraint):
-        _add_libs_64_target(ctx, "arm", "arm64", apex_manifest)
+        _add_libs_64_target("arm", "arm64")
 
     # Handle prebuilts
     for dep in ctx.attr.prebuilts:
@@ -58,7 +87,7 @@ def _prepare_apexer_wrapper_inputs(ctx):
             filename = prebuilt_file_info.filename
         else:
             filename = dep.label.name
-        apex_manifest[(prebuilt_file_info.dir, filename)] = prebuilt_file_info.src
+        file_mapping[prebuilt_file_info.src] = paths.join(prebuilt_file_info.dir, filename)
 
     # Handle binaries
     for dep in ctx.attr.binaries:
@@ -69,59 +98,64 @@ def _prepare_apexer_wrapper_inputs(ctx):
             if sh_binary_info != None:
                 directory = "bin"
                 if sh_binary_info.sub_dir != None and sh_binary_info.sub_dir != "":
-                    directory = "/".join([directory, sh_binary_info.sub_dir])
+                    directory = paths.join("bin", sh_binary_info.sub_dir)
 
                 if sh_binary_info.filename != None and sh_binary_info.filename != "":
                     filename = sh_binary_info.filename
                 else:
                     filename = dep.label.name
 
-                apex_manifest[(directory, filename)] = default_info.files_to_run.executable
-        elif CcInfo in dep:
+                file_mapping[default_info.files_to_run.executable] = paths.join(directory, filename)
+        elif ApexCcInfo in dep:
             # cc_binary just takes the final executable from the runfiles.
-            apex_manifest[("bin", dep.label.name)] = dep[DefaultInfo].files_to_run.executable
+            file_mapping[dep[DefaultInfo].files_to_run.executable] = paths.join("bin", dep.label.name)
+            # a cc_binary's transitive closure can also contribute to the list of provided
+            # or required libs
+            for lib in dep[ApexCcInfo].requires_native_libs.to_list():
+                requires[lib] = True
+            for lib in dep[ApexCcInfo].provides_native_libs.to_list():
+                provides[lib] = True
 
-    apex_content_inputs = []
+    return file_mapping, requires.keys(), provides.keys()
 
-    bazel_apexer_wrapper_manifest = ctx.actions.declare_file("%s_bazel_apexer_wrapper_manifest" % ctx.attr.name)
-    file_lines = []
+def _add_so(label):
+    return label.name + ".so"
 
-    # Store the apex file target directory, file name and the path in the source tree in a file.
-    # This file will be read by the bazel_apexer_wrapper to create the apex input directory.
-    # Here is an example:
-    # {etc/tz,tz_version,system/timezone/output_data/version/tz_version}
-    for (apex_dirname, apex_basename), bazel_input_file in apex_manifest.items():
-        apex_content_inputs.append(bazel_input_file)
-        file_lines += [",".join([apex_dirname, apex_basename, bazel_input_file.path])]
+def _add_apex_manifest_information(
+    ctx,
+    apex_toolchain,
+    requires_native_libs,
+    provides_native_libs):
+    apex_manifest_json = ctx.file.manifest
+    apex_manifest_full_json = ctx.actions.declare_file(ctx.attr.name + "_apex_manifest_full.json")
 
-    ctx.actions.write(bazel_apexer_wrapper_manifest, "\n".join(file_lines))
+    args = ctx.actions.args()
+    args.add(apex_manifest_json)
+    args.add_all(["-a", "requireNativeLibs"])
+    args.add_all(requires_native_libs, map_each = _add_so) # e.g. turn "//foo/bar:baz" to "baz.so"
+    args.add_all(["-a", "provideNativeLibs"])
+    args.add_all(provides_native_libs, map_each = _add_so)
+    # TODO: support other optional flags like -v name and -a jniLibs
+    args.add_all(["-o", apex_manifest_full_json])
 
-    return apex_content_inputs, bazel_apexer_wrapper_manifest
+    ctx.actions.run(
+        inputs = [apex_manifest_json],
+        outputs = [apex_manifest_full_json],
+        executable = apex_toolchain.jsonmodify[DefaultInfo].files_to_run,
+        arguments = [args],
+        mnemonic = "ApexManifestModify",
+    )
 
-def _add_libs_32_target(ctx, key, apex_manifest):
-    if len(ctx.split_attr.native_shared_libs_32.keys()) > 0:
-        _add_lib_file(DIR_LIB, ctx.split_attr.native_shared_libs_32[key], apex_manifest)
-
-def _add_libs_64_target(ctx, key_32, key_64, apex_manifest):
-    _add_libs_32_target(ctx, key_32, apex_manifest)
-    if len(ctx.split_attr.native_shared_libs_64.keys()) > 0:
-        _add_lib_file(DIR_LIB64, ctx.split_attr.native_shared_libs_64[key_64], apex_manifest)
-
-def _add_lib_file(dir, libs, apex_manifest):
-    for dep in libs:
-        apex_cc_info = dep[ApexCcInfo]
-        for lib_file in apex_cc_info.transitive_shared_libs.to_list():
-            apex_manifest[(dir, lib_file.basename)] = lib_file
+    return apex_manifest_full_json
 
 # conv_apex_manifest - Convert the JSON APEX manifest to protobuf, which is needed by apexer.
-def _convert_apex_manifest_json_to_pb(ctx, apex_toolchain):
-    apex_manifest_json = ctx.file.manifest
-    apex_manifest_pb = ctx.actions.declare_file("apex_manifest.pb")
+def _convert_apex_manifest_json_to_pb(ctx, apex_toolchain, apex_manifest_json):
+    apex_manifest_pb = ctx.actions.declare_file(ctx.attr.name + "_apex_manifest.pb")
 
     ctx.actions.run(
         outputs = [apex_manifest_pb],
-        inputs = [ctx.file.manifest],
-        executable = apex_toolchain.conv_apex_manifest,
+        inputs = [apex_manifest_json],
+        executable = apex_toolchain.conv_apex_manifest[DefaultInfo].files_to_run,
         arguments = [
             "proto",
             apex_manifest_json.path,
@@ -133,37 +167,127 @@ def _convert_apex_manifest_json_to_pb(ctx, apex_toolchain):
 
     return apex_manifest_pb
 
+# TODO(b/236683936): Add support for custom canned_fs_config concatenation.
+def _generate_canned_fs_config(ctx, filepaths):
+    """Generate filesystem config.
+
+    This encodes the filemode, uid, and gid of each file in the APEX,
+    including apex_manifest.json and apex_manifest.pb.
+    NOTE: every file must have an entry.
+    """
+
+    # Ensure all paths don't start with / and are normalized
+    filepaths = [paths.normalize(f).lstrip("/") for f in filepaths]
+    filepaths = [f for f in filepaths if f]
+
+    # First, collect a set of all the directories in the apex
+    apex_subdirs_set = {}
+    for f in filepaths:
+        d = paths.dirname(f)
+        if d != "": # The root dir is handled manually below
+            # Make sure all the parent dirs of the current subdir are in the set, too
+            dirs = d.split("/")
+            for i in range(1, len(dirs)+1):
+                apex_subdirs_set["/".join(dirs[:i])] = True
+
+    # The order of entries is significant. Later entries are preferred over
+    # earlier entries. Keep this consistent with Soong.
+    config_lines = []
+    config_lines += ["/ 1000 1000 0755"]
+    config_lines += ["/apex_manifest.json 1000 1000 0644"]
+    config_lines += ["/apex_manifest.pb 1000 1000 0644"]
+
+    filepaths = sorted(filepaths)
+
+    # Readonly if not executable.
+    config_lines += ["/" + f + " 1000 1000 0644" for f in filepaths if not f.startswith("bin/")]
+
+    # Mark all binaries as executable.
+    config_lines += ["/" + f + " 0 2000 0755" for f in filepaths if f.startswith("bin/")]
+
+    # All directories have the same permission.
+    config_lines += ["/" + d + " 0 2000 0755" for d in sorted(apex_subdirs_set.keys())]
+
+    file = ctx.actions.declare_file(ctx.attr.name + '_canned_fs_config.txt')
+    ctx.actions.write(file, '\n'.join(config_lines) + '\n')
+
+    return file
+
+# Append an entry for apex_manifest.pb to the file_contexts file for this APEX,
+# which is either from /system/sepolicy/apex/<apexname>-file_contexts (set in
+# the apex macro) or custom file_contexts attribute value of this APEX. This
+# ensures that the manifest file is correctly labeled as system_file.
+def _generate_file_contexts(ctx):
+    file_contexts = ctx.actions.declare_file(ctx.attr.name + "-file_contexts")
+
+    ctx.actions.run_shell(
+        inputs = [ctx.file.file_contexts],
+        outputs = [file_contexts],
+        mnemonic = "GenerateApexFileContexts",
+        command = " ".join([
+            "cat", ctx.file.file_contexts.path, ">", file_contexts.path,
+            "&&", "echo", ">>", file_contexts.path,
+            "&&", "echo", "/apex_manifest\\\\.pb u:object_r:system_file:s0", ">>", file_contexts.path,
+            "&&", "echo", "/ u:object_r:system_file:s0", ">>", file_contexts.path,
+        ]
+    ))
+
+    return file_contexts
+
 # apexer - generate the APEX file.
-def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_manifest, apex_manifest_pb):
+def _run_apexer(ctx, apex_toolchain):
     # Inputs
-    file_contexts = ctx.file.file_contexts
     apex_key_info = ctx.attr.key[ApexKeyInfo]
     privkey = apex_key_info.private_key
     pubkey = apex_key_info.public_key
     android_jar = apex_toolchain.android_jar
     android_manifest = ctx.file.android_manifest
 
+    file_mapping, requires_native_libs, provides_native_libs = _create_file_mapping(ctx)
+    canned_fs_config = _generate_canned_fs_config(ctx, file_mapping.values())
+    file_contexts = _generate_file_contexts(ctx)
+    full_apex_manifest_json = _add_apex_manifest_information(ctx, apex_toolchain, requires_native_libs, provides_native_libs)
+    apex_manifest_pb = _convert_apex_manifest_json_to_pb(ctx, apex_toolchain, full_apex_manifest_json)
+
+    file_mapping_file = ctx.actions.declare_file(ctx.attr.name + '_apex_file_mapping.json')
+    ctx.actions.write(file_mapping_file, json.encode({k.path: v for k,v in file_mapping.items()}))
+
     # Outputs
     apex_output_file = ctx.actions.declare_file(ctx.attr.name + ".apex.unsigned")
 
+    apexer_files = apex_toolchain.apexer[DefaultInfo].files_to_run
+
     # Arguments
     args = ctx.actions.args()
+    args.add(file_mapping_file.path)
+    args.add(apexer_files.executable.path)
     if ctx.attr._apexer_verbose[BuildSettingInfo].value:
-        args.add_all(["--verbose", True])
+        args.add("--verbose")
+    args.add('--force')
+    args.add('--include_build_info')
+    args.add_all(['--canned_fs_config', canned_fs_config.path])
     args.add_all(["--manifest", apex_manifest_pb.path])
     args.add_all(["--file_contexts", file_contexts.path])
     args.add_all(["--key", privkey.path])
     args.add_all(["--pubkey", pubkey.path])
-    min_sdk_version = ctx.attr.min_sdk_version
+    args.add_all(['--payload_type', 'image'])
+    args.add_all(['--target_sdk_version', '10000'])
+    args.add_all(['--payload_fs_type', 'ext4'])
+
+    # Override the package name, if it's expicitly specified
+    if ctx.attr.package_name:
+        args.add_all(["--override_apk_package_name", ctx.attr.package_name])
+
+    if ctx.attr.logging_parent:
+        args.add_all(["--logging_parent", ctx.attr.logging_parent])
 
     # TODO(b/215339575): This is a super rudimentary way to convert "current" to a numerical number.
     # Generalize this to API level handling logic in a separate Starlark utility, preferably using
     # API level maps dumped from api_levels.go
+    min_sdk_version = ctx.attr.min_sdk_version
     if min_sdk_version == "current":
         min_sdk_version = "10000"
     args.add_all(["--min_sdk_version", min_sdk_version])
-    args.add_all(["--bazel_apexer_wrapper_manifest", bazel_apexer_wrapper_manifest])
-    args.add_all(["--apexer_path", apex_toolchain.apexer])
 
     # apexer needs the list of directories containing all auxilliary tools invoked during
     # the creation of an apex
@@ -171,71 +295,65 @@ def _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_m
     e2fsdroid_files = apex_toolchain.e2fsdroid[DefaultInfo].files_to_run
     mke2fs_files = apex_toolchain.mke2fs[DefaultInfo].files_to_run
     resize2fs_files = apex_toolchain.resize2fs[DefaultInfo].files_to_run
+    sefcontext_compile_files = apex_toolchain.sefcontext_compile[DefaultInfo].files_to_run
     apexer_tool_paths = [
-        # These are built by make_injection
-        apex_toolchain.apexer.dirname,
-
-        # These are real Bazel targets
         apex_toolchain.aapt2.dirname,
+        apexer_files.executable.dirname,
         avbtool_files.executable.dirname,
         e2fsdroid_files.executable.dirname,
         mke2fs_files.executable.dirname,
         resize2fs_files.executable.dirname,
+        sefcontext_compile_files.executable.dirname,
     ]
 
     args.add_all(["--apexer_tool_path", ":".join(apexer_tool_paths)])
-    args.add_all(["--apex_output_file", apex_output_file])
 
     if android_manifest != None:
         args.add_all(["--android_manifest", android_manifest.path])
 
-    inputs = apex_content_inputs + [
-        bazel_apexer_wrapper_manifest,
+    args.add("STAGING_DIR_PLACEHOLDER")
+    args.add(apex_output_file)
+
+    inputs = [
+        file_mapping_file,
+        canned_fs_config,
         apex_manifest_pb,
         file_contexts,
         privkey,
         pubkey,
         android_jar,
-    ]
+    ] + file_mapping.keys()
+
+    if android_manifest != None:
+        inputs.append(android_manifest)
 
     tools = [
+        apexer_files,
         avbtool_files,
         e2fsdroid_files,
         mke2fs_files,
         resize2fs_files,
+        sefcontext_compile_files,
         apex_toolchain.aapt2,
-
-        apex_toolchain.apexer,
-        apex_toolchain.sefcontext_compile,
     ]
-
-    if android_manifest != None:
-        inputs.append(android_manifest)
 
     ctx.actions.run(
         inputs = inputs,
         tools = tools,
         outputs = [apex_output_file],
-        executable = ctx.executable._bazel_apexer_wrapper,
+        executable = ctx.executable._staging_dir_builder,
         arguments = [args],
-        mnemonic = "BazelApexerWrapper",
+        mnemonic = "Apexer",
     )
 
-    return apex_output_file
+    return (
+        apex_output_file,
+        requires_native_libs,
+        provides_native_libs,
+    )
 
 # Sign a file with signapk.
 def _run_signapk(ctx, unsigned_file, signed_file, private_key, public_key, mnemonic):
-    # Inputs
-    inputs = [
-        unsigned_file,
-        private_key,
-        public_key,
-        ctx.executable._signapk,
-    ]
-
-    # Outputs
-    outputs = [signed_file]
-
     # Arguments
     args = ctx.actions.args()
     args.add_all(["-a", 4096])
@@ -244,8 +362,13 @@ def _run_signapk(ctx, unsigned_file, signed_file, private_key, public_key, mnemo
     args.add_all([unsigned_file, signed_file])
 
     ctx.actions.run(
-        inputs = inputs,
-        outputs = outputs,
+        inputs = [
+            unsigned_file,
+            private_key,
+            public_key,
+            ctx.executable._signapk,
+        ],
+        outputs = [signed_file],
         executable = ctx.executable._signapk,
         arguments = [args],
         mnemonic = mnemonic,
@@ -255,21 +378,11 @@ def _run_signapk(ctx, unsigned_file, signed_file, private_key, public_key, mnemo
 
 # Compress a file with apex_compression_tool.
 def _run_apex_compression_tool(ctx, apex_toolchain, input_file, output_file_name):
-    # Inputs
-    inputs = [
-        input_file,
-    ]
-
     avbtool_files = apex_toolchain.avbtool[DefaultInfo].files_to_run
-    tools = [
-        avbtool_files,
-        apex_toolchain.apex_compression_tool,
-        apex_toolchain.soong_zip,
-    ]
+    apex_compression_tool_files = apex_toolchain.apex_compression_tool[DefaultInfo].files_to_run
 
     # Outputs
     compressed_file = ctx.actions.declare_file(output_file_name)
-    outputs = [compressed_file]
 
     # Arguments
     args = ctx.actions.args()
@@ -280,10 +393,14 @@ def _run_apex_compression_tool(ctx, apex_toolchain, input_file, output_file_name
     args.add_all(["--output", compressed_file])
 
     ctx.actions.run(
-        inputs = inputs,
-        tools = tools,
-        outputs = outputs,
-        executable = apex_toolchain.apex_compression_tool,
+        inputs = [input_file],
+        tools = [
+            avbtool_files,
+            apex_compression_tool_files,
+            apex_toolchain.soong_zip,
+        ],
+        outputs = [compressed_file],
+        executable = apex_compression_tool_files,
         arguments = [args],
         mnemonic = "BazelApexCompressing",
     )
@@ -293,35 +410,40 @@ def _run_apex_compression_tool(ctx, apex_toolchain, input_file, output_file_name
 def _apex_rule_impl(ctx):
     apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
 
-    apex_content_inputs, bazel_apexer_wrapper_manifest = _prepare_apexer_wrapper_inputs(ctx)
-    apex_manifest_pb = _convert_apex_manifest_json_to_pb(ctx, apex_toolchain)
-
-    unsigned_apex_output_file = _run_apexer(ctx, apex_toolchain, apex_content_inputs, bazel_apexer_wrapper_manifest, apex_manifest_pb)
+    unsigned_apex, requires_native_libs, provides_native_libs = _run_apexer(ctx, apex_toolchain)
 
     apex_cert_info = ctx.attr.certificate[AndroidAppCertificateInfo]
     private_key = apex_cert_info.pk8
     public_key = apex_cert_info.pem
-
     signed_apex = ctx.outputs.apex_output
-    _run_signapk(ctx, unsigned_apex_output_file, signed_apex, private_key, public_key, "BazelApexSigning")
-    output_file = signed_apex
+
+    _run_signapk(ctx, unsigned_apex, signed_apex, private_key, public_key, "BazelApexSigning")
 
     if ctx.attr.compressible:
         compressed_apex_output_file = _run_apex_compression_tool(ctx, apex_toolchain, signed_apex, ctx.attr.name + ".capex.unsigned")
         signed_capex = ctx.outputs.capex_output
         _run_signapk(ctx, compressed_apex_output_file, signed_capex, private_key, public_key, "BazelCompressedApexSigning")
 
-    files_to_build = depset([output_file])
-    return [DefaultInfo(files = files_to_build), ApexInfo()]
+    return [
+        DefaultInfo(files = depset([signed_apex])),
+        ApexInfo(
+            signed_output = signed_apex,
+            unsigned_output = unsigned_apex,
+            requires_native_libs = requires_native_libs,
+            provides_native_libs = provides_native_libs,
+        ),
+    ]
 
 _apex = rule(
     implementation = _apex_rule_impl,
     attrs = {
         "manifest": attr.label(allow_single_file = [".json"]),
         "android_manifest": attr.label(allow_single_file = [".xml"]),
+        "package_name": attr.string(),
+        "logging_parent": attr.string(),
         "file_contexts": attr.label(allow_single_file = True, mandatory = True),
-        "key": attr.label(providers = [ApexKeyInfo]),
-        "certificate": attr.label(providers = [AndroidAppCertificateInfo]),
+        "key": attr.label(providers = [ApexKeyInfo], mandatory = True),
+        "certificate": attr.label(providers = [AndroidAppCertificateInfo], mandatory = True),
         "min_sdk_version": attr.string(default = "current"),
         "updatable": attr.bool(default = True),
         "installable": attr.bool(default = True),
@@ -342,9 +464,10 @@ _apex = rule(
             providers = [
                 # The dependency must produce _all_ of the providers in _one_ of these lists.
                 [ShBinaryInfo],  # sh_binary
-                [StrippedCcBinaryInfo, CcInfo],  # cc_binary (stripped)
+                [StrippedCcBinaryInfo, CcInfo, ApexCcInfo],  # cc_binary (stripped)
             ],
             cfg = apex_transition,
+            aspects = [apex_cc_aspect],
         ),
         "prebuilts": attr.label_list(providers = [PrebuiltFileInfo], cfg = apex_transition),
         "apex_output": attr.output(doc = "signed .apex output"),
@@ -352,11 +475,11 @@ _apex = rule(
 
         # Required to use apex_transition. This is an acknowledgement to the risks of memory bloat when using transitions.
         "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
-        "_bazel_apexer_wrapper": attr.label(
+        "_staging_dir_builder": attr.label(
             cfg = "host",
-            doc = "The apexer wrapper to avoid the problem where symlinks are created inside apex image.",
+            doc = "The staging dir builder to avoid the problem where symlinks are created inside apex image.",
             executable = True,
-            default = "//build/bazel/rules/apex:bazel_apexer_wrapper",
+            default = "//build/bazel/rules:staging_dir_builder",
         ),
         "_signapk": attr.label(
             cfg = "host",
@@ -400,6 +523,8 @@ def apex(
         native_shared_libs_64 = [],
         binaries = [],
         prebuilts = [],
+        package_name = None,
+        logging_parent = None,
         **kwargs):
     "Bazel macro to correspond with the APEX bundle Soong module."
 
@@ -428,6 +553,8 @@ def apex(
         native_shared_libs_64 = native_shared_libs_64,
         binaries = binaries,
         prebuilts = prebuilts,
+        package_name = package_name,
+        logging_parent = logging_parent,
 
         # Enables predeclared output builds from command line directly, e.g.
         #

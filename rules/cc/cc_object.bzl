@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cpp_toolchain")
 load(
     ":cc_library_common.bzl",
     "get_includes_paths",

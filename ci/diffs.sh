@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/bin/bash -eux
 # checks the diff between legacy Soong built artifacts and their counterparts
 # built with bazel/mixed build
 export TARGET_PRODUCT=aosp_arm64

@@ -1,1 +1,39 @@
+load(":gensrcs_test.bzl", "gensrcs_tests_suite")
+
 exports_files(["lunch.bzl"])
+
+gensrcs_tests_suite(name = "gensrcs_tests")
+
+py_binary(
+    name = "staging_dir_builder",
+    srcs = ["staging_dir_builder.py"],
+    visibility = ["//visibility:public"],
+)
+
+sh_test(
+    name = "staging_dir_builder_test",
+    srcs = ["staging_dir_builder_test.sh"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+    data = [
+        ":staging_dir_builder",
+        "test.pem",
+        "//external/avb:avbtool",
+        "//external/e2fsprogs/contrib/android:e2fsdroid",
+        "//external/e2fsprogs/misc:mke2fs",
+        "//external/e2fsprogs/resize:resize2fs",
+        "//external/e2fsprogs/debugfs:debugfs",
+        "//external/selinux/libselinux:sefcontext_compile",
+        "//prebuilts/build-tools:linux-x86/bin/soong_zip",
+        "//prebuilts/sdk/current:public/android.jar",
+        "//prebuilts/sdk/tools:linux/bin/aapt2",
+        "//system/apex/apexer:apexer",
+        "//system/apex/apexer:conv_apex_manifest",
+        "//system/apex/tools:apex_compression_tool",
+        "//system/apex/tools:deapexer",
+    ],
+    # This is a host test.
+    target_compatible_with = select({
+        "//build/bazel/platforms/os:linux": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)

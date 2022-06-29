@@ -13,7 +13,7 @@ function die() {
 
 function usage() {
     cat <<EOF >&2
-Usage: $myname [-p] [-b] [-q] [-r] <product-variant> [product-variant ...]
+Usage: $myname [-q] [-r] <product-variant> [product-variant ...]
   -q: Quiet. Suppress all output other than a failure message
   -r: Retain Ninja files
 EOF
@@ -38,12 +38,9 @@ declare -r myname=${mypath#${mydir}/}
 
 flags_rbc=(RBC_PRODUCT_CONFIG=true)
 quiet=
-while getopts "bkpqr" o; do
+while getopts "qr" o; do
     case "${o}" in
-        k) ;;  # backward compatibility to be removed later
         q) quiet=true ;;
-        b) ;;  # backward compatibility to be removed later
-        p) ;;  # backward compatibility to be removed later
         r) retain_files=t ;;
         *) usage ;;
     esac

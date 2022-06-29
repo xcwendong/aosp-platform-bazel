@@ -79,6 +79,22 @@ config_setting(
 )
 
 config_setting(
+    name = "linux_musl_arm",
+    constraint_values = [
+        "//build/bazel/platforms/arch:arm",
+        "//build/bazel/platforms/os:linux_musl",
+    ],
+)
+
+config_setting(
+    name = "linux_musl_arm64",
+    constraint_values = [
+        "//build/bazel/platforms/arch:arm64",
+        "//build/bazel/platforms/os:linux_musl",
+    ],
+)
+
+config_setting(
     name = "linux_musl_x86",
     constraint_values = [
         "//build/bazel/platforms/arch:x86",

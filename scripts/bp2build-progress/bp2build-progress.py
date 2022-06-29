@@ -358,9 +358,15 @@ def get_module_adjacency_list(top_level_module, use_queryview, ignore_by_name):
         top_level_module)
     converted = dependency_analysis.get_bp2build_converted_modules()
   except subprocess.CalledProcessError as err:
-    print("Error running: '%s':", " ".join(err.cmd))
-    print("Output:\n%s" % err.output.decode("utf-8"))
-    print("Error:\n%s" % err.stderr.decode("utf-8"))
+    output = err.output.decode("utf-8") if err.output else ""
+    stderr = err.stderr.decode("utf-8") if err.stderr else ""
+    err_msg = """Error running: '{cmd}':"
+Output:
+{output}
+Error:
+{stderr}""".format(
+    cmd=" ".join(err.cmd), output=output, stderr=stderr)
+    print(err_msg, file=sys.stderr)
     sys.exit(-1)
 
   module_adjacency_list = None

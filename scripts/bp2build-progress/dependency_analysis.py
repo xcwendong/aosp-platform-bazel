@@ -19,6 +19,7 @@ import json
 import os
 import os.path
 import subprocess
+import sys
 import xml.etree.ElementTree
 
 # This list of module types are omitted from the report and graph
@@ -64,7 +65,7 @@ def get_queryview_module_info(module):
   """Returns the list of transitive dependencies of input module as built by queryview."""
   _build_with_soong("queryview")
 
-  result = subprocess.check_output(
+  queryview_xml = subprocess.check_output(
       [
           "tools/bazel", "query", "--config=ci", "--config=queryview",
           "--output=xml",
@@ -72,21 +73,37 @@ def get_queryview_module_info(module):
       ],
       cwd=SRC_ROOT_DIR,
   )
-  return xml.etree.ElementTree.fromstring(result)
+  try:
+    return xml.etree.ElementTree.fromstring(queryview_xml)
+  except xml.etree.ElementTree.ParseError as err:
+    error_msg = """Could not parse XML:
+{xml}
+ParseError: {err}""".format(
+    xml=queryview_xml, err=err)
+    print(error_msg, file=sys.stderr)
+    exit(1)
 
 
 def get_json_module_info(module):
   """Returns the list of transitive dependencies of input module as provided by Soong's json module graph."""
   _build_with_soong("json-module-graph")
   # Run query.sh on the module graph for the top level module
-  result = subprocess.check_output(
+  jq_json = subprocess.check_output(
       [
           "build/bazel/json_module_graph/query.sh", "fullTransitiveDeps",
           "out/soong/module-graph.json", module
       ],
       cwd=SRC_ROOT_DIR,
   )
-  return json.loads(result)
+  try:
+    return json.loads(jq_json)
+  except json.JSONDecodeError as err:
+    error_msg = """Could not decode json:
+{json}
+JSONDecodeError: {err}""".format(
+    json=jq_json, err=err)
+    print(error_msg, file=sys.stderr)
+    exit(1)
 
 
 def get_bp2build_converted_modules():

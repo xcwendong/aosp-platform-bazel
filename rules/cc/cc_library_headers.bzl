@@ -18,7 +18,6 @@ load(":cc_library_static.bzl", "cc_library_static")
 
 def cc_library_headers(
         name,
-        implementation_deps = [],
         deps = [],
         hdrs = [],
         export_includes = [],
@@ -32,7 +31,6 @@ def cc_library_headers(
 
     cc_library_static(
         name = name,
-        implementation_deps = implementation_deps,
         deps = deps,
         export_includes = export_includes,
         export_absolute_includes = export_absolute_includes,

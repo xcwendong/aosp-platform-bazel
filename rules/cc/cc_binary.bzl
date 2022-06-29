@@ -56,6 +56,7 @@ def cc_binary(
         sdk_version = "",
         min_sdk_version = "",
         use_version_lib = False,
+        tags = [],
         **kwargs):
     "Bazel macro to correspond with the cc_binary Soong module."
 
@@ -123,6 +124,7 @@ def cc_binary(
         system_dynamic_deps = system_dynamic_deps,
         target_compatible_with = target_compatible_with,
         use_version_lib = use_version_lib,
+        tags = ["manual"],
     )
 
     binary_dynamic_deps = add_lists_defaulting_to_none(
@@ -139,6 +141,7 @@ def cc_binary(
         linkopts = linkopts,
         additional_linker_inputs = additional_linker_inputs,
         target_compatible_with = target_compatible_with,
+        tags = ["manual"],
         **kwargs
     )
 
@@ -147,11 +150,14 @@ def cc_binary(
         name = versioned_name,
         src = unstripped_name,
         stamp_build_number = use_version_lib,
+        tags = ["manual"],
     )
 
     stripped_binary(
         name = name,
         src = versioned_name,
         target_compatible_with = target_compatible_with,
+        tags = tags,
+        **strip,
     )
 
