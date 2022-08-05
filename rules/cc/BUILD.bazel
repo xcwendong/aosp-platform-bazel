@@ -16,9 +16,12 @@ limitations under the License.
 load(":flex_test.bzl", "flex_test_suite")
 load(":cc_binary_test.bzl", "cc_binary_test_suite")
 load(":stl_test.bzl", "stl_test_suite")
+load(":yasm_test.bzl", "yasm_test_suite")
 
 flex_test_suite(name = "flex_tests")
 
 cc_binary_test_suite(name = "cc_binary_tests")
 
 stl_test_suite(name = "stl_tests")
+
+yasm_test_suite(name = "yasm_tests")

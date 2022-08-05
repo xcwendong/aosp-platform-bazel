@@ -33,23 +33,30 @@ import argparse
 import collections
 import dataclasses
 import datetime
-import dependency_analysis
 import os.path
 import subprocess
 import sys
 import xml
 from typing import Dict, List, Set
 
-_ModuleInfo = collections.namedtuple("_ModuleInfo", [
-    "name",
-    "kind",
-    "dirname",
-])
+import bp2build_pb2
+import dependency_analysis
+
+
+@dataclasses.dataclass(frozen=True, order=True)
+class _ModuleInfo:
+  name: str
+  kind: str
+  dirname: str
+  num_deps: int = 0
+
+  def __str__(self):
+    return f"{self.name} [{self.kind}] [{self.dirname}]"
 
 
 @dataclasses.dataclass(frozen=True, order=True)
 class _InputModule:
-  name: str
+  module: _ModuleInfo
   num_deps: int = 0
   num_unconverted_deps: int = 0
 
@@ -57,7 +64,7 @@ class _InputModule:
     total = self.num_deps
     converted = self.num_deps - self.num_unconverted_deps
     percent = converted / self.num_deps * 100
-    return f"{self.name}: {percent:.1f}% ({converted}/{total}) converted"
+    return f"{self.module.name}: {percent:.1f}% ({converted}/{total}) converted"
 
 
 _ReportData = collections.namedtuple("_ReportData", [
@@ -78,7 +85,7 @@ def combine_report_data(data):
       total_deps=set(),
       unconverted_deps=set(),
       all_unconverted_modules=collections.defaultdict(set),
-      blocked_modules=collections.defaultdict(set),
+      blocked_modules=collections.defaultdict(dict),
       dirs_with_unconverted_modules=set(),
       kind_of_unconverted_modules=set(),
       converted=set(),
@@ -89,8 +96,11 @@ def combine_report_data(data):
     ret.unconverted_deps.update(item.unconverted_deps)
     for key, value in item.all_unconverted_modules.items():
       ret.all_unconverted_modules[key].update(value)
-    for key, value in item.blocked_modules.items():
-      ret.blocked_modules[key].update(value)
+    for module, blocked in item.blocked_modules.items():
+      if module in ret.blocked_modules and ret.blocked_modules[
+          module] != blocked:
+        raise Exception("dependencies should match")
+      ret.blocked_modules[module] = blocked
     ret.dirs_with_unconverted_modules.update(item.dirs_with_unconverted_modules)
     ret.kind_of_unconverted_modules.update(item.kind_of_unconverted_modules)
     if len(ret.converted) == 0:
@@ -141,6 +151,7 @@ def generate_report_data(modules, converted, input_module):
 
   input_all_deps = set()
   input_unconverted_deps = set()
+  input_module_info = None
 
   for module, deps in sorted(modules.items()):
     unconverted_deps = set(dep for dep in deps if dep not in converted)
@@ -149,21 +160,20 @@ def generate_report_data(modules, converted, input_module):
 
     unconverted_count = len(unconverted_deps)
     if module.name not in converted:
-      report_entry = "{name} [{kind}] [{dirname}]: {unconverted_deps}".format(
-          name=module.name,
-          kind=module.kind,
-          dirname=module.dirname,
-          unconverted_deps=", ".join(sorted(unconverted_deps)))
-      blocked_modules[unconverted_count].add(report_entry)
+      if module in blocked_modules and blocked_modules[
+          module] != unconverted_deps:
+        raise Exception("dependencies should match")
+      blocked_modules[module] = unconverted_deps
       dirs_with_unconverted_modules.add(module.dirname)
       kind_of_unconverted_modules.add(module.kind)
 
     if module.name == input_module:
+      input_module_info = module
       input_all_deps = deps
       input_unconverted_deps = unconverted_deps
 
   return _ReportData(
-      input_module=_InputModule(input_module, len(input_all_deps),
+      input_module=_InputModule(input_module_info, len(input_all_deps),
                                 len(input_unconverted_deps)),
       total_deps=input_all_deps,
       unconverted_deps=input_unconverted_deps,
@@ -173,6 +183,24 @@ def generate_report_data(modules, converted, input_module):
       kind_of_unconverted_modules=kind_of_unconverted_modules,
       converted=converted,
   )
+
+
+def generate_proto(report_data, file_name):
+  message = bp2build_pb2.Bp2buildConversionProgress(
+      root_modules=[m.module.name for m in report_data.input_module],
+      num_deps=len(report_data.total_deps),
+  )
+  for module, unconverted_deps in report_data.blocked_modules.items():
+    message.unconverted.add(
+        name=module.name,
+        directory=module.dirname,
+        type=module.kind,
+        unconverted_deps=unconverted_deps,
+        num_deps=module.num_deps,
+    )
+
+  with open(file_name, "wb") as f:
+    f.write(message.SerializeToString())
 
 
 def generate_report(report_data):
@@ -192,10 +220,15 @@ def generate_report(report_data):
                       sorted(dependency_analysis.IGNORED_KINDS))
   report_lines.append("# Transitive dependency closure:")
 
-  for count, modules in sorted(report_data.blocked_modules.items()):
-    report_lines.append("\n%d unconverted deps remaining:" % count)
-    for module_string in sorted(modules):
-      report_lines.append("  " + module_string)
+  current_count = -1
+  for module, unconverted_deps in sorted(
+      report_data.blocked_modules.items(), key=lambda x: len(x[1])):
+    count = len(unconverted_deps)
+    if current_count != count:
+      report_lines.append(f"\n{count} unconverted deps remaining:")
+      current_count = count
+    report_lines.append("{module}: {deps}".format(
+        module=module, deps=", ".join(sorted(unconverted_deps))))
 
   report_lines.append("\n")
   report_lines.append("# Unconverted deps of {}:\n".format(input_module_str))
@@ -248,6 +281,7 @@ def adjacency_list_from_json(
             name=name,
             kind=module["Type"],
             dirname=os.path.dirname(module["Blueprint"]),
+            num_deps=len(deps_names),
         ))
     module_info = name_to_info[name]
 
@@ -285,6 +319,7 @@ def adjacency_list_from_queryview_xml(
             name=module.name,
             kind=module.kind,
             dirname=module.dirname,
+            num_deps=len(deps_names),
         ))
     module_info = name_to_info[module.name]
 
@@ -356,10 +391,16 @@ def main():
       action="store_true",
       help="whether to run Soong in a banchan configuration rather than lunch",
   )
+  parser.add_argument(
+      "--proto-file",
+      help="Path to write proto output",
+  )
   args = parser.parse_args()
 
-  if len(args.module) > 1 and args.mode != "report":
+  if len(args.module) > 1 and args.mode == "graph":
     sys.exit(f"Can only support one module with mode {args.mode}")
+  if args.proto_file and args.mode == "graph":
+    sys.exit(f"Proto file only supported for report mode, not {args.mode}")
 
   mode = args.mode
   use_queryview = args.use_queryview
@@ -388,6 +429,8 @@ def main():
   if mode == "report":
     combined_data = combine_report_data(report_infos)
     generate_report(combined_data)
+    if args.proto_file:
+      generate_proto(combined_data, args.proto_file)
 
 
 if __name__ == "__main__":

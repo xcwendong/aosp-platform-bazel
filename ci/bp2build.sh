@@ -136,4 +136,7 @@ for m in "${BP2BUILD_PROGRESS_MODULES[@]}"; do
   tools/bazel run --config=bp2build --config=linux_x86_64 "${bp2build_progress_script}" -- graph  -m "${m}" --use-queryview > "${bp2build_progress_output_dir}/${m}_graph.dot"
 done
 
-tools/bazel run --config=bp2build --config=linux_x86_64 "${bp2build_progress_script}" -- report ${report_args} --use-queryview > "${bp2build_progress_output_dir}/progress_report.txt"
+tools/bazel run --config=bp2build --config=linux_x86_64 "${bp2build_progress_script}" -- \
+  report ${report_args} --use-queryview \
+  --proto-file=$( realpath "${bp2build_progress_output_dir}/bp2build-progress.pb") \
+  > "${bp2build_progress_output_dir}/progress_report.txt"
