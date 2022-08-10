@@ -38,8 +38,8 @@ py_binary(
 )
 
 py_binary(
-    name = "bp2build-module-dep-infos",
-    srcs = ["bp2build-module-dep-infos.py"],
+    name = "bp2build_module_dep_infos",
+    srcs = ["bp2build_module_dep_infos.py"],
     visibility = ["//visibility:public"],
     deps = [":dependency_analysis"],
 )

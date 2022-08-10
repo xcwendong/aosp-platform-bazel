@@ -110,14 +110,14 @@ def is_external_directory(package_name):
             return True
         secondary_path = paths[1]
         if secondary_path in ["google", "interfaces", "ril"]:
-            return True
-        return secondary_path.startswith("libhardware")
+            return False
+        return not secondary_path.startswith("libhardware")
     if package_name.startswith("vendor"):
         paths = package_name.split("/")
         if len(paths) < 2:
             return True
         secondary_path = paths[1]
-        return secondary_path.contains("google")
+        return "google" not in secondary_path
     return False
 
 # TODO: Move this to a common rule dir, instead of a cc rule dir. Nothing here

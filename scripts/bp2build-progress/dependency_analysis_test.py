@@ -20,12 +20,11 @@ import unittest
 import xml.etree.ElementTree as ElementTree
 
 
-def _make_json_dep(name, tag=None):
+def _make_json_dep(name, tag=None, variations=None):
   return {
       'Name': name,
       'Tag': tag,
-      # intentionally omits unused variations field
-      'Variations': None,
+      'Variations': variations,
   }
 
 
@@ -180,9 +179,10 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_json_module_graph_post_order_skips_windows_and_transitive(
       self):
+    windows_variation = _make_json_variation('os', 'windows')
     graph = [
         _make_json_module('a', 'module', [
-            _make_json_dep('b'),
+            _make_json_dep('b', variations=[windows_variation]),
             _make_json_dep('c'),
         ]),
         _make_json_module(
@@ -191,7 +191,7 @@ class DependencyAnalysisTest(unittest.TestCase):
             [
                 _make_json_dep('d'),
             ],
-            [_make_json_variation('os', 'windows')],
+            [windows_variation],
         ),
         _make_json_module('c', 'module', [
             _make_json_dep('e'),
@@ -248,9 +248,7 @@ class DependencyAnalysisTest(unittest.TestCase):
   def test_visit_json_module_graph_post_order_no_infinite_loop_for_self_dep(
       self):
     graph = [
-        _make_json_module('a', 'module', [
-            _make_json_dep('a'),
-        ]),
+        _make_json_module('a', 'module', [_make_json_dep('a')]),
     ]
 
     def only_a(json):
@@ -269,12 +267,22 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_json_module_graph_post_order_visits_all_variants(self):
     graph = [
-        _make_json_module('a', 'module', [
-            _make_json_dep('b'),
-        ]),
-        _make_json_module('a', 'module', [
-            _make_json_dep('c'),
-        ]),
+        _make_json_module(
+            'a',
+            'module',
+            [
+                _make_json_dep('b'),
+            ],
+            [_make_json_variation('m', '1')],
+        ),
+        _make_json_module(
+            'a',
+            'module',
+            [
+                _make_json_dep('c'),
+            ],
+            [_make_json_variation('m', '2')],
+        ),
         _make_json_module('b', 'module', [
             _make_json_dep('d'),
         ]),

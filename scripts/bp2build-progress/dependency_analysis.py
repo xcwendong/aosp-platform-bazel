@@ -15,14 +15,29 @@
 # limitations under the License.
 """Utility functions to produce module or module type dependency graphs using json-module-graph or queryview."""
 
+from typing import Set
 import collections
+import dataclasses
 import json
 import os
 import os.path
 import subprocess
 import sys
 import xml.etree.ElementTree
-from typing import Set
+
+
+@dataclasses.dataclass(frozen=True, order=True)
+class _ModuleKey:
+  """_ModuleKey uniquely identifies a module by name nad variations."""
+  name: str
+  variations: list
+
+  def __str__(self):
+    return f"{self.name}, {self.variations}"
+
+  def __hash__(self):
+    return (self.name + str(self.variations)).__hash__()
+
 
 # This list of module types are omitted from the report and graph
 # for brevity and simplicity. Presence in this list doesn't mean
@@ -128,44 +143,44 @@ def visit_json_module_graph_post_order(module_graph, ignore_by_name,
   ignored = set()
 
   # name to all module variants
-  module_graph_map = collections.defaultdict(list)
-  root_module_names = []
+  module_graph_map = {}
+  root_module_keys = []
 
   # Do a single pass to find all top-level modules to be ignored
   for module in module_graph:
     name = module["Name"]
-    if is_windows_variation(module):
+    key = _ModuleKey(name, module["Variations"])
+    if is_windows_variation(module) or ignore_kind(module["Type"]) or name in ignore_by_name:
+      ignored.add(key)
       continue
-    if ignore_kind(module["Type"]) or name in ignore_by_name:
-      ignored.add(name)
-      continue
-    module_graph_map[name].append(module)
+    module_graph_map[key] = module
     if filter_predicate(module):
-      root_module_names.append(name)
+      root_module_keys.append(key)
 
   visited = set()
 
-  def json_module_graph_post_traversal(module_name):
-    if module_name in ignored or module_name in visited:
+  def json_module_graph_post_traversal(module_key):
+    if module_key in ignored or module_key in visited:
       return
-    visited.add(module_name)
+    visited.add(module_key)
 
     deps = set()
-    for module in module_graph_map[module_name]:
-      for dep in module["Deps"]:
-        if ignore_json_dep(dep, module_name, ignored):
-          continue
+    module = module_graph_map[module_key]
+    for dep in module["Deps"]:
+      if ignore_json_dep(dep, module["Name"], ignored):
+        continue
 
-        dep_name = dep["Name"]
-        deps.add(dep_name)
+      dep_name = dep["Name"]
+      deps.add(dep_name)
+      dep_key = _ModuleKey(dep_name, dep["Variations"])
 
-        if dep_name not in visited:
-          json_module_graph_post_traversal(dep_name)
+      if dep_key not in visited:
+        json_module_graph_post_traversal(dep_key)
 
-      visit(module, deps)
+    visit(module, deps)
 
-  for module_name in root_module_names:
-    json_module_graph_post_traversal(module_name)
+  for module_key in root_module_keys:
+    json_module_graph_post_traversal(module_key)
 
 
 QueryviewModule = collections.namedtuple("QueryviewModule", [
@@ -288,9 +303,9 @@ def get_bp2build_converted_modules() -> Set[str]:
   _build_with_soong("bp2build")
   # Parse the list of converted module names from bp2build
   with open(
-      os.path.join(
-          SRC_ROOT_DIR,
-          "out/soong/soong_injection/metrics/converted_modules.txt"), 'r') as f:
+      os.path.join(SRC_ROOT_DIR,
+                   "out/soong/soong_injection/metrics/converted_modules.txt"),
+      "r") as f:
     # Read line by line, excluding comments.
     # Each line is a module name.
     ret = set(line.strip() for line in f if not line.strip().startswith("#"))
@@ -343,15 +358,15 @@ def is_prebuilt_to_source_dep(dep):
   return dep["Tag"] == "android.prebuiltDependencyTag {BaseDependencyTag:{}}"
 
 
-def ignore_json_dep(dep, module_name, ignored_names):
+def ignore_json_dep(dep, module_name, ignored_keys):
   """Whether to ignore a json dependency based on heuristics.
 
   Args:
     dep: dependency struct from an entry in Soogn's json-module-graph
     module_name: name of the module this is a dependency of
-    ignored_names: a set of names to ignore
+    ignored_names: a set of _ModuleKey to ignore
   """
   if is_prebuilt_to_source_dep(dep):
     return True
   name = dep["Name"]
-  return name in ignored_names or name == module_name
+  return _ModuleKey(name, dep["Variations"]) in ignored_keys or name == module_name

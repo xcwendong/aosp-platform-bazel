@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 load(":apex_key.bzl", "ApexKeyInfo")
+load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 load("//build/bazel/rules:sh_binary.bzl", "ShBinaryInfo")
 load("//build/bazel/rules/cc:stripped_cc_common.bzl", "StrippedCcBinaryInfo")
@@ -22,6 +23,7 @@ load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCerti
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition", "shared_lib_transition_32", "shared_lib_transition_64")
 load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "apex_cc_aspect")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@soong_injection//apex_toolchain:constants.bzl", "default_manifest_version")
 
@@ -45,21 +47,12 @@ def _create_file_mapping(ctx):
     files should have in the apex staging dir / filesystem image.
     """
 
-    # Dictionary mapping from the path of each dependency to it's path in the apex
+    # Dictionary mapping from the path of each dependency to its path in the apex
     file_mapping = {}
     requires = {}
     provides = {}
 
-    def _add_libs_32_target(key):
-        if len(ctx.split_attr.native_shared_libs_32.keys()) > 0:
-            _add_lib_file("lib", ctx.split_attr.native_shared_libs_32[key])
-
-    def _add_libs_64_target(key_32, key_64):
-        _add_libs_32_target(key_32)
-        if len(ctx.split_attr.native_shared_libs_64.keys()) > 0:
-            _add_lib_file("lib64", ctx.split_attr.native_shared_libs_64[key_64])
-
-    def _add_lib_file(dir, libs):
+    def _add_lib_files(dir, libs):
         for dep in libs:
             apex_cc_info = dep[ApexCcInfo]
             for lib in apex_cc_info.requires_native_libs.to_list():
@@ -69,19 +62,20 @@ def _create_file_mapping(ctx):
             for lib_file in apex_cc_info.transitive_shared_libs.to_list():
                 file_mapping[lib_file] = paths.join(dir, lib_file.basename)
 
-    x86_constraint = ctx.attr._x86_constraint[platform_common.ConstraintValueInfo]
-    x86_64_constraint = ctx.attr._x86_64_constraint[platform_common.ConstraintValueInfo]
-    arm_constraint = ctx.attr._arm_constraint[platform_common.ConstraintValueInfo]
-    arm64_constraint = ctx.attr._arm64_constraint[platform_common.ConstraintValueInfo]
+    # Ensure the split attribute dicts are non-empty
+    native_shared_libs_32 = dicts.add({"x86": [], "arm": []}, ctx.split_attr.native_shared_libs_32)
+    native_shared_libs_64 = dicts.add({"x86_64": [], "arm64": []}, ctx.split_attr.native_shared_libs_64)
 
-    if ctx.target_platform_has_constraint(x86_constraint):
-        _add_libs_32_target("x86")
-    elif ctx.target_platform_has_constraint(x86_64_constraint):
-        _add_libs_64_target("x86", "x86_64")
-    elif ctx.target_platform_has_constraint(arm_constraint):
-        _add_libs_32_target("arm")
-    elif ctx.target_platform_has_constraint(arm64_constraint):
-        _add_libs_64_target("arm", "arm64")
+    if platforms.is_target_x86(ctx.attr._platform_utils):
+        _add_lib_files("lib", native_shared_libs_32["x86"])
+    elif platforms.is_target_x86_64(ctx.attr._platform_utils):
+        _add_lib_files("lib", native_shared_libs_32["x86"])
+        _add_lib_files("lib64", native_shared_libs_64["x86_64"])
+    elif platforms.is_target_arm(ctx.attr._platform_utils):
+        _add_lib_files("lib", native_shared_libs_32["arm"])
+    elif platforms.is_target_arm64(ctx.attr._platform_utils):
+        _add_lib_files("lib", native_shared_libs_32["arm"])
+        _add_lib_files("lib64", native_shared_libs_64["arm64"])
 
     # Handle prebuilts
     for dep in ctx.attr.prebuilts:
@@ -493,17 +487,8 @@ _apex = rule(
             executable = True,
             default = "//build/make/tools/signapk",
         ),
-        "_x86_constraint": attr.label(
-            default = Label("//build/bazel/platforms/arch:x86"),
-        ),
-        "_x86_64_constraint": attr.label(
-            default = Label("//build/bazel/platforms/arch:x86_64"),
-        ),
-        "_arm_constraint": attr.label(
-            default = Label("//build/bazel/platforms/arch:arm"),
-        ),
-        "_arm64_constraint": attr.label(
-            default = Label("//build/bazel/platforms/arch:arm64"),
+        "_platform_utils": attr.label(
+            default = Label("//build/bazel/platforms:platform_utils"),
         ),
         "_apexer_verbose": attr.label(
             default = "//build/bazel/rules/apex:apexer_verbose",

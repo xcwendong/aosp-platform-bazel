@@ -2,6 +2,7 @@
 #
 # Set default target platform for builds to rely on product config's arch and os variables
 build --platforms //build/bazel/platforms:android_target
+build --platform_mappings=build/bazel/platforms/platform_mappings
 
 # Configs to group/simplify target platform specific flags.
 build:android_x86_64 --platforms=//build/bazel/platforms:android_x86_64
@@ -103,6 +104,7 @@ build --experimental_android_databinding_v2
 build --define=android_incremental_dexing_tool=d8_dexbuilder
 build --define=android_dexmerger_tool=d8_dexmerger
 build --nouse_workers_with_dexbuilder
+# TODO(b/240761789): This flag should be abandonned in favor of platform/toolchain resolution.
 build --fat_apk_cpu=k8
 
 # TODO(b/199038020): Use a python_toolchain when we have Starlark rules_python.

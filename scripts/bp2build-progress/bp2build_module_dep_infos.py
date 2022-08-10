@@ -40,13 +40,8 @@ _ModuleTypeInfo = collections.namedtuple(
         "type_to_properties",
         # [java modules only] list of source file extensions used by this module.
         "java_source_extensions",
-    ])
-
-_DependencyRelation = collections.namedtuple("_DependencyRelation", [
-    "transitive_dependency",
-    "top_level_module",
-])
-
+    ],
+)
 
 def _get_java_source_extensions(module):
   out = set()
@@ -127,6 +122,25 @@ def module_type_info_from_json(module_graph, module_type, ignored_dep_names):
   }
 
 
+def _write_output(file_handle, type_infos):
+  writer = csv.writer(file_handle)
+  writer.writerow([
+      "module name",
+      "properties",
+      "java source extensions",
+  ])
+  for module, module_type_info in type_infos.items():
+    writer.writerow([
+        module,
+        ("[\"%s\"]" % '"\n"'.join([
+            "%s: %s" % (mtype, ",".join(properties)) for mtype, properties in
+            module_type_info.type_to_properties.items()
+        ]) if len(module_type_info.type_to_properties) else "[]"),
+        ("[\"%s\"]" % '", "'.join(module_type_info.java_source_extensions)
+         if len(module_type_info.java_source_extensions) else "[]"),
+    ])
+
+
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("--module-type", "-m", help="name of Soong module type.")
@@ -143,24 +157,8 @@ def main():
   module_graph = dependency_analysis.get_json_module_type_info(module_type)
   type_infos = module_type_info_from_json(module_graph, module_type,
                                           ignore_by_name.split(","))
-  writer = csv.writer(sys.stdout)
-  writer.writerow([
-      "module name",
-      "properties",
-      "java source extensions",
-  ])
-  for module, module_type_info in sorted(type_infos.items()):
-    writer.writerow([
-        module,
-        ("[\"%s\"]" % '"\n"'.join([
-            "%s: %s" % (mtype, ",".join(sorted(properties))) for mtype,
-            properties in sorted(module_type_info.type_to_properties.items())
-        ]) if len(module_type_info.type_to_properties) else "[]"),
-        ("[\"%s\"]" %
-         '", "'.join(sorted(module_type_info.java_source_extensions))
-         if len(module_type_info.java_source_extensions) else "[]"),
-    ])
 
+  _write_output(sys.stdout, type_infos)
 
 if __name__ == "__main__":
   main()

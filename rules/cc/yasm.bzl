@@ -15,19 +15,17 @@ limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load(":cc_object.bzl", "CcObjectInfo", "cc_object")
+load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 
 """Build rule for converting `.asm` files to `.o` files with yasm."""
 
 def globalFlags(ctx):
-    x86 = ctx.target_platform_has_constraint(ctx.attr._x86_constraint[platform_common.ConstraintValueInfo])
-    x86_64 = ctx.target_platform_has_constraint(ctx.attr._x86_64_constraint[platform_common.ConstraintValueInfo])
-    arm = ctx.target_platform_has_constraint(ctx.attr._arm_constraint[platform_common.ConstraintValueInfo])
-    arm64 = ctx.target_platform_has_constraint(ctx.attr._arm64_constraint[platform_common.ConstraintValueInfo])
-    linux = (ctx.target_platform_has_constraint(ctx.attr._linux_constraint[platform_common.ConstraintValueInfo]) or
-             ctx.target_platform_has_constraint(ctx.attr._linux_musl_constraint[platform_common.ConstraintValueInfo]) or
-             ctx.target_platform_has_constraint(ctx.attr._linux_bionic_constraint[platform_common.ConstraintValueInfo]) or
-             ctx.target_platform_has_constraint(ctx.attr._android_constraint[platform_common.ConstraintValueInfo]))
-    darwin = ctx.target_platform_has_constraint(ctx.attr._darwin_constraint[platform_common.ConstraintValueInfo])
+    x86 = platforms.is_target_x86(ctx.attr._platform_utils)
+    x86_64 = platforms.is_target_x86_64(ctx.attr._platform_utils)
+    arm = platforms.is_target_arm(ctx.attr._platform_utils)
+    arm64 = platforms.is_target_arm64(ctx.attr._platform_utils)
+    linux = platforms.is_target_linux_or_android(ctx.attr._platform_utils)
+    darwin = platforms.is_target_darwin(ctx.attr._platform_utils)
 
     if linux and x86_64:
         return ["-f", "elf64", "-m", "amd64"]
@@ -84,32 +82,8 @@ _yasm = rule(
             executable = True,
             cfg = "exec",
         ),
-        "_x86_constraint": attr.label(
-            default = Label("//build/bazel/platforms/arch:x86"),
-        ),
-        "_x86_64_constraint": attr.label(
-            default = Label("//build/bazel/platforms/arch:x86_64"),
-        ),
-        "_arm_constraint": attr.label(
-            default = Label("//build/bazel/platforms/arch:arm"),
-        ),
-        "_arm64_constraint": attr.label(
-            default = Label("//build/bazel/platforms/arch:arm64"),
-        ),
-        "_android_constraint": attr.label(
-            default = Label("//build/bazel/platforms/os:android"),
-        ),
-        "_linux_constraint": attr.label(
-            default = Label("//build/bazel/platforms/os:linux"),
-        ),
-        "_linux_musl_constraint": attr.label(
-            default = Label("//build/bazel/platforms/os:linux_musl"),
-        ),
-        "_linux_bionic_constraint": attr.label(
-            default = Label("//build/bazel/platforms/os:linux_bionic"),
-        ),
-        "_darwin_constraint": attr.label(
-            default = Label("//build/bazel/platforms/os:darwin"),
+        "_platform_utils": attr.label(
+            default = Label("//build/bazel/platforms:platform_utils"),
         ),
     },
 )

@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("//build/bazel/platforms:rule_utilities.bzl", "ARCH_CONSTRAINT_ATTRS", "get_arch")
+load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 
 # This file contains the implementation for the cc_stub_library rule.
 #
@@ -39,10 +38,8 @@ def _cc_stub_gen_impl(ctx):
 
     outputs = [out_stub_c, out_stub_map, out_abi_symbol_list]
 
-    arch = get_arch(ctx)
-
     ndkstubgen_args = ctx.actions.args()
-    ndkstubgen_args.add_all(["--arch", arch])
+    ndkstubgen_args.add_all(["--arch", platforms.get_target_arch(ctx.attr._platform_utils)])
     ndkstubgen_args.add_all(["--api", ctx.attr.version])
     ndkstubgen_args.add_all(["--api-map", ctx.file._api_levels_file])
 
@@ -73,12 +70,13 @@ def _cc_stub_gen_impl(ctx):
 
 cc_stub_gen = rule(
     implementation = _cc_stub_gen_impl,
-    attrs = dicts.add({
+    attrs = {
         # Public attributes
         "symbol_file": attr.label(mandatory = True, allow_single_file = [".map.txt"]),
         "version": attr.string(mandatory = True, default = "current"),
         # Private attributes
         "_api_levels_file": attr.label(default = "@soong_injection//api_levels:api_levels.json", allow_single_file = True),
         "_ndkstubgen": attr.label(default = "//build/soong/cc/ndkstubgen", executable = True, cfg = "exec"),
-    }, ARCH_CONSTRAINT_ATTRS),
+        "_platform_utils": attr.label(default = Label("//build/bazel/platforms:platform_utils")),
+    },
 )
