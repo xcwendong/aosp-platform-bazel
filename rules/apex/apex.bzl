@@ -91,28 +91,24 @@ def _create_file_mapping(ctx):
         if ShBinaryInfo in dep:
             # sh_binary requires special handling on directory/filename construction.
             sh_binary_info = dep[ShBinaryInfo]
-            default_info = dep[DefaultInfo]
-            if sh_binary_info != None:
+            if sh_binary_info:
                 directory = "bin"
-                if sh_binary_info.sub_dir != None and sh_binary_info.sub_dir != "":
+                if sh_binary_info.sub_dir:
                     directory = paths.join("bin", sh_binary_info.sub_dir)
 
-                if sh_binary_info.filename != None and sh_binary_info.filename != "":
+                filename = dep.label.name
+                if sh_binary_info.filename:
                     filename = sh_binary_info.filename
-                else:
-                    filename = dep.label.name
 
-                file_mapping[default_info.files_to_run.executable] = paths.join(directory, filename)
+                file_mapping[dep[DefaultInfo].files_to_run.executable] = paths.join(directory, filename)
         elif ApexCcInfo in dep:
             # cc_binary just takes the final executable from the runfiles.
             file_mapping[dep[DefaultInfo].files_to_run.executable] = paths.join("bin", dep.label.name)
 
-            # a cc_binary's transitive closure can also contribute to the list of provided
-            # or required libs
-            for lib in dep[ApexCcInfo].requires_native_libs.to_list():
-                requires[lib] = True
-            for lib in dep[ApexCcInfo].provides_native_libs.to_list():
-                provides[lib] = True
+            if platforms.get_target_bitness(ctx.attr._platform_utils) == 64:
+                _add_lib_files("lib64", [dep])
+            else:
+                _add_lib_files("lib", [dep])
 
     return file_mapping, requires.keys(), provides.keys()
 

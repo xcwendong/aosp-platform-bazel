@@ -103,6 +103,16 @@ def _is_target_arm64(utils):
     """Returns if the target platform is arm64."""
     return _get_platform_info(utils).target_arm64_constraint
 
+def _get_target_bitness(utils):
+    """Returns 32 or 64 depending on the bitness of the target platform."""
+    platforminfo = _get_platform_info(utils)
+
+    if platforminfo.target_x86_constraint or platforminfo.target_arm_constraint:
+        return 32
+    elif platforminfo.target_x86_64_constraint or platforminfo.target_arm64_constraint:
+        return 64
+    fail("Unable to determine target bitness")
+
 def _get_target_arch(utils):
     """Returns 'x86', 'x86_64', 'arm', or 'arm64' depending on the target platform."""
     platforminfo = _get_platform_info(utils)
@@ -127,5 +137,6 @@ platforms = struct(
     is_target_x86_64 = _is_target_x86_64,
     is_target_arm = _is_target_arm,
     is_target_arm64 = _is_target_arm64,
+    get_target_bitness = _get_target_bitness,
     get_target_arch = _get_target_arch,
 )

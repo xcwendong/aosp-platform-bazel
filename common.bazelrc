@@ -89,6 +89,7 @@ common:ci --color=no
 common:ci --curses=no
 common:ci --show_progress_rate_limit=5
 common:ci --noshow_loading_progress
+build:ci --verbose_failures
 test:ci --keep_going
 test:ci --test_output=errors
 

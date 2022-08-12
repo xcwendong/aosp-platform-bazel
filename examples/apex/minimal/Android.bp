@@ -57,6 +57,23 @@ cc_library {
     min_sdk_version: "30",
 }
 
+cc_library {
+    name: "build.bazel.examples.apex.minimal_dummy_cc_lib_2",
+
+    srcs: ["dummy_cc_lib_2.cc"],
+
+    apex_available: [
+        "build.bazel.examples.apex.minimal",
+        "build.bazel.examples.apex.minimal_compressed",
+    ],
+
+    // Because the APEX sets this
+    product_specific: true,
+
+    // Because the APEX sets this
+    min_sdk_version: "30",
+}
+
 prebuilt_etc {
     name: "build.bazel.examples.apex.minimal_dummy_named_prebuilt_etc",
     src: "dummy_prebuilt_etc_data_1",
@@ -83,6 +100,8 @@ cc_binary {
         "build.bazel.examples.apex.minimal",
         "build.bazel.examples.apex.minimal_compressed"
     ],
+
+    shared_libs: ["build.bazel.examples.apex.minimal_dummy_cc_lib_2"],
 
     // Because the APEX sets these
     product_specific: true,

@@ -16,6 +16,7 @@ load("//build/bazel/rules:sh_binary.bzl", "sh_binary")
 load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
+load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load(":apex.bzl", "ApexInfo", "apex")
 load(":apex_key.bzl", "apex_key")
 load(":apex_test_helpers.bzl", "test_apex")
@@ -44,7 +45,8 @@ def _canned_fs_config_test(ctx):
 
         # Don't sort -- the order is significant.
         actual_entries = a.content.split("\n")
-        expected_entries = ctx.attr.expected_entries
+        replacement = "64" if platforms.get_target_bitness(ctx.attr._platform_utils) == 64 else ""
+        expected_entries = [x.replace("{64_OR_BLANK}", replacement) for x in ctx.attr.expected_entries]
         asserts.equals(env, expected_entries, actual_entries)
 
         break
@@ -59,6 +61,9 @@ canned_fs_config_test = analysistest.make(
     attrs = {
         "expected_entries": attr.string_list(
             doc = "Expected lines in the canned_fs_config.txt",
+        ),
+        "_platform_utils": attr.label(
+            default = Label("//build/bazel/platforms:platform_utils"),
         ),
     },
 )
@@ -110,9 +115,11 @@ def _test_canned_fs_config_binaries():
             "/ 1000 1000 0755",
             "/apex_manifest.json 1000 1000 0644",
             "/apex_manifest.pb 1000 1000 0644",
+            "/lib{64_OR_BLANK}/libc++.so 1000 1000 0644",
             "/bin/bin_cc 0 2000 0755",
             "/bin/bin_sh 0 2000 0755",
             "/bin 0 2000 0755",
+            "/lib{64_OR_BLANK} 0 2000 0755",
             "",  # ends with a newline
         ],
     )
