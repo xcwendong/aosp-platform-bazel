@@ -138,5 +138,5 @@ done
 
 tools/bazel run --config=bp2build --config=linux_x86_64 "${bp2build_progress_script}" -- \
   report ${report_args} --use-queryview \
-  --proto-file=$( realpath "${bp2build_progress_output_dir}/bp2build-progress.pb") \
+  --proto-file=$( realpath "${bp2build_progress_output_dir}" )"/bp2build-progress.pb" \
   > "${bp2build_progress_output_dir}/progress_report.txt"
