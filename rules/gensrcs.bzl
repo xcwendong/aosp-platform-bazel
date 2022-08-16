@@ -27,7 +27,7 @@ def _gensrcs_impl(ctx):
     ]
     command = command.replace(
         "$(GENDIR)",
-        ctx.var["GENDIR"]
+        ctx.var["GENDIR"],
     )
 
     out_files = []

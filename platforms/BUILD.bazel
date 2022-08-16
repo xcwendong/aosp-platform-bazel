@@ -20,8 +20,11 @@ load(
     "variant_constraints",
     "variant_name",
 )
+load(":platform_utils.bzl", "platform_utils")
 
 package(default_visibility = ["//visibility:public"])
+
+platform_utils(name = "platform_utils")
 
 product_variable_config(
     name = "android_target",

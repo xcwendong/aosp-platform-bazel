@@ -1,6 +1,7 @@
 load("//build/bazel/rules/apex:toolchain.bzl", "apex_toolchain")
-load("@bazel_skylib//rules:common_settings.bzl", "string_setting", "string_list_setting", "bool_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_list_setting", "string_setting")
 load(":apex_test.bzl", "apex_test_suite")
+load(":apex_aab_test.bzl", "apex_aab_test_suite")
 
 string_setting(
     name = "apex_name",
@@ -11,7 +12,7 @@ string_setting(
 config_setting(
     name = "non_apex",
     flag_values = {
-      ":apex_name": "",
+        ":apex_name": "",
     },
 )
 
@@ -32,17 +33,17 @@ toolchain_type(name = "apex_toolchain_type")
 apex_toolchain(
     name = "apex_toolchain",
     aapt2 = "//prebuilts/sdk/tools:linux/bin/aapt2",
-    avbtool = "//external/avb:avbtool",
-    apexer = "//system/apex/apexer",
-    mke2fs = "//external/e2fsprogs/misc:mke2fs",
-    resize2fs = "//external/e2fsprogs/resize:resize2fs",
-    e2fsdroid = "//external/e2fsprogs/contrib/android:e2fsdroid",
-    sefcontext_compile = "//external/selinux/libselinux:sefcontext_compile",
-    conv_apex_manifest = "//system/apex/apexer:conv_apex_manifest",
     android_jar = "//prebuilts/sdk/current:public/android.jar",
     apex_compression_tool = "//system/apex/tools:apex_compression_tool",
-    soong_zip = "//prebuilts/build-tools:linux-x86/bin/soong_zip",
+    apexer = "//system/apex/apexer",
+    avbtool = "//external/avb:avbtool",
+    conv_apex_manifest = "//system/apex/apexer:conv_apex_manifest",
+    e2fsdroid = "//external/e2fsprogs/contrib/android:e2fsdroid",
     jsonmodify = "//build/soong/scripts:jsonmodify",
+    mke2fs = "//external/e2fsprogs/misc:mke2fs",
+    resize2fs = "//external/e2fsprogs/resize:resize2fs",
+    sefcontext_compile = "//external/selinux/libselinux:sefcontext_compile",
+    soong_zip = "//prebuilts/build-tools:linux-x86/bin/soong_zip",
 )
 
 toolchain(
@@ -60,4 +61,8 @@ toolchain(
 
 apex_test_suite(
     name = "apex_tests",
+)
+
+apex_aab_test_suite(
+    name = "apex_aab_tests",
 )

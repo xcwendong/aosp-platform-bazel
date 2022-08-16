@@ -120,7 +120,6 @@ def _test_unset_output_extension():
     )
     return test_name
 
-
 TOOL_FILE_NAME = "out.sh"
 
 def _test_gensrcs_tool_builds_for_host_impl(ctx):
@@ -134,13 +133,13 @@ def _test_gensrcs_tool_builds_for_host_impl(ctx):
 
     input_map = {}
     for i in inputs:
-      input_map[i.basename] = i
+        input_map[i.basename] = i
     tool = input_map[TOOL_FILE_NAME]
     asserts.true(
         env,
         # because we set --experimental_platform_in_output_dir, we expect the
         # platform to be in the output path of a generated file
-        "darwin" in tool.path, # host platform
+        "darwin" in tool.path,  # host platform
         "expected 'darwin' in tool path, got '%s'" % tool.path,
     )
 
@@ -151,7 +150,7 @@ def _test_gensrcs_tool_builds_for_host_impl(ctx):
         env,
         # because we set --experimental_platform_in_output_dir, we expect the
         # platform to be in the output path of a generated file
-        "android_x86" in output.path, # target platform
+        "android_x86" in output.path,  # target platform
         "expected 'android_x86' in output path, got '%s'" % output.path,
     )
 

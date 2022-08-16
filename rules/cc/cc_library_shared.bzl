@@ -24,7 +24,7 @@ load(
 load(":cc_library_static.bzl", "cc_library_static")
 load(":cc_stub_library.bzl", "CcStubInfo", "cc_stub_gen")
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
-load(":stl.bzl", "shared_stl_deps")
+load(":stl.bzl", "stl_deps")
 load(":stripped_cc_common.bzl", "stripped_shared_library")
 load(":versioned_cc_common.bzl", "versioned_shared_library")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
@@ -100,6 +100,8 @@ def cc_library_shared(
             "-sdk_version_default",
         ]
 
+    stl = stl_deps(stl, True)
+
     # The static library at the root of the shared library.
     # This may be distinct from the static version of the library if e.g.
     # the static-variant srcs are different than the shared-variant srcs.
@@ -119,12 +121,12 @@ def cc_library_shared(
         local_includes = local_includes,
         absolute_includes = absolute_includes,
         rtti = rtti,
-        stl = stl,
+        stl = "none",
         cpp_std = cpp_std,
         c_std = c_std,
         dynamic_deps = dynamic_deps,
-        implementation_deps = implementation_deps,
-        implementation_dynamic_deps = implementation_dynamic_deps,
+        implementation_deps = implementation_deps + stl.static,
+        implementation_dynamic_deps = implementation_dynamic_deps + stl.shared,
         system_dynamic_deps = system_dynamic_deps,
         deps = deps + whole_archive_deps,
         features = features,
@@ -132,8 +134,6 @@ def cc_library_shared(
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
     )
-
-    stl_static, stl_shared = shared_stl_deps(stl)
 
     # implementation_deps and deps are to be linked into the shared library via
     # --no-whole-archive. In order to do so, they need to be dependencies of
@@ -144,7 +144,7 @@ def cc_library_shared(
     deps_stub = name + "_deps"
     native.cc_library(
         name = imp_deps_stub,
-        interface_deps = implementation_deps + stl_static + implementation_dynamic_deps + system_dynamic_deps + stl_shared,
+        interface_deps = implementation_deps + stl.static + implementation_dynamic_deps + system_dynamic_deps + stl.shared,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
     )
@@ -159,7 +159,7 @@ def cc_library_shared(
         dynamic_deps,
         system_dynamic_deps,
         implementation_dynamic_deps,
-        stl_shared,
+        stl.shared,
     )
 
     if len(soname) == 0:
@@ -271,21 +271,21 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, target_compatible_w
     cc_library_static(
         name = name + "_root",
         srcs_c = [name + "_files"],  # compile the stub.c file
-        features = disable_crt_link(features) + \
-            [
-                # Enable the stub library compile flags
-                "stub_library",
-                # Disable all include-related features to avoid including any headers
-                # that may cause conflicting type errors with the symbols in the
-                # generated stubs source code.
-                #  e.g.
-                #  double acos(double); // in header
-                #  void acos() {} // in the generated source code
-                # See https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=942-946;drc=d8a72d7dc91b2122b7b10b47b80cf2f7c65f9049
-                "-toolchain_include_directories",
-                "-includes",
-                "-include_paths",
-            ],
+        features = disable_crt_link(features) +
+                   [
+                       # Enable the stub library compile flags
+                       "stub_library",
+                       # Disable all include-related features to avoid including any headers
+                       # that may cause conflicting type errors with the symbols in the
+                       # generated stubs source code.
+                       #  e.g.
+                       #  double acos(double); // in header
+                       #  void acos() {} // in the generated source code
+                       # See https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=942-946;drc=d8a72d7dc91b2122b7b10b47b80cf2f7c65f9049
+                       "-toolchain_include_directories",
+                       "-includes",
+                       "-include_paths",
+                   ],
         target_compatible_with = target_compatible_with,
         stl = "none",
         system_dynamic_deps = [],

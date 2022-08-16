@@ -73,7 +73,6 @@ def _apex_cc_aspect_impl(target, ctx):
     # and libs that this APEX will provide to others.
     is_direct_dep = is_apex_direct_dep(target, ctx)
 
-    requires = []
     provides = []
 
     if has_cc_stubs(target, ctx):
@@ -87,11 +86,10 @@ def _apex_cc_aspect_impl(target, ctx):
             # propagate the libraries. Mark this target as required from the
             # system either via the system partition, or another APEX, and
             # propagate this list.
-            requires += [target.label]
             return [
                 ApexCcInfo(
                     transitive_shared_libs = depset(),
-                    requires_native_libs = depset(direct = requires),
+                    requires_native_libs = depset(direct = [target.label]),
                     provides_native_libs = depset(direct = provides),
                 ),
             ]
@@ -130,7 +128,7 @@ def _apex_cc_aspect_impl(target, ctx):
                 transitive = [dep[ApexCcInfo].transitive_shared_libs for dep in transitive_deps],
             ),
             requires_native_libs = depset(
-                requires,
+                [],
                 transitive = [dep[ApexCcInfo].requires_native_libs for dep in transitive_deps],
             ),
             provides_native_libs = depset(

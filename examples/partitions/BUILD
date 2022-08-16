@@ -1,4 +1,5 @@
 load("//build/bazel/rules/partitions:partition.bzl", "partition")
+
 package(default_visibility = ["//visibility:public"])
 
 partition(

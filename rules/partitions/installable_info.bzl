@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 load("//build/bazel/rules/apex:apex.bzl", "ApexInfo")
 
 InstallableInfo = provider(
@@ -33,7 +34,7 @@ def _installable_aspect_impl(target, ctx):
 
     return [
         InstallableInfo(
-            files = installed_files
+            files = installed_files,
         ),
     ]
 

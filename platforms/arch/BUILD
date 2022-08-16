@@ -25,5 +25,5 @@ constraint_value(
 # correctly with --tool_java_runtime_version=local_jdk and the checked-in JDK.
 alias(
     name = "x86_64",
-    actual = "@platforms//cpu:x86_64"
+    actual = "@platforms//cpu:x86_64",
 )

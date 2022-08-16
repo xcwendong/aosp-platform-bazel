@@ -1,11 +1,11 @@
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 
 def apex_diff_test(
-    name,
-    apex1,
-    apex2,
-    target_compatible_with = None,
-    expected_diff = None):
+        name,
+        apex1,
+        apex2,
+        target_compatible_with = None,
+        expected_diff = None):
     """A test that compares the content list of two APEXes, determined by `deapexer`."""
 
     native.genrule(

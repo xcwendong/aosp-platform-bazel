@@ -38,7 +38,8 @@ android_library(
     manifest = "AndroidManifest.xml",
     resource_files = glob(["res/**"]),
     deps = [
-        ":jni",
+        # TODO(b/240555494): re-enable JNI when it is supported
+        # ":jni",
         ":lib",
     ],
 )

@@ -33,7 +33,6 @@ def _cc_proto_sources_gen_rule_impl(ctx):
         if ctx.attr.out_format:
             out_flags.append(ctx.attr.out_format)
 
-
     srcs = []
     hdrs = []
     includes = []

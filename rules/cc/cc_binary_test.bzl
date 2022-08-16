@@ -37,11 +37,12 @@ def _cc_binary_strip_test(ctx):
         )
 
         strip_action = filtered_actions[0]
+
         # Extract these flags from strip_action (for example):
         # build/soong/scripts/strip.sh --keep-symbols --add-gnu-debuglink -i <in> -o <out> -d <out>.d
         #                              ^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^
         flag_start_idx = 1  # starts after the strip.sh executable
-        flag_end_idx = strip_action.argv.index("-i") # end of the flags
+        flag_end_idx = strip_action.argv.index("-i")  # end of the flags
         asserts.equals(
             env,
             strip_action.argv[flag_start_idx:flag_end_idx],

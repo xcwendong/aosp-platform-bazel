@@ -15,16 +15,47 @@
 # limitations under the License.
 """A tool to print human-readable metrics information regarding the last build.
 
-It is assumed that this is run from bazel/scripts. By default, the consumed file
-will be out/soong_build_metrics.pb. You may pass in a different file instead
-using the build_metrics_file flag.
+By default, the consumed file will be $OUT_DIR/soong_build_metrics.pb. You may pass
+in a different file instead using the metrics_file flag.
 """
+
+
 import argparse
 import json
 import os
 import subprocess
+import sys
 
-from typing import Dict
+
+class Event(object):
+  """Contains nested event data.
+
+  Fields:
+    name: The short name of this event e.g. the 'b' in an event called a.b.
+    children: Nested events
+    start_time_relative_ns: Time since the epoch that the event started
+    duration_ns: Duration of this event, including time spent in children.
+  """
+  def __init__(self, name):
+    self.name = name
+    self.children = list()
+    self.start_time_relative_ns = 0
+    self.duration_ns = 0
+
+  def get_child(self, name):
+    "Get a child called 'name' or return None"
+    for child in self.children:
+      if child.name == name:
+        return child
+    return None
+
+  def get_or_add_child(self, name):
+    "Get a child called 'name', or if it isn't there, add it and return it."
+    child = self.get_child(name)
+    if not child:
+      child = Event(name)
+      self.children.append(child)
+    return child
 
 
 def _get_proto_output_file():
@@ -32,96 +63,108 @@ def _get_proto_output_file():
 
   This corresponds to soong/ui/metrics/metrics_proto/metrics.proto.
   """
-  return os.getenv('ANDROID_BUILD_TOP') + '/build/soong/ui/metrics/metrics_proto/metrics.proto'
+  return os.getenv("ANDROID_BUILD_TOP") + "/build/soong/ui/metrics/metrics_proto/metrics.proto"
 
 
 def _get_default_output_file():
   """Returns the filepath for the build output."""
-  return os.getenv('ANDROID_BUILD_TOP') + '/out/soong_build_metrics.pb'
+  out_dir = os.getenv("OUT_DIR")
+  if not out_dir:
+    out_dir = "out"
+  return os.path.join(os.getenv("ANDROID_BUILD_TOP"), out_dir, "soong_build_metrics.pb")
 
 
-def _add_subdicts_to_output(runtime_dict, event):
-  """Adds nested events to a dict as appropriate.
+def _make_nested_events(root_event, event):
+  """Splits the event into its '.' separated name parts, and adds Event objects for it to the
+  synthetic root_event event."""
+  node = root_event
+  for sub_event in event["description"].split("."):
+    node = node.get_or_add_child(sub_event)
+  node.start_time_relative_ns = event["start_time_relative_ns"]
+  node.duration_ns = event["real_time"]
 
-  Nested events will receive their own nested dicts inside the passed dict, e.g.:
-  'alpha.bravo.charlie = 2' -> runtime_dict['alpha']['bravo']['charlie'] = 2
+
+def _write_events(out, events, indent=""):
+  """Writes the list of events.
+
+  Args:
+    out: The stream to write to
+    events: The list of events to write
+    indent: Prefix for indentation
   """
-  sub_events = event['description'].split('.')
-
-  last_dict = None
-  last_parent_dict = runtime_dict
-
-  for sub_event in sub_events:
-    last_dict = last_parent_dict[sub_event] if sub_event in last_parent_dict else dict()
-    last_parent_dict[sub_event] = last_dict
-    last_parent_dict = last_dict
-
-  time_in_seconds = event['real_time'] / 1_000_000_000
-  last_dict[''] = f'{time_in_seconds}s'
+  for event in events:
+    _write_event(out, event, indent)
 
 
-def _get_formatted_output(event, cumulative_output, indent_str, separator):
-  """Populates the given list with the output strings relevant for the given event.
+def _write_event(out, event, indent=""):
+  "Writes an event. See _write_events for args."
+  out.write("%(start)9s  %(duration)9s  %(indent)s%(name)s\n" % {
+        "start": _format_ns(event.start_time_relative_ns),
+        "duration": _format_ns(event.duration_ns),
+        "indent": indent,
+        "name": event.name,
+      })
+  _write_events(out, event.children, indent + "  ")
 
-  The event parameter contains the (presumably) nested dicts of top-level and
-  sub-events that will be organized as such in output. cumulative_output will
-  be modified to add in the nested details.
-  If calling this with an empty cumulative_output, indent_str and separator
-  should both be blank. The indentation will increase by one tab per nested
-  level.
-  """
-  for key, item in event.items():
-    if isinstance(item, Dict):
-      # Recurse through the sub-level
-      event_time = '{:.2f}'.format(float(item[''][0:-1]))
-      cumulative_output.append(f'{separator}{indent_str}{key}: {event_time}s')
-      _get_formatted_output(item, cumulative_output, indent_str+'\t', '\n')
-    elif key != '':
-      event_time = '{:.2f}'.format(float(item[0:-1]))
-      cumulative_output.append(f'{separator}{indent_str}{key}: {event_time}s\n')
-    separator = '\n'
+
+def _format_ns(duration_ns):
+  "Pretty print duration in nanoseconds"
+  return "%.02fs" % (duration_ns / 1_000_000_000)
 
 
 def main():
-  parser = argparse.ArgumentParser(description='')
-  parser.add_argument('metrics_file', nargs='?',
+  # Parse args
+  parser = argparse.ArgumentParser(description="")
+  parser.add_argument("metrics_file", nargs="?",
                       default=_get_default_output_file(),
-                      help='The soong_metrics file created as part of the last build. ' +
-                      'Defaults to out/soong_build_metrics.pb')
+                      help="The soong_metrics file created as part of the last build. " +
+                      "Defaults to out/soong_build_metrics.pb")
   args = parser.parse_args()
 
+  # Check the metrics file
   metrics_file = args.metrics_file
   if not os.path.exists(metrics_file):
-    raise Exception('File ' + metrics_file + ' not found. Did you run a build?')
+    raise Exception("File " + metrics_file + " not found. Did you run a build?")
 
+  # Check the proto definition file
   proto_file = _get_proto_output_file()
-
   if not os.path.exists(proto_file):
-    raise Exception('$ANDROID_BUILD_TOP not found in environment. Have you run lunch?')
+    raise Exception("$ANDROID_BUILD_TOP not found in environment. Have you run lunch?")
 
-  json_out = subprocess.check_output([r"""printproto --proto2 --raw_protocol_buffer --json --json_accuracy_loss_reaction=ignore \
-                                      --message=soong_build_metrics.SoongBuildMetrics --multiline \
-                                      --proto=""" + proto_file + ' ' + metrics_file
-                                      ], shell=True)
-  # output is a dict of dicts, containing nested events and eventually their real_time values
-  # output["alpha"]["one"]["cat"] is the runtime (in seconds) of event alpha.one.cat.
-  output = dict()
-
+  # Load the metrics file from the out dir
+  cmd = r"""printproto --proto2 --raw_protocol_buffer --json \
+              --json_accuracy_loss_reaction=ignore \
+              --message=soong_build_metrics.SoongBuildMetrics --multiline \
+              --proto=""" + proto_file + " " + metrics_file
+  json_out = subprocess.check_output(cmd, shell=True)
   build_output = json.loads(json_out)
 
-  events = build_output['events']
-  for event in events:
-    _add_subdicts_to_output(output, event)
+  # Bail if there are no events
+  raw_events = build_output.get("events")
+  if not raw_events:
+    print("No events to display")
+    return
 
-  total = 0
+  # Update the start times to be based on the first event
+  first_time_ns = min([event["start_time"] for event in raw_events])
+  for event in raw_events:
+    event["start_time_relative_ns"] = event["start_time"] - first_time_ns
 
-  formatted_output = []
-  _get_formatted_output(output, formatted_output, '', '')
-  for _, event_dict in output.items():
-    total += float(event_dict[''][0:-1])
-  print(''.join(formatted_output))
-  print('Total: ', '{:.2f}'.format(total) + 's')
+  # Sort by start time so the nesting also is sorted by time
+  raw_events.sort(key=lambda x: x["start_time_relative_ns"])
+
+  # We don't show this event, so that there doesn't have to be a single top level event
+  fake_root_event = Event("<root>")
+
+  # Convert the flat event list into the tree
+  for event in raw_events:
+    _make_nested_events(fake_root_event, event)
+
+  # Output the results
+  print("    start   duration")
+
+  _write_events(sys.stdout, fake_root_event.children)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   main()

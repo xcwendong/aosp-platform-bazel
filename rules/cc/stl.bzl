@@ -22,8 +22,6 @@ load("//build/bazel/product_variables:constants.bzl", "constants")
 _libcpp_stl_names = {
     "libc++": True,
     "libc++_static": True,
-    "c++_shared": True,
-    "c++_static": True,
     "": True,
     "system": True,
 }
@@ -45,27 +43,32 @@ _static_binary_deps = select({
     "//conditions:default": [],
 })
 
-def static_stl_deps(stl_name):
-    # TODO(b/201079053): Handle useSdk, windows, fuschia, preferably with selects.
-    if stl_name in _libcpp_stl_names:
-        return ["//external/libcxx:libc++_static"] + _common_static_deps
-    elif stl_name == "none":
-        return []
-    else:
-        fail("Unhandled stl %s" % stl_name)
-
-def static_binary_stl_deps(stl_name):
-    base = static_stl_deps(stl_name)
+def stl_deps(stl_name, is_shared, is_binary = False):
     if stl_name == "none":
-        return base
-    else:
-        return base + _static_binary_deps
-
-def shared_stl_deps(stl_name):
-    # TODO(b/201079053): Handle useSdk, windows, fuschia, preferably with selects.
-    if stl_name in _libcpp_stl_names:
-        return (_common_static_deps, ["//external/libcxx:libc++"])
-    elif stl_name == "none":
-        return ([], [])
-    else:
+        return struct(static = [], shared = [])
+    if stl_name not in _libcpp_stl_names:
         fail("Unhandled stl %s" % stl_name)
+    if stl_name in ("", "system"):
+        if is_shared:
+            stl_name = "libc++"
+        else:
+            stl_name = "libc++_static"
+
+    shared, static = [], []
+    if stl_name == "libc++":
+        static, shared = _shared_stl_deps(stl_name)
+    elif stl_name == "libc++_static":
+        static = _static_stl_deps(stl_name)
+    if is_binary:
+        static += _static_binary_deps
+    return struct(
+        static = static,
+        shared = shared,
+    )
+
+def _static_stl_deps(stl_name):
+    # TODO(b/201079053): Handle useSdk, windows, preferably with selects.
+    return ["//external/libcxx:libc++_static"] + _common_static_deps
+
+def _shared_stl_deps(stl_name):
+    return (_common_static_deps, ["//external/libcxx:libc++"])

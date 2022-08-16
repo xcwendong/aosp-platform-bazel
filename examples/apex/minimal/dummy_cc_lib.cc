@@ -1,9 +1,5 @@
-int main(int argc, char** argv) {
-  // Unused
-  (void)argc;
+#include <iostream>
 
-  // Unused
-  (void)argv;
-
-  return 0;
+void shared_lib_func(const char* name) {
+  std::cout << "Hello from shared_lib_func, " << name << std::endl;
 }

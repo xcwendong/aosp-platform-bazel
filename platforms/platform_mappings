@@ -1,0 +1,3 @@
+flags:
+  --cpu=k8
+    //build/bazel/platforms:android_target

@@ -14,19 +14,19 @@
 
 def _make_vars_to_starlark(txt):
     lines = []
-    for l in txt.split('\n'):
+    for l in txt.split("\n"):
         l = l.strip()
-        if not l or l.startswith('$'):
+        if not l or l.startswith("$"):
             continue
-        parts = l.split(':=', 1)
+        parts = l.split(":=", 1)
         parts[0] = parts[0].strip().replace('"', '\\"')
         parts[1] = parts[1].strip().replace('"', '\\"')
         lines.append(parts)
 
-    return '''product_config = {
+    return """product_config = {
     %s
 }
-''' % "\n    ".join(['"'+x[0]+'": "'+x[1]+'",' for x in lines])
+""" % "\n    ".join(['"' + x[0] + '": "' + x[1] + '",' for x in lines])
 
 def _impl(rctx):
     workspace_root = str(rctx.path(Label("//:WORKSPACE")).dirname)
@@ -34,38 +34,37 @@ def _impl(rctx):
 
     res = rctx.execute(["mkdir", str(output_file.dirname)])
     if res.return_code != 0:
-        fail("mkdir "+str(output_file.dirname)+" failed to run\n"+res.stderr)
+        fail("mkdir " + str(output_file.dirname) + " failed to run\n" + res.stderr)
 
     res = rctx.execute([
-        'prebuilts/build-tools/linux-x86/bin/ckati',
-        '-f',
-        'build/make/core/config.mk'
-    ], environment={
+        "prebuilts/build-tools/linux-x86/bin/ckati",
+        "-f",
+        "build/make/core/config.mk",
+    ], environment = {
         "OUT_DIR": str(rctx.path("out")),
         "TMPDIR": str(rctx.path("tmp")),
         "BUILD_DATETIME_FILE": str(rctx.path("out/build_date.txt")),
-        "CALLED_FROM_SETUP": 'true',
+        "CALLED_FROM_SETUP": "true",
         "TARGET_PRODUCT": rctx.os.environ.get("TARGET_PRODUCT", "aosp_arm"),
         "TARGET_BUILD_VARIANT": rctx.os.environ.get("TARGET_BUILD_VARIANT", "eng"),
         "RBC_DUMP_CONFIG_FILE": str(output_file),
     }, working_directory = workspace_root)
     if res.return_code != 0:
-        fail("ckati -f config.mk failed to run\n"+res.stderr)
+        fail("ckati -f config.mk failed to run\n" + res.stderr)
 
     res = rctx.execute(["cat", str(output_file)])
     if res.return_code != 0:
-        fail("cat "+str(output_file)+" failed to run\n"+res.stderr)
+        fail("cat " + str(output_file) + " failed to run\n" + res.stderr)
 
-
-    rctx.file("product_config.bzl", _make_vars_to_starlark(res.stdout), executable=False)
+    rctx.file("product_config.bzl", _make_vars_to_starlark(res.stdout), executable = False)
     exports_files = ("""exports_files([
     %s
 ])
 """ % ",\n    ".join(["\"product_config.bzl\""]))
-    rctx.file("BUILD", exports_files, executable=False)
+    rctx.file("BUILD", exports_files, executable = False)
 
 product_config = repository_rule(
-    implementation=_impl,
-    local=True,
-    environ=["TARGET_PRODUCT", "TARGET_BUILD_VARIANT"],
+    implementation = _impl,
+    local = True,
+    environ = ["TARGET_PRODUCT", "TARGET_BUILD_VARIANT"],
 )

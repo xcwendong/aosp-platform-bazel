@@ -14,6 +14,7 @@ limitations under the License.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("//build/bazel/rules/test_common:args.bzl", "check_arg_value")
 load(":flex.bzl", "genlex")
 
 ROOT_PATH = "build/bazel/rules/cc/"
@@ -187,33 +188,25 @@ def _test_multiple_files_correct_type():
     )
     return test_name
 
+def _output_arg_validation_func(env, arg_name, actual_arg):
+    expected_value = "%s%s" % (ROOT_PATH, "foo.c")
+    asserts.true(
+        env,
+        actual_arg.endswith(expected_value),
+        "Expected value %s for arg %s but got %s for target foo" % (
+            expected_value,
+            arg_name,
+            actual_arg,
+        ),
+    )
+
 def _output_arg_test_impl(ctx):
     env = analysistest.begin(ctx)
 
     actions = analysistest.target_actions(env)
     actual_list = actions[0].argv
-    expected_name = "-o"
-    expected_value = "%s%s" % (ROOT_PATH, "foo.c")
 
-    found_arg = False
-    for i in range(len(actual_list))[1:]:
-        if actual_list[i] == expected_name:
-            asserts.true(
-                env,
-                actual_list[i + 1].endswith(expected_value),
-                "Expected value %s for arg %s but got %s for target foo" % (
-                    expected_value,
-                    expected_name,
-                    actual_list[i + 1],
-                ),
-            )
-            found_arg = True
-    asserts.true(
-        env,
-        found_arg,
-        ("%s argument not found in command for target foo. Actual list: " +
-         "%s") % (expected_name, actual_list),
-    )
+    check_arg_value(env, actual_list, "-o", _output_arg_validation_func)
 
     return analysistest.end(env)
 

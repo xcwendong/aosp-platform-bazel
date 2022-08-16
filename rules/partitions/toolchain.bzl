@@ -34,7 +34,7 @@ def _partition_toolchain_impl(ctx):
 partition_toolchain = rule(
     implementation = _partition_toolchain_impl,
     attrs = {
-        "build_image": attr.label(allow_single_file = True, cfg = "host", executable = True, mandatory = True),
-        "mkuserimg_mke2fs": attr.label(allow_single_file = True, cfg = "host", executable = True, mandatory = True),
+        "build_image": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
+        "mkuserimg_mke2fs": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
     },
 )

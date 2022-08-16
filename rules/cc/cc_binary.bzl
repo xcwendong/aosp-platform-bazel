@@ -22,7 +22,7 @@ load(
     "system_static_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
-load(":stl.bzl", "shared_stl_deps", "static_binary_stl_deps")
+load(":stl.bzl", "stl_deps")
 load(":stripped_cc_common.bzl", "stripped_binary")
 load(":versioned_cc_common.bzl", "versioned_binary")
 
@@ -93,12 +93,7 @@ def cc_binary(
     else:
         system_static_deps = system_deps
 
-    stl_static, stl_shared = [], []
-
-    if linkshared:
-        stl_static, stl_shared = shared_stl_deps(stl)
-    else:
-        stl_static = static_binary_stl_deps(stl)
+    stl = stl_deps(stl, linkshared, is_binary = True)
 
     # The static library at the root of the shared library.
     # This may be distinct from the static version of the library if e.g.
@@ -112,15 +107,16 @@ def cc_binary(
         copts = copts,
         cpp_std = cpp_std,
         cppflags = cppflags,
-        deps = deps + whole_archive_deps + stl_static + system_static_deps,
-        dynamic_deps = dynamic_deps,
+        deps = deps + stl.static + system_static_deps,
+        whole_archive_deps = whole_archive_deps,
+        dynamic_deps = dynamic_deps + stl.shared,
         features = toolchain_features,
         local_includes = local_includes,
         rtti = rtti,
         srcs = srcs,
         srcs_as = srcs_as,
         srcs_c = srcs_c,
-        stl = stl,
+        stl = "none",
         system_dynamic_deps = system_dynamic_deps,
         target_compatible_with = target_compatible_with,
         use_version_lib = use_version_lib,
@@ -130,12 +126,12 @@ def cc_binary(
     binary_dynamic_deps = add_lists_defaulting_to_none(
         dynamic_deps,
         system_dynamic_deps,
-        stl_shared,
+        stl.shared,
     )
 
     native.cc_binary(
         name = unstripped_name,
-        deps = [root_name] + deps + system_static_deps + stl_static,
+        deps = [root_name] + deps + system_static_deps + stl.static,
         dynamic_deps = binary_dynamic_deps,
         features = toolchain_features,
         linkopts = linkopts,
@@ -158,6 +154,5 @@ def cc_binary(
         src = versioned_name,
         target_compatible_with = target_compatible_with,
         tags = tags,
-        **strip,
+        **strip
     )
-

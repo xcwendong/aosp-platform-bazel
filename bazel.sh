@@ -129,10 +129,21 @@ build --action_env=PATH=${RESTRICTED_PATH}
 EOF
 }
 
+# Return 1 if STANDALONE_BAZEL is truthy
+function is_standalone_bazel() {
+    [[ ${STANDALONE_BAZEL} =~ ^(true|TRUE|1)$ ]]
+}
+
 case "x${ANDROID_BAZELRC_PATH}" in
     x)
-        # Path not provided, use default.
+      # Path not provided, use default.
+      if is_standalone_bazel; then
+        # Standalone bazel uses the empty /dev/null bazelrc
+        # This is necessary since some configs in common.bazelrc depend on soong_injection
+        ANDROID_BAZELRC_PATH=/dev/null
+      else
         ANDROID_BAZELRC_PATH="${TOP}/build/bazel"
+      fi
         ;;
     x/*)
         # Absolute path, take it as-is.
@@ -157,7 +168,7 @@ else
     exit 1
 fi
 
-if [ -n "$ANDROID_BAZELRC_PATH" -a -f "$ANDROID_BAZELRC_PATH" ]; then
+if [ "$ANDROID_BAZELRC_PATH" == "/dev/null" ] || [ -n "$ANDROID_BAZELRC_PATH" -a -f "$ANDROID_BAZELRC_PATH" ]; then
     export ANDROID_BAZELRC_PATH
 else
     >&2 echo "Couldn't locate bazelrc file for Bazel"
@@ -175,7 +186,7 @@ fi
 mkdir -p "${ABSOLUTE_OUT_DIR}/bazel/javatmp"
 
 ADDITIONAL_FLAGS=()
-if  [[ "${STANDALONE_BAZEL}" =~ ^(true|TRUE|1)$ ]]; then
+if  is_standalone_bazel; then
     # STANDALONE_BAZEL is set.
     >&2 echo "WARNING: Using Bazel in standalone mode. This mode is not integrated with Soong and Make, and is not supported"
     >&2 echo "for Android Platform builds. Use this mode at your own risk."

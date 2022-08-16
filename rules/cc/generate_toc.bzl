@@ -64,13 +64,13 @@ shared_library_toc = rule(
             mandatory = True,
         ),
         "_toc_script": attr.label(
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_single_file = True,
             default = "//build/soong/scripts:toc.sh",
         ),
         "_readelf": attr.label(
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_single_file = True,
             default = "//prebuilts/clang/host/linux-x86:llvm-readelf",

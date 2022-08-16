@@ -1,15 +1,15 @@
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 
 def image_contents_test(
-    name,
-    image,
-    path,
-    expected,
-    target_compatible_with = None,
-    expected_diff = None):
+        name,
+        image,
+        path,
+        expected,
+        target_compatible_with = None,
+        expected_diff = None):
     """A test that extracts a file from a disk image file, and then asserts that it's identical to some other file."""
 
-    extracted_path = name + path.replace('/', '_') + "_extracted.bin"
+    extracted_path = name + path.replace("/", "_") + "_extracted.bin"
 
     native.genrule(
         name = name + "_extracted",

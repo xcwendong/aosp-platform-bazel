@@ -5,8 +5,8 @@ load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 copy_to_dist_dir(
     name = "mainline_modules",
     data = [
-        "//system/timezone/apex:com.android.tzdata.apex",
         "//packages/modules/adb/apex:com.android.adbd.apex",
+        "//system/timezone/apex:com.android.tzdata.apex",
     ],
     flat = True,
 )

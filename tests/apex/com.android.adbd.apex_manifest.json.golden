@@ -1,7 +1,6 @@
 {
   "name": "com.android.adbd",
   "version": "339990000",
-  "versionName": "339990000",
   "provideNativeLibs": [
     "libadb_pairing_auth.so",
     "libadb_pairing_connection.so",

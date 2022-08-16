@@ -18,10 +18,11 @@ load(
     ":cc_library_common.bzl",
     "get_includes_paths",
     "is_external_directory",
+    "parse_sdk_version",
     "system_dynamic_deps_defaults",
-    "parse_sdk_version")
+)
 load(":cc_constants.bzl", "constants")
-load(":stl.bzl", "static_stl_deps")
+load(":stl.bzl", "stl_deps")
 
 # "cc_object" module copts, taken from build/soong/cc/object.go
 _CC_OBJECT_COPTS = ["-fno-addrsig"]
@@ -73,6 +74,9 @@ def _cc_object_impl(ctx):
     if is_external_directory(ctx.label.package):
         extra_disabled_features.append("non_external_compiler_flags")
         extra_features.append("external_compiler_flags")
+    else:
+        extra_features.append("non_external_compiler_flags")
+        extra_disabled_features.append("external_compiler_flags")
 
     if ctx.attr.min_sdk_version:
         extra_disabled_features.append("sdk_version_default")
@@ -205,6 +209,8 @@ def cc_object(
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
 
+    stl = stl_deps(stl, False)
+
     _cc_object(
         name = name,
         hdrs = hdrs,
@@ -212,7 +218,7 @@ def cc_object(
         copts = _CC_OBJECT_COPTS + copts,
         srcs = srcs + srcs_as,
         deps = deps,
-        includes_deps = static_stl_deps(stl) + system_dynamic_deps,
+        includes_deps = stl.static + stl.shared + system_dynamic_deps,
         sdk_version = sdk_version,
         min_sdk_version = min_sdk_version,
         **kwargs

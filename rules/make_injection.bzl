@@ -44,7 +44,7 @@ def _impl(rctx):
             "TOP": str(build_dir.dirname.dirname.dirname),
         },
         quiet = False,  # stream stdout so it shows progress
-        timeout = 3600, # default of 600 seconds is not sufficient
+        timeout = 3600,  # default of 600 seconds is not sufficient
     )
     if exec_result.return_code != 0:
         fail(exec_result.stderr)

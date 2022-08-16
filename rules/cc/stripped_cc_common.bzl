@@ -47,11 +47,11 @@ def get_strip_args(attrs):
 def _stripped_impl(ctx, prefix = "", extension = ""):
     out_file = ctx.actions.declare_file(prefix + ctx.attr.name + extension)
     if not needs_strip(ctx.attr):
-      ctx.actions.symlink(
-          output = out_file,
-          target_file = ctx.files.src[0],
-      )
-      return out_file
+        ctx.actions.symlink(
+            output = out_file,
+            target_file = ctx.files.src[0],
+        )
+        return out_file
     cc_toolchain = find_cpp_toolchain(ctx)
     d_file = ctx.actions.declare_file(ctx.attr.name + ".d")
     ctx.actions.run(
@@ -91,43 +91,43 @@ common_attrs = {
     "none": attr.bool(default = False),
     "keep_symbols_list": attr.string_list(default = []),
     "_xz": attr.label(
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         allow_single_file = True,
         default = "//prebuilts/build-tools:linux-x86/bin/xz",
     ),
     "_create_minidebuginfo": attr.label(
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         allow_single_file = True,
         default = "//prebuilts/build-tools:linux-x86/bin/create_minidebuginfo",
     ),
     "_strip_script": attr.label(
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         allow_single_file = True,
         default = "//build/soong/scripts:strip.sh",
     ),
     "_ar": attr.label(
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         allow_single_file = True,
         default = "//prebuilts/clang/host/linux-x86:llvm-ar",
     ),
     "_strip": attr.label(
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         allow_single_file = True,
         default = "//prebuilts/clang/host/linux-x86:llvm-strip",
     ),
     "_readelf": attr.label(
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         allow_single_file = True,
         default = "//prebuilts/clang/host/linux-x86:llvm-readelf",
     ),
     "_objcopy": attr.label(
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         allow_single_file = True,
         default = "//prebuilts/clang/host/linux-x86:llvm-objcopy",
@@ -171,7 +171,7 @@ def _stripped_binary_impl(ctx):
         ctx.attr.src[InstrumentedFilesInfo],
         ctx.attr.src[DebugPackageInfo],
         ctx.attr.src[OutputGroupInfo],
-        StrippedCcBinaryInfo(), # a marker for dependents
+        StrippedCcBinaryInfo(),  # a marker for dependents
     ]
 
     out_file = _stripped_impl(ctx)
@@ -189,5 +189,6 @@ stripped_binary = rule(
         common_attrs,
         src = attr.label(mandatory = True, allow_single_file = True, providers = [CcInfo]),
     ),
+    executable = True,
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
 )

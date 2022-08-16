@@ -17,10 +17,8 @@ limitations under the License.
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_android//rules:rules.bzl", _android_binary = "android_binary")
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
-
 load("android_app_certificate.bzl", "android_app_certificate")
 load("android_app_keystore.bzl", "android_app_keystore")
-
 
 def _default_cert_prod_var():
     return product_vars["DefaultAppCertificate"]
@@ -29,6 +27,7 @@ def _default_app_certificate_package():
     default_cert = _default_cert_prod_var()
     if default_cert:
         return "//" + paths.dirname(default_cert)
+
     # if product variable is not set, default to Soong default:
     return "//build/make/target/product/security"
 
@@ -39,7 +38,6 @@ def _default_app_certificate():
     return _default_app_certificate_package() + ":testkey"
 
 def _android_app_certificate_with_default_cert(name, cert_name):
-
     if cert_name:
         # if a specific certificate name is given, check the default directory
         # for that certificate
@@ -87,7 +85,7 @@ def android_binary(
         app_keystore_name = name + "_keystore"
         android_app_keystore(
             name = app_keystore_name,
-            certificate = certificate
+            certificate = certificate,
         )
 
         debug_signing_keys.append(app_keystore_name)

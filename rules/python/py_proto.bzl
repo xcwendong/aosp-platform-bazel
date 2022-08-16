@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
 def _py_proto_sources_gen_rule_impl(ctx):
@@ -23,10 +24,10 @@ def _py_proto_sources_gen_rule_impl(ctx):
 
         outputs = []
         for name in proto_info.direct_sources:
-            outputs.append(ctx.actions.declare_file(paths.replace_extension(name.basename, "_pb2.py"), sibling=name))
+            outputs.append(ctx.actions.declare_file(paths.replace_extension(name.basename, "_pb2.py"), sibling = name))
 
         args = ctx.actions.args()
-        args.add("--python_out="+proto_info.proto_source_root)
+        args.add("--python_out=" + proto_info.proto_source_root)
         args.add_all(["-I", proto_info.proto_source_root])
         args.add_all(proto_info.direct_sources)
 
@@ -58,7 +59,7 @@ def _py_proto_sources_gen_rule_impl(ctx):
             # If proto_source_root is set to something other than the root of the workspace, import the current package.
             # It's always the current package because it's the path to where we generated the python sources, not to where
             # the proto sources are.
-            imports = depset(direct = imports)
+            imports = depset(direct = imports),
         ),
     ]
 
@@ -81,12 +82,14 @@ _py_proto_sources_gen = rule(
 def py_proto_library(
         name,
         deps = [],
-        target_compatible_with = []):
+        target_compatible_with = [],
+        **kwargs):
     proto_lib_name = name + "_proto_gen"
 
     _py_proto_sources_gen(
         name = proto_lib_name,
         deps = deps,
+        **kwargs
     )
 
     # There may be a better way to do this, but proto_lib_name appears in both srcs
@@ -95,7 +98,8 @@ def py_proto_library(
     # be respected and the "imports" path to be included in this library.
     native.py_library(
         name = name,
-        srcs = [":"+proto_lib_name],
-        deps = [":"+proto_lib_name] + (["//external/protobuf:libprotobuf-python"] if "libprotobuf-python" not in name else []),
+        srcs = [":" + proto_lib_name],
+        deps = [":" + proto_lib_name] + (["//external/protobuf:libprotobuf-python"] if "libprotobuf-python" not in name else []),
         target_compatible_with = target_compatible_with,
+        **kwargs
     )

@@ -51,8 +51,8 @@ genrule(
     name = "com.android.adbd.apex_manifest_json",
     srcs = ["//packages/modules/adb/apex:com.android.adbd.apex"],
     outs = ["com.android.adbd.apex_manifest.json"],
-    tools = ["//system/apex/tools:deapexer"],
     cmd = "$(location //system/apex/tools:deapexer) info $< > $@",
+    tools = ["//system/apex/tools:deapexer"],
 )
 
 diff_test(

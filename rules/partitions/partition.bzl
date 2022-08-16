@@ -13,11 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@product_config//:product_config.bzl", "product_config")
 load(":installable_info.bzl", "InstallableInfo", "installable_aspect")
-
 
 _IMAGE_TYPES = [
     "system",
@@ -30,10 +30,10 @@ _IMAGE_TYPES = [
     "odm",
     "vendor_dlkm",
     "system_dlkm",
-    "oem"
+    "oem",
 ]
 
-def _p(varname, default=""):
+def _p(varname, default = ""):
     return product_config.get(varname, default)
 
 def _add_common_flags_to_image_props(image_props, image_type):
@@ -43,11 +43,12 @@ def _add_common_flags_to_image_props(image_props, image_type):
 def _add_common_ro_flags_to_image_props(image_props, image_type):
     image_type = image_type.lower()
     IMAGE_TYPE = image_type.upper()
+
     def add_board_var(varname, finalname = None):
         if not finalname:
             finalname = varname
-        if _p("BOARD_"+IMAGE_TYPE+"IMAGE_"+varname.upper()):
-            image_props[image_type+"_"+finalname.lower()] = _p("BOARD_"+IMAGE_TYPE+"IMAGE_"+varname.upper())
+        if _p("BOARD_" + IMAGE_TYPE + "IMAGE_" + varname.upper()):
+            image_props[image_type + "_" + finalname.lower()] = _p("BOARD_" + IMAGE_TYPE + "IMAGE_" + varname.upper())
 
     add_board_var("EROFS_COMPRESSOR")
     add_board_var("EROFS_COMPRESS_HINTS")
@@ -64,12 +65,12 @@ def _add_common_ro_flags_to_image_props(image_props, image_type):
     add_board_var("SQUASHFS_COMPRESSOR")
     add_board_var("SQUASHFS_COMPRESSOR_OPT")
     add_board_var("SQUASHFS_DISABLE_4K_ALIGN")
-    if _p("PRODUCT_"+IMAGE_TYPE+"_BASE_FS_PATH"):
-        image_props[image_type+"_base_fs_file"] = _p("PRODUCT_"+IMAGE_TYPE+"_BASE_FS_PATH")
+    if _p("PRODUCT_" + IMAGE_TYPE + "_BASE_FS_PATH"):
+        image_props[image_type + "_base_fs_file"] = _p("PRODUCT_" + IMAGE_TYPE + "_BASE_FS_PATH")
 
-    if not (_p("BOARD_"+IMAGE_TYPE+"IMAGE_PARTITION_SIZE") or
-        _p("BOARD_"+IMAGE_TYPE+"IMAGE_PARTITION_RESERVED_SIZE") or
-        _p("PRODUCT_"+IMAGE_TYPE+"_HEADROOM")):
+    if not (_p("BOARD_" + IMAGE_TYPE + "IMAGE_PARTITION_SIZE") or
+            _p("BOARD_" + IMAGE_TYPE + "IMAGE_PARTITION_RESERVED_SIZE") or
+            _p("PRODUCT_" + IMAGE_TYPE + "_HEADROOM")):
         image_props[image_type + "_disable_sparse"] = "true"
 
     _add_common_flags_to_image_props(image_props, image_type)
@@ -99,7 +100,7 @@ def _generate_image_prop_dictionary(ctx, image_types, extra_props = {}):
         if _p("INTERNAL_SYSTEM_OTHER_PARTITION_SIZE"):
             image_props["system_other_size"] = _p("INTERNAL_SYSTEM_OTHER_PARTITION_SIZE")
         if _p("PRODUCT_SYSTEM_HEADROOM"):
-            image_props["system_headroom"]=_p("PRODUCT_SYSTEM_HEADROOM")
+            image_props["system_headroom"] = _p("PRODUCT_SYSTEM_HEADROOM")
         _add_common_ro_flags_to_image_props(image_props, "system")
     if "system_other" in image_types:
         image_props["building_system_other_image"] = _p("BUILDING_SYSTEM_OTHER_IMAGE", "")
@@ -135,7 +136,7 @@ def _generate_image_prop_dictionary(ctx, image_types, extra_props = {}):
         if _p("BOARD_OEMIMAGE_EXTFS_RSV_PCT"):
             image_props["oem_extfs_rsv_pct"] = _p("BOARD_OEMIMAGE_EXTFS_RSV_PCT")
         _add_common_ro_flags_to_image_props(image_props, "oem")
-    image_props["ext_mkuserimg"] = toolchain.mkuserimg_mke2fs.path #_p("MKEXTUSRIMG")
+    image_props["ext_mkuserimg"] = toolchain.mkuserimg_mke2fs.path  #_p("MKEXTUSRIMG")
 
     if _p("TARGET_USERIMAGES_USE_EXT2") == "true":
         image_props["fs_type"] = "ext2"
@@ -198,6 +199,7 @@ def _generate_image_prop_dictionary(ctx, image_types, extra_props = {}):
         image_props["vboot_subkey"] = _p("PRODUCT_VBOOT_SIGNING_SUBKEY")
         image_props["futility"] = paths.basename(_p("FUTILITY"))
         image_props["vboot_signer_cmd"] = _p("VBOOT_SIGNER")
+
     # TODO(b/237106430): Avb code is commented out because it's not yet functional
     # if _p("BOARD_AVB_ENABLE"):
     #     image_props["avb_avbtool"] = paths.basename(_p("AVBTOOL"))
@@ -260,6 +262,7 @@ def _generate_image_prop_dictionary(ctx, image_types, extra_props = {}):
         image_props["system_root_image"] = "true"
     if _p("BOARD_BUILD_GKI_BOOT_IMAGE_WITHOUT_RAMDISK") == "true":
         image_props["gki_boot_image_without_ramdisk"] = "true"
+
     #image_props["root_dir"] = _p("TARGET_ROOT_OUT") # TODO: replace with actual path
     if _p("PRODUCT_USE_DYNAMIC_PARTITION_SIZE") == "true":
         image_props["use_dynamic_partition_size"] = "true"
@@ -271,7 +274,6 @@ def _generate_image_prop_dictionary(ctx, image_types, extra_props = {}):
         result += "\n"
     return result
 
-
 def get_python3(ctx):
     python_interpreter = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"].py3_runtime.interpreter
     if python_interpreter.basename == "python3":
@@ -279,12 +281,11 @@ def get_python3(ctx):
 
     renamed = ctx.actions.declare_file("python3")
     ctx.actions.symlink(
-        output=renamed,
-        target_file=python_interpreter,
-        is_executable=True,
+        output = renamed,
+        target_file = python_interpreter,
+        is_executable = True,
     )
     return renamed
-
 
 def _partition_impl(ctx):
     if ctx.attr.type != "system":
@@ -292,6 +293,7 @@ def _partition_impl(ctx):
 
     toolchain = ctx.toolchains[":partition_toolchain_type"].toolchain_info
     python_interpreter = get_python3(ctx)
+
     # build_image requires that the output file be named specifically <type>.img, so
     # put all the outputs under a name-qualified folder.
     image_info = ctx.actions.declare_file(ctx.attr.name + "/image_info.txt")
@@ -303,12 +305,13 @@ def _partition_impl(ctx):
         files.update(dep[InstallableInfo].files)
 
     for v in files.values():
-        if not v.startswith('/system'):
-            fail('Files outside of /system are not currently supported: %s', v)
+        if not v.startswith("/system"):
+            fail("Files outside of /system are not currently supported: %s", v)
 
-    file_mapping_file = ctx.actions.declare_file(ctx.attr.name + '/partition_file_mapping.json')
+    file_mapping_file = ctx.actions.declare_file(ctx.attr.name + "/partition_file_mapping.json")
+
     # It seems build_image will prepend /system to the paths when building_system_image=true
-    ctx.actions.write(file_mapping_file, json.encode({k.path: v.removeprefix('/system') for k,v in files.items()}))
+    ctx.actions.write(file_mapping_file, json.encode({k.path: v.removeprefix("/system") for k, v in files.items()}))
 
     ctx.actions.run(
         inputs = [
@@ -337,21 +340,21 @@ def _partition_impl(ctx):
         env = {"PATH": python_interpreter.dirname + ":/usr/bin"},
     )
 
-    return DefaultInfo(files=depset([output_image]))
+    return DefaultInfo(files = depset([output_image]))
 
 partition = rule(
     implementation = _partition_impl,
     attrs = {
         "type": attr.string(
             mandatory = True,
-            values = _IMAGE_TYPES
+            values = _IMAGE_TYPES,
         ),
         "deps": attr.label_list(
             providers = [[InstallableInfo]],
-            aspects = [installable_aspect]
+            aspects = [installable_aspect],
         ),
         "_staging_dir_builder": attr.label(
-            cfg = "host",
+            cfg = "exec",
             doc = "The tool used to build a staging directory, because if bazel were to build it it would be entirely symlinks.",
             executable = True,
             default = "//build/bazel/rules:staging_dir_builder",

@@ -32,7 +32,7 @@ def _pk8_to_private_pem(ctx, openssl, pk8_file, private_pem_file):
     args.add_all(["-inform", "DER"])
     args.add_all(["-outform", "PEM"])
     args.add_all(["-out", private_pem_file])
-    args.add("-nocrypt") # don't bother encrypting this private key since it is just an intermediate file
+    args.add("-nocrypt")  # don't bother encrypting this private key since it is just an intermediate file
 
     ctx.actions.run(
         inputs = [pk8_file],
@@ -51,6 +51,7 @@ def _pem_to_pk12(ctx, openssl, certificate_pem, private_key_pem, pk12_file):
     args.add_all(["-inkey", private_key_pem])
     args.add_all(["-out", pk12_file])
     args.add_all(["-name", "android"])
+
     # openssl requires a password and will request a
     # password from STDIN if we don't supply one here
     args.add_all(["-passout", "pass:android"])
@@ -74,6 +75,7 @@ def _pk12_to_keystore(ctx, keytool, pk12_file, keystore_file):
     args.add_all(["-srckeystore", pk12_file])
     args.add_all(["-srcstoretype", "PKCS12"])
     args.add_all(["-srcstorepass", "android"])
+
     # apksigner expects keystores provided by the debug_signing_keys attribute
     # to be secured with the password "android"
     args.add_all(["-deststorepass", "android"])
@@ -104,7 +106,7 @@ def _android_app_keystore_rule_impl(ctx):
         AndroidAppKeystoreInfo(
             keystore = keystore,
         ),
-        DefaultInfo(files = depset(direct = [keystore]))
+        DefaultInfo(files = depset(direct = [keystore])),
     ]
 
 """Converts an android_app_certificate (i.e. pem/pk8 pair) into a JKS keystore"""
@@ -117,14 +119,14 @@ android_app_keystore = rule(
             allow_single_file = True,
             executable = True,
             cfg = "exec",
-            doc = "An OpenSSL compatible tool."
+            doc = "An OpenSSL compatible tool.",
         ),
         "_keytool": attr.label(
             default = Label("//prebuilts/jdk/jdk11:linux-x86/bin/keytool"),
             allow_single_file = True,
             executable = True,
             cfg = "exec",
-            doc = "The keytool binary."
+            doc = "The keytool binary.",
         ),
     },
     provides = [AndroidAppKeystoreInfo],

@@ -126,14 +126,17 @@ BP2BUILD_PROGRESS_MODULES=(
   com.android.neuralnetworks
   com.android.media.swcodec
 )
-bp2build_progress_script="${AOSP_ROOT}/build/bazel/scripts/bp2build-progress/bp2build-progress.py"
+bp2build_progress_script="//build/bazel/scripts/bp2build-progress:bp2build-progress"
 bp2build_progress_output_dir="${DIST_DIR}/bp2build-progress"
 mkdir -p "${bp2build_progress_output_dir}"
 
 report_args=""
 for m in "${BP2BUILD_PROGRESS_MODULES[@]}"; do
   report_args="$report_args -m ""${m}"
-  "${bp2build_progress_script}" graph  -m "${m}" --use_queryview=true > "${bp2build_progress_output_dir}/${m}_graph.dot"
+  tools/bazel run --config=bp2build --config=linux_x86_64 "${bp2build_progress_script}" -- graph  -m "${m}" --use-queryview > "${bp2build_progress_output_dir}/${m}_graph.dot"
 done
 
-"${bp2build_progress_script}" report ${report_args} --use_queryview=true > "${bp2build_progress_output_dir}/progress_report.txt"
+tools/bazel run --config=bp2build --config=linux_x86_64 "${bp2build_progress_script}" -- \
+  report ${report_args} --use-queryview \
+  --proto-file=$( realpath "${bp2build_progress_output_dir}" )"/bp2build-progress.pb" \
+  > "${bp2build_progress_output_dir}/progress_report.txt"

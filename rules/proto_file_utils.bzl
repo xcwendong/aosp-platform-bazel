@@ -45,7 +45,6 @@ def _generate_jar_proto_action(
         plugin_executable = None,
         out_arg = None,
         mnemonic = "ProtoGen"):
-
     jar_basename = ctx.label.name + "-proto_gen"
     jar_name = jar_basename + "-src.jar"
     jar_file = ctx.actions.declare_file(jar_name)
@@ -103,7 +102,7 @@ def _generate_proto_action(
     if output_file:
         protoc_out_name = paths.join(protoc_out_name, output_file.basename)
         out_files = {
-            "out": [output_file]
+            "out": [output_file],
         }
     else:
         protoc_out_name = paths.join(protoc_out_name, ctx.label.name)
