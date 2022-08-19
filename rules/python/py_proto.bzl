@@ -82,12 +82,14 @@ _py_proto_sources_gen = rule(
 def py_proto_library(
         name,
         deps = [],
-        target_compatible_with = []):
+        target_compatible_with = [],
+        **kwargs):
     proto_lib_name = name + "_proto_gen"
 
     _py_proto_sources_gen(
         name = proto_lib_name,
         deps = deps,
+        **kwargs
     )
 
     # There may be a better way to do this, but proto_lib_name appears in both srcs
@@ -99,4 +101,5 @@ def py_proto_library(
         srcs = [":" + proto_lib_name],
         deps = [":" + proto_lib_name] + (["//external/protobuf:libprotobuf-python"] if "libprotobuf-python" not in name else []),
         target_compatible_with = target_compatible_with,
+        **kwargs
     )

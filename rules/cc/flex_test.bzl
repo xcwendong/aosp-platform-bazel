@@ -14,8 +14,8 @@ limitations under the License.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/bazel/rules/test_common:args.bzl", "check_arg_value")
 load(":flex.bzl", "genlex")
+load("//build/bazel/rules/test_common:args.bzl", "get_arg_value")
 
 ROOT_PATH = "build/bazel/rules/cc/"
 OUT_PATH = "bin/build/bazel/rules/cc/"
@@ -188,25 +188,25 @@ def _test_multiple_files_correct_type():
     )
     return test_name
 
-def _output_arg_validation_func(env, arg_name, actual_arg):
-    expected_value = "%s%s" % (ROOT_PATH, "foo.c")
-    asserts.true(
-        env,
-        actual_arg.endswith(expected_value),
-        "Expected value %s for arg %s but got %s for target foo" % (
-            expected_value,
-            arg_name,
-            actual_arg,
-        ),
-    )
-
 def _output_arg_test_impl(ctx):
     env = analysistest.begin(ctx)
 
     actions = analysistest.target_actions(env)
     actual_list = actions[0].argv
+    cli_string = " ".join(actions[0].argv)
+    expected_value = "%s/%sfoo.c" % (ctx.var["GENDIR"], ROOT_PATH)
 
-    check_arg_value(env, actual_list, "-o", _output_arg_validation_func)
+    asserts.equals(
+        env,
+        expected_value,
+        get_arg_value(actual_list, "-o"),
+        ("Argument -o not found or had unexpected value.\n" +
+         "Expected value: %s\n" +
+         "Command: %s") % (
+            expected_value,
+            cli_string,
+        ),
+    )
 
     return analysistest.end(env)
 
@@ -230,12 +230,12 @@ def _input_arg_test_impl(ctx):
     env = analysistest.begin(ctx)
 
     actions = analysistest.target_actions(env)
-    actual_list = actions[0].argv
+    actual_argv = actions[0].argv
     expected_value = "%s%s" % (ROOT_PATH, "foo.l")
 
     asserts.true(
         env,
-        expected_value in actual_list,
+        expected_value in actual_argv,
         "Input file %s not present or incorrect in flex command args" %
         expected_value,
     )
@@ -262,18 +262,18 @@ def _lexopts_test_impl(ctx):
     env = analysistest.begin(ctx)
     actions = analysistest.target_actions(env)
 
-    actual_args = actions[0].argv
+    actual_argv = actions[0].argv
     asserts.true(
         env,
-        "foo_opt" in actual_args,
+        "foo_opt" in actual_argv,
         ("Did not find expected lexopt foo_opt %s for target foo in test " +
-         "lexopts_test") % actual_args,
+         "lexopts_test") % actual_argv,
     )
     asserts.true(
         env,
-        "bar_opt" in actual_args,
+        "bar_opt" in actual_argv,
         ("Did not find expected lexopt bar_opt %s for target bars in test " +
-         "lexopts_test") % actual_args,
+         "lexopts_test") % actual_argv,
     )
 
     return analysistest.end(env)
