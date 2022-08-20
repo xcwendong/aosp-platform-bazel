@@ -37,6 +37,7 @@ def cc_library_static(
         whole_archive_deps = [],
         implementation_whole_archive_deps = [],
         system_dynamic_deps = None,
+        runtime_deps = [],
         export_absolute_includes = [],
         export_includes = [],
         export_system_includes = [],
@@ -189,6 +190,7 @@ def cc_library_static(
     _cc_library_combiner(
         name = name,
         deps = [cpp_name, c_name, asm_name] + whole_archive_deps + implementation_whole_archive_deps,
+        runtime_deps = runtime_deps,
         target_compatible_with = target_compatible_with,
         tags = tags,
     )
@@ -295,6 +297,10 @@ _cc_library_combiner = rule(
     implementation = _cc_library_combiner_impl,
     attrs = {
         "deps": attr.label_list(providers = [CcInfo]),
+        "runtime_deps": attr.label_list(
+            providers = [CcInfo],
+            doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
+        ),
         "_cc_toolchain": attr.label(
             default = Label("@local_config_cc//:toolchain"),
             providers = [cc_common.CcToolchainInfo],

@@ -15,6 +15,7 @@
 load("//build/bazel/rules:sh_binary.bzl", "sh_binary")
 load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
+load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load(":apex.bzl", "ApexInfo", "apex")
@@ -29,6 +30,14 @@ def _canned_fs_config_test(ctx):
     actions = analysistest.target_actions(env)
 
     found_canned_fs_config_action = False
+
+    def pretty_print_list(l):
+        if not l:
+            return "[]"
+        result = "[\n"
+        for item in l:
+            result += "  \"%s\",\n" % item
+        return result + "]"
 
     for a in actions:
         if a.mnemonic != "FileWrite":
@@ -47,7 +56,7 @@ def _canned_fs_config_test(ctx):
         actual_entries = a.content.split("\n")
         replacement = "64" if platforms.get_target_bitness(ctx.attr._platform_utils) == 64 else ""
         expected_entries = [x.replace("{64_OR_BLANK}", replacement) for x in ctx.attr.expected_entries]
-        asserts.equals(env, expected_entries, actual_entries)
+        asserts.equals(env, pretty_print_list(expected_entries), pretty_print_list(actual_entries))
 
         break
 
@@ -308,6 +317,69 @@ def _test_canned_fs_config_prebuilts_sort_order():
             "/etc/a 0 2000 0755",
             "/etc/a/c 0 2000 0755",
             "/etc/b 0 2000 0755",
+            "",  # ends with a newline
+        ],
+    )
+
+    return test_name
+
+def _test_canned_fs_config_runtime_deps():
+    name = "apex_canned_fs_config_runtime_deps"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_runtime_dep_3",
+        srcs = ["lib2.cc"],
+        tags = ["manual"],
+    )
+
+    cc_library_static(
+        name = name + "_static_lib",
+        srcs = ["lib3.cc"],
+        runtime_deps = [name + "_runtime_dep_3"],
+        tags = ["manual"],
+    )
+
+    cc_library_shared(
+        name = name + "_runtime_dep_2",
+        srcs = ["lib2.cc"],
+        tags = ["manual"],
+    )
+
+    cc_library_shared(
+        name = name + "_runtime_dep_1",
+        srcs = ["lib.cc"],
+        runtime_deps = [name + "_runtime_dep_2"],
+        tags = ["manual"],
+    )
+
+    cc_binary(
+        name = name + "_bin_cc",
+        srcs = ["bin.cc"],
+        runtime_deps = [name + "_runtime_dep_1"],
+        deps = [name + "_static_lib"],
+        tags = ["manual"],
+    )
+
+    test_apex(
+        name = name,
+        binaries = [name + "_bin_cc"],
+    )
+
+    canned_fs_config_test(
+        name = test_name,
+        target_under_test = name,
+        expected_entries = [
+            "/ 1000 1000 0755",
+            "/apex_manifest.json 1000 1000 0644",
+            "/apex_manifest.pb 1000 1000 0644",
+            "/lib{64_OR_BLANK}/%s_runtime_dep_1.so 1000 1000 0644" % name,
+            "/lib{64_OR_BLANK}/%s_runtime_dep_2.so 1000 1000 0644" % name,
+            "/lib{64_OR_BLANK}/%s_runtime_dep_3.so 1000 1000 0644" % name,
+            "/lib{64_OR_BLANK}/libc++.so 1000 1000 0644",
+            "/bin/%s_bin_cc 0 2000 0755" % name,
+            "/bin 0 2000 0755",
+            "/lib{64_OR_BLANK} 0 2000 0755",
             "",  # ends with a newline
         ],
     )
@@ -816,6 +888,7 @@ def apex_test_suite(name):
             _test_canned_fs_config_native_shared_libs_arm64(),
             _test_canned_fs_config_prebuilts(),
             _test_canned_fs_config_prebuilts_sort_order(),
+            _test_canned_fs_config_runtime_deps(),
             _test_apex_manifest(),
             _test_apex_manifest_min_sdk_version(),
             _test_apex_manifest_min_sdk_version_current(),

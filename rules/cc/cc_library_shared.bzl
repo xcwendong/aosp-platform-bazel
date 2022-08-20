@@ -52,6 +52,7 @@ def cc_library_shared(
         deps = [],
         whole_archive_deps = [],
         system_dynamic_deps = None,
+        runtime_deps = [],
         export_includes = [],
         export_absolute_includes = [],
         export_system_includes = [],
@@ -249,6 +250,7 @@ def cc_library_shared(
         output_file = soname,
         target_compatible_with = target_compatible_with,
         stub_shared_libraries = stub_shared_libraries,
+        runtime_deps = runtime_deps,
         tags = tags,
     )
 
@@ -414,6 +416,10 @@ _cc_library_shared_proxy = rule(
             providers = [CcTocInfo],
         ),
         "stub_shared_libraries": attr.label_list(providers = [CcStubInfo, CcSharedLibraryInfo]),
+        "runtime_deps": attr.label_list(
+            providers = [CcInfo],
+            doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
+        ),
     },
     fragments = ["cpp"],
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],

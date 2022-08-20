@@ -188,6 +188,10 @@ stripped_binary = rule(
     attrs = dict(
         common_attrs,
         src = attr.label(mandatory = True, allow_single_file = True, providers = [CcInfo]),
+        runtime_deps = attr.label_list(
+            providers = [CcInfo],
+            doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
+        ),
     ),
     executable = True,
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],

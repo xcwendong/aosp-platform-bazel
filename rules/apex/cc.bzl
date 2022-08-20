@@ -113,27 +113,38 @@ def _apex_cc_aspect_impl(target, ctx):
                 shared_object_files.append(output_file)
         if hasattr(ctx.rule.attr, "shared"):
             transitive_deps.append(ctx.rule.attr.shared)
-    elif ctx.rule.kind in ["cc_shared_library", "cc_binary"] and hasattr(ctx.rule.attr, "dynamic_deps"):
-        # Propagate along the dynamic_deps edge for binaries and shared libs
-        for dep in ctx.rule.attr.dynamic_deps:
-            transitive_deps.append(dep)
+    elif ctx.rule.kind in ["cc_shared_library", "cc_binary"]:
+        # Propagate along the dynamic_deps and deps edges for binaries and shared libs
+        if hasattr(ctx.rule.attr, "dynamic_deps"):
+            for dep in ctx.rule.attr.dynamic_deps:
+                transitive_deps.append(dep)
+        if hasattr(ctx.rule.attr, "deps"):
+            for dep in ctx.rule.attr.deps:
+                transitive_deps.append(dep)
     elif ctx.rule.kind in rules_propagate_src and hasattr(ctx.rule.attr, "src"):
         # Propagate along the src edge
         transitive_deps.append(ctx.rule.attr.src)
+
+    if ctx.rule.kind in ["stripped_binary", "_cc_library_shared_proxy", "_cc_library_combiner"] and hasattr(ctx.rule.attr, "runtime_deps"):
+        for dep in ctx.rule.attr.runtime_deps:
+            for output_file in dep[DefaultInfo].files.to_list():
+                if output_file.extension == "so":
+                    shared_object_files.append(output_file)
+            transitive_deps.append(dep)
 
     return [
         ApexCcInfo(
             transitive_shared_libs = depset(
                 shared_object_files,
-                transitive = [dep[ApexCcInfo].transitive_shared_libs for dep in transitive_deps],
+                transitive = [info[ApexCcInfo].transitive_shared_libs for info in transitive_deps],
             ),
             requires_native_libs = depset(
                 [],
-                transitive = [dep[ApexCcInfo].requires_native_libs for dep in transitive_deps],
+                transitive = [info[ApexCcInfo].requires_native_libs for info in transitive_deps],
             ),
             provides_native_libs = depset(
                 provides,
-                transitive = [dep[ApexCcInfo].provides_native_libs for dep in transitive_deps],
+                transitive = [info[ApexCcInfo].provides_native_libs for info in transitive_deps],
             ),
         ),
     ]
@@ -149,6 +160,6 @@ apex_cc_aspect = aspect(
         # a bunch of ints here.
         "min_sdk_version": attr.string(values = ["current"] + [str(i) for i in range(50)]),
     },
-    attr_aspects = ["dynamic_deps", "shared", "src"],
+    attr_aspects = ["dynamic_deps", "deps", "shared", "src", "runtime_deps"],
     # TODO: Have this aspect also propagate along attributes of native_shared_libs?
 )

@@ -39,6 +39,7 @@ def cc_binary(
         deps = [],
         whole_archive_deps = [],
         system_deps = None,
+        runtime_deps = [],
         export_includes = [],
         export_system_includes = [],
         local_includes = [],
@@ -152,6 +153,7 @@ def cc_binary(
     stripped_binary(
         name = name,
         src = versioned_name,
+        runtime_deps = runtime_deps,
         target_compatible_with = target_compatible_with,
         tags = tags,
         **strip
