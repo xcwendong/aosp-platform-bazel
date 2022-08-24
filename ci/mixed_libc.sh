@@ -30,12 +30,20 @@ build/soong/soong_ui.bash --make-mode \
   "${TARGETS[@]}" \
   dist DIST_DIR=$DIST_DIR
 
-# Verify there are artifacts under the out directory that originated from bazel.
-echo "Verifying OUT_DIR contains bazel-out..."
-if find out/ -type d -name bazel-out &>/dev/null; then
-  echo "bazel-out found."
-else
-  echo "bazel-out not found. This may indicate that mixed builds are silently not running."
+echo "Verifying libc.so..."
+LIBC_OUTPUT_FILE="$(find out/ -regex '.*/bazel-out/android_arm64-fastbuild.*/bin/bionic/libc/libc.so' || echo '')"
+
+if [ -z "$LIBC_OUTPUT_FILE" ]; then
+  echo "Could not find libc.so at expected path."
   exit 1
 fi
 
+if [ -L "$LIBC_OUTPUT_FILE" ]; then
+  # It's problematic to have libc.so be a symlink, as it means that installed
+  # libc.so in an Android system image will be a symlink to a location outside
+  # of that system image.
+  echo "$LIBC_OUTPUT_FILE is expected as a file not a symlink"
+  exit 1
+fi
+
+echo "libc.so verified."

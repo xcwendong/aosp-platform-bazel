@@ -21,11 +21,15 @@ Usage:
 Example:
 
   To generate a report on the `adbd` module, run:
-    ./bp2build-progress report -m adbd
+    bazel run --config=bp2build --config=linux_x86_64 \
+      //build/bazel/scripts/bp2build-progress:bp2build-progress \
+      -- report -m <module-name>
 
   To generate a graph on the `adbd` module, run:
-    ./bp2build-progress graph -m adbd > graph.in && dot -Tpng -o graph.png
-    graph.in
+    bazel run --config=bp2build --config=linux_x86_64 \
+      //build/bazel/scripts/bp2build-progress:bp2build-progress \
+      -- graph -m adbd > /tmp/graph.in && \
+      dot -Tpng -o /tmp/graph.png /tmp/graph.in
 
 """
 

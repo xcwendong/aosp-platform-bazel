@@ -17,24 +17,37 @@ Tip: `--use_queryview=true` allows running `bp2build-progress.py` without `jq`.
 
 # Generate the report for a module, e.g. adbd
 
-```
-./bp2build-progress.py report -m adbd
+```sh
+bazel run --config=bp2build --config=linux_x86_64 \
+  //build/bazel/scripts/bp2build-progress:bp2build-progress \
+  -- report -m <module-name>
 ```
 
 or:
 
+```sh
+bazel run --config=bp2build --config=linux_x86_64 \
+  //build/bazel/scripts/bp2build-progress:bp2build-progress \
+  -- report -m <module-name> --use-queryview
 ```
-./bp2build-progress.py report -m adbd --use_queryview=true
-```
+
+When running in report mode, you can also write results to a proto with the flag
+`--proto-file`
 
 # Generate the report for a module, e.g. adbd
 
-```
-./bp2build-progress.py graph -m adbd > /tmp/graph.in && dot -Tpng -o /tmp/graph.png /tmp/graph.in
+```sh
+bazel run --config=bp2build --config=linux_x86_64 \
+  //build/bazel/scripts/bp2build-progress:bp2build-progress \
+  -- graph -m adbd > /tmp/graph.in && \
+  dot -Tpng -o /tmp/graph.png /tmp/graph.in
 ```
 
 or:
 
-```
-./bp2build-progress.py graph -m adbd --use_queryview=true > /tmp/graph.in && dot -Tpng -o /tmp/graph.png /tmp/graph.in
+```sh
+bazel run --config=bp2build --config=linux_x86_64 \
+  //build/bazel/scripts/bp2build-progress:bp2build-progress \
+  -- graph -m adbd --use-queryview > /tmp/graph.in && \
+  dot -Tpng -o /tmp/graph.png /tmp/graph.in
 ```
