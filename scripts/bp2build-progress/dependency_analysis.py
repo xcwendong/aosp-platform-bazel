@@ -61,6 +61,8 @@ _QUERYVIEW_IGNORE_KINDS = set([
     "cc_prebuilt_library_static",
     "cc_prebuilt_library_static",
     "cc_prebuilt_object",
+    "hidl_interface.go_android/soong/hidl.hidlGenFactory__loadHookModule", # implementation detail of hidl_interface
+    "hidl_package_root", # not being converted, contents converted as part of hidl_interface
     "java_import",
     "java_import_host",
     "java_sdk_library_import",

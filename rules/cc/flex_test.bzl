@@ -16,25 +16,11 @@ limitations under the License.
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":flex.bzl", "genlex")
 load("//build/bazel/rules/test_common:args.bzl", "get_arg_value")
-
-ROOT_PATH = "build/bazel/rules/cc/"
-OUT_PATH = "bin/build/bazel/rules/cc/"
-
-# Path will vary based on lunch target. Check ending instead of checking for
-# presence in the list
-def _assert_output(env, actual_action, expected_item, target_name, test_name):
-    actual_list = [output.path for output in actual_action.outputs.to_list()]
-    found_output = False
-    for actual_item in actual_list:
-        if actual_item.endswith(expected_item):
-            found_output = True
-            break
-    asserts.true(
-        env,
-        found_output,
-        ("Expected output %s not present or incorrect in Bazel action for " +
-         "target %s in test %s") % (expected_item, target_name, test_name),
-    )
+load(
+    "//build/bazel/rules/test_common:paths.bzl",
+    "get_output_and_package_dir_based_path",
+    "get_package_dir_based_path",
+)
 
 def _single_l_file_to_c_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -44,7 +30,7 @@ def _single_l_file_to_c_test_impl(ctx):
     asserts.equals(env, 1, len(actions))
 
     actual_list_foo = [input.path for input in actions[0].inputs.to_list()]
-    expected_path_foo = "%s%s" % (ROOT_PATH, "foo.l")
+    expected_path_foo = get_package_dir_based_path(ctx, "foo.l")
     asserts.true(
         env,
         expected_path_foo in actual_list_foo,
@@ -54,12 +40,16 @@ def _single_l_file_to_c_test_impl(ctx):
             actual_list_foo,
         ),
     )
-    _assert_output(
+    expected_output = get_output_and_package_dir_based_path(ctx, "foo.c")
+    actual_outputs = [output.path for output in actions[0].outputs.to_list()]
+    asserts.true(
         env,
-        actions[0],
-        "%s%s" % (OUT_PATH, "foo.c"),
-        "foo",
-        "single_l_file_to_c_test",
+        expected_output in actual_outputs,
+        ("Expected output %s not present or incorrect in Bazel action\n" +
+         "Actual list of outputs: %s") % (
+            expected_output,
+            actual_outputs,
+        ),
     )
 
     return analysistest.end(env)
@@ -88,7 +78,7 @@ def _single_ll_file_to_cc_test_impl(ctx):
     asserts.equals(env, 1, len(actions))
 
     actual_list_foo = [input.path for input in actions[0].inputs.to_list()]
-    expected_path_foo = "%s%s" % (ROOT_PATH, "foo.ll")
+    expected_path_foo = get_package_dir_based_path(ctx, "foo.ll")
     asserts.true(
         env,
         expected_path_foo in actual_list_foo,
@@ -98,12 +88,16 @@ def _single_ll_file_to_cc_test_impl(ctx):
             actual_list_foo,
         ),
     )
-    _assert_output(
+    expected_output = get_output_and_package_dir_based_path(ctx, "foo.cc")
+    actual_outputs = [output.path for output in actions[0].outputs.to_list()]
+    asserts.true(
         env,
-        actions[0],
-        "%s%s" % (OUT_PATH, "foo.cc"),
-        "foo",
-        "single_ll_file_to_cc_test",
+        expected_output in actual_outputs,
+        ("Expected output %s not present or incorrect in Bazel action\n" +
+         "Actual list of outputs: %s") % (
+            expected_output,
+            actual_outputs,
+        ),
     )
 
     return analysistest.end(env)
@@ -132,7 +126,7 @@ def _multiple_files_correct_type_test_impl(ctx):
     asserts.equals(env, 2, len(actions))
 
     actual_list_foo = [input.path for input in actions[0].inputs.to_list()]
-    expected_path_foo = "%s%s" % (ROOT_PATH, "foo.l")
+    expected_path_foo = get_package_dir_based_path(ctx, "foo.l")
     asserts.true(
         env,
         expected_path_foo in actual_list_foo,
@@ -143,7 +137,7 @@ def _multiple_files_correct_type_test_impl(ctx):
         ),
     )
     actual_list_bar = [input.path for input in actions[1].inputs.to_list()]
-    expected_path_bar = "%s%s" % (ROOT_PATH, "bar.l")
+    expected_path_bar = get_package_dir_based_path(ctx, "bar.l")
     asserts.true(
         env,
         expected_path_bar in actual_list_bar,
@@ -153,19 +147,30 @@ def _multiple_files_correct_type_test_impl(ctx):
             actual_list_bar,
         ),
     )
-    _assert_output(
+
+    expected_output = get_output_and_package_dir_based_path(ctx, "foo.c")
+    actual_outputs = [output.path for output in actions[0].outputs.to_list()]
+    asserts.true(
         env,
-        actions[0],
-        "%s%s" % (OUT_PATH, "foo.c"),
-        "foo",
-        "multiple_files_correct_type",
+        expected_output in actual_outputs,
+        ("Expected output %s not present or incorrect in Bazel action" +
+         "for source file foo.l\n" +
+         "Actual list of outputs: %s") % (
+            expected_output,
+            actual_outputs,
+        ),
     )
-    _assert_output(
+    expected_output = get_output_and_package_dir_based_path(ctx, "bar.c")
+    actual_outputs = [output.path for output in actions[1].outputs.to_list()]
+    asserts.true(
         env,
-        actions[1],
-        "%s%s" % (OUT_PATH, "bar.c"),
-        "bar",
-        "multiple_files_correct_type",
+        expected_output in actual_outputs,
+        ("Expected output %s not present or incorrect in Bazel action " +
+         "for source file bar.l\n" +
+         "Actual list of outputs: %s") % (
+            expected_output,
+            actual_outputs,
+        ),
     )
 
     return analysistest.end(env)
@@ -194,7 +199,7 @@ def _output_arg_test_impl(ctx):
     actions = analysistest.target_actions(env)
     actual_list = actions[0].argv
     cli_string = " ".join(actions[0].argv)
-    expected_value = "%s/%sfoo.c" % (ctx.var["GENDIR"], ROOT_PATH)
+    expected_value = get_output_and_package_dir_based_path(ctx, "foo.c")
 
     asserts.equals(
         env,
@@ -231,7 +236,7 @@ def _input_arg_test_impl(ctx):
 
     actions = analysistest.target_actions(env)
     actual_argv = actions[0].argv
-    expected_value = "%s%s" % (ROOT_PATH, "foo.l")
+    expected_value = get_package_dir_based_path(ctx, "foo.l")
 
     asserts.true(
         env,
