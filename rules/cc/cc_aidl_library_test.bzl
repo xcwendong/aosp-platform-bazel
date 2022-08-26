@@ -1,0 +1,125 @@
+"""
+Copyright (C) 2022 The Android Open Source Project
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+load("@bazel_skylib//lib:new_sets.bzl", "sets")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("//build/bazel/rules/cc:cc_aidl_library.bzl", "cc_aidl_library")
+load("//build/bazel/rules/aidl:library.bzl", "aidl_library")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+
+aidl_library_label_name = "foo_aidl_library"
+aidl_files = [
+    "A.aidl",
+    "B.aidl",
+]
+
+def _cc_aidl_code_gen_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = analysistest.target_actions(env)
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "expected to have one action per aidl_library target",
+    )
+    cc_aidl_code_gen_target = analysistest.target_under_test(env)
+    action = actions[0]
+    argv = action.argv
+
+    # Check inputs are correctly added to command
+    aidl_input_path_template = paths.join(
+        ctx.genfiles_dir.path,
+        ctx.label.package,
+        "_virtual_imports",
+        aidl_library_label_name,
+    ) + "/{}"
+    expected_inputs = [
+        aidl_input_path_template.format(file)
+        for file in aidl_files
+    ]
+    for expected_input in expected_inputs:
+        asserts.true(
+            env,
+            expected_input in argv,
+            "expect {} to be passed to aidl command".format(expected_input),
+        )
+
+    # Check generated outputs
+    output_path = paths.join(
+        ctx.genfiles_dir.path,
+        ctx.label.package,
+        cc_aidl_code_gen_target.label.name,
+        ctx.label.package,
+        "_virtual_imports/foo_aidl_library",
+    )
+    expected_outputs = []
+    for aidl_file in aidl_files:
+        basename_without_ext = paths.replace_extension(aidl_file, "")
+        expected_outputs.extend(
+            [
+                paths.join(output_path, "Bp" + basename_without_ext + ".h"),
+                paths.join(output_path, "Bn" + basename_without_ext + ".h"),
+                paths.join(output_path, basename_without_ext + ".h"),
+                paths.join(output_path, basename_without_ext + ".cpp"),
+            ],
+        )
+    asserts.set_equals(
+        env,
+        sets.make(expected_outputs),
+        sets.make([output.path for output in action.outputs.to_list()]),
+    )
+
+    # Check the output path is correctly added to includes in CcInfo.compilation_context
+    asserts.true(
+        env,
+        output_path in cc_aidl_code_gen_target[CcInfo].compilation_context.includes.to_list(),
+        "output path is added to CcInfo.compilation_context.includes",
+    )
+
+    return analysistest.end(env)
+
+cc_aidl_code_gen_test = analysistest.make(
+    _cc_aidl_code_gen_test_impl,
+)
+
+def _cc_aidl_code_gen_test():
+    name = "foo"
+    aidl_code_gen_name = name + "_aidl_code_gen"
+    test_name = aidl_code_gen_name + "_test"
+
+    aidl_library(
+        name = aidl_library_label_name,
+        srcs = aidl_files,
+        tags = ["manual"],
+    )
+    cc_aidl_library(
+        name = name,
+        deps = [":foo_aidl_library"],
+        tags = ["manual"],
+    )
+    cc_aidl_code_gen_test(
+        name = test_name,
+        target_under_test = aidl_code_gen_name,
+    )
+
+    return test_name
+
+def cc_aidl_library_test_suite(name):
+    native.test_suite(
+        name = name,
+        tests = [
+            _cc_aidl_code_gen_test(),
+        ],
+    )
