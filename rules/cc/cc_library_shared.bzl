@@ -22,7 +22,6 @@ load(
     "system_dynamic_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
-load(":cc_stub_library.bzl", "CcStubInfo", "cc_stub_gen")
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
 load(":stl.bzl", "stl_deps")
 load(":stripped_cc_common.bzl", "stripped_shared_library")
@@ -73,8 +72,7 @@ def cc_library_shared(
         # TODO(b/202299295): Handle data attribute.
         data = [],
         use_version_lib = False,
-        stubs_symbol_file = None,
-        stubs_versions = [],
+        has_stubs = False,
         inject_bssl_hash = False,
         sdk_version = "",
         min_sdk_version = "",
@@ -215,33 +213,6 @@ def cc_library_shared(
         tags = ["manual"],
     )
 
-    # Emit the stub version of this library (e.g. for libraries that are
-    # provided by the NDK)
-    stub_shared_libraries = []
-    if stubs_symbol_file and len(stubs_versions) > 0:
-        # TODO(b/193663198): This unconditionally creates stubs for every version, but
-        # that's not always true depending on whether this module is available
-        # on the host, ramdisk, vendor ramdisk. We currently don't have
-        # information about the image variant yet, so we'll create stub targets
-        # for all shared libraries with the stubs property for now.
-        #
-        # See: https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=2316-2377;drc=3d3b35c94ed2a3432b2e5e7e969a3a788a7a80b5
-        for version in stubs_versions:
-            stubs_library_name = "_".join([name, version, "stubs"])
-            cc_stub_library_shared(
-                name = stubs_library_name,
-                stubs_symbol_file = stubs_symbol_file,
-                version = version,
-                target_compatible_with = target_compatible_with,
-                features = features,
-                tags = ["manual"],
-            )
-            stub_shared_libraries.append(stubs_library_name)
-    elif stubs_symbol_file or len(stubs_versions) > 0:
-        # TODO: add support for header_abi_checker.symbol_file and llndk symbol_file
-        # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=1991-1996;drc=bbe77d66e7bee8bd1f0bc7e5492b5376b0207ef6
-        fail("stubs_symbol_file and stubs_versions must be defined together.")
-
     _cc_library_shared_proxy(
         name = name,
         shared = stripped_name,
@@ -249,84 +220,10 @@ def cc_library_shared(
         table_of_contents = toc_name,
         output_file = soname,
         target_compatible_with = target_compatible_with,
-        stub_shared_libraries = stub_shared_libraries,
+        has_stubs = has_stubs,
         runtime_deps = runtime_deps,
         tags = tags,
     )
-
-# cc_stub_library_shared creates a cc_library_shared target, but using stub C source files generated
-# from a library's .map.txt files and ndkstubgen. The top level target returns the same
-# providers as a cc_library_shared, with the addition of a CcStubInfo
-# containing metadata files and versions of the stub library.
-def cc_stub_library_shared(name, stubs_symbol_file, version, target_compatible_with, features, tags):
-    # Call ndkstubgen to generate the stub.c source file from a .map.txt file. These
-    # are accessible in the CcStubInfo provider of this target.
-    cc_stub_gen(
-        name = name + "_files",
-        symbol_file = stubs_symbol_file,
-        version = version,
-        target_compatible_with = target_compatible_with,
-        tags = ["manual"],
-    )
-
-    # The static library at the root of the stub shared library.
-    cc_library_static(
-        name = name + "_root",
-        srcs_c = [name + "_files"],  # compile the stub.c file
-        features = disable_crt_link(features) +
-                   [
-                       # Enable the stub library compile flags
-                       "stub_library",
-                       # Disable all include-related features to avoid including any headers
-                       # that may cause conflicting type errors with the symbols in the
-                       # generated stubs source code.
-                       #  e.g.
-                       #  double acos(double); // in header
-                       #  void acos() {} // in the generated source code
-                       # See https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=942-946;drc=d8a72d7dc91b2122b7b10b47b80cf2f7c65f9049
-                       "-toolchain_include_directories",
-                       "-includes",
-                       "-include_paths",
-                   ],
-        target_compatible_with = target_compatible_with,
-        stl = "none",
-        system_dynamic_deps = [],
-        tags = ["manual"],
-    )
-
-    # Create a .so for the stub library. This library is self contained, has
-    # no deps, and doesn't link against crt.
-    native.cc_shared_library(
-        name = name + "_so",
-        roots = [name + "_root"],
-        features = disable_crt_link(features),
-        target_compatible_with = target_compatible_with,
-        tags = ["manual"],
-    )
-
-    # Create a target with CcSharedLibraryInfo and CcStubInfo providers.
-    _cc_stub_library_shared(
-        name = name,
-        stub_target = name + "_files",
-        library_target = name + "_so",
-        tags = tags,
-    )
-
-def _cc_stub_library_shared_impl(ctx):
-    return [
-        ctx.attr.library_target[DefaultInfo],
-        ctx.attr.library_target[CcSharedLibraryInfo],
-        ctx.attr.stub_target[CcStubInfo],
-    ]
-
-_cc_stub_library_shared = rule(
-    implementation = _cc_stub_library_shared_impl,
-    doc = "Top level rule to merge CcStubInfo and CcSharedLibraryInfo into a single target",
-    attrs = {
-        "stub_target": attr.label(mandatory = True),
-        "library_target": attr.label(mandatory = True),
-    },
-)
 
 def _swap_shared_linker_input(ctx, shared_info, new_output):
     old_library_to_link = shared_info.linker_input.libraries[0]
@@ -359,7 +256,7 @@ def _swap_shared_linker_input(ctx, shared_info, new_output):
 
 CcStubLibrariesInfo = provider(
     fields = {
-        "infos": "A list of dict, where each dict contains the CcStubInfo, CcSharedLibraryInfo and DefaultInfo of a version of a stub library.",
+        "has_stubs": "If the shared library has stubs",
     },
 )
 
@@ -400,15 +297,6 @@ def _cc_library_shared_proxy_impl(ctx):
 
     files = root_files + [ctx.outputs.output_file, ctx.files.table_of_contents[0]]
 
-    stub_library_infos = []
-    for stub_library in ctx.attr.stub_shared_libraries:
-        providers = {
-            "CcStubInfo": stub_library[CcStubInfo],
-            "CcSharedLibraryInfo": stub_library[CcSharedLibraryInfo],
-            "DefaultInfo": stub_library[DefaultInfo],
-        }
-        stub_library_infos.append(providers)
-
     return [
         DefaultInfo(
             files = depset(direct = files),
@@ -420,7 +308,7 @@ def _cc_library_shared_proxy_impl(ctx):
         # as cc_shared_library identifies which libraries can be linked dynamically based on the
         # linker_inputs of the roots
         ctx.attr.root[CcInfo],
-        CcStubLibrariesInfo(infos = stub_library_infos),
+        CcStubLibrariesInfo(has_stubs = ctx.attr.has_stubs),
         ctx.attr.shared[OutputGroupInfo],
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
     ]
@@ -437,7 +325,7 @@ _cc_library_shared_proxy = rule(
             # allow_single_file = True,
             providers = [CcTocInfo],
         ),
-        "stub_shared_libraries": attr.label_list(providers = [CcStubInfo, CcSharedLibraryInfo]),
+        "has_stubs": attr.bool(default = False),
         "runtime_deps": attr.label_list(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",

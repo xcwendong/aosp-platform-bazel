@@ -83,10 +83,6 @@ case $(uname -s) in
         ANDROID_BAZELRC_NAME="linux.bazelrc"
         ANDROID_BAZEL_JDK_PATH="${TOP}/prebuilts/jdk/jdk11/linux-x86"
         RESTRICTED_PATH="${TOP}/prebuilts/build-tools/path/linux-x86:${ABSOLUTE_OUT_DIR}/.path"
-
-        # Used for --sandbox_tmpfs_path. Bazel doesn't create this
-        # directory automatically. See linux.bazelrc for more information.
-        mkdir -p /tmp/bazel/sandbox
         ;;
     *)
         >&2 echo "Bazel is supported on Linux and Darwin only. Your OS is not supported for Bazel usage, based on 'uname -s': $(uname -s)"
@@ -204,10 +200,12 @@ else
     ADDITIONAL_FLAGS+=("--bazelrc=${ABSOLUTE_OUT_DIR}/bazel/path.bazelrc")
 fi
 
+# TODO(b/240354506): Re-enable hsperfdata file creation without causing SIGBUS errors
 JAVA_HOME="${ANDROID_BAZEL_JDK_PATH}" "${ANDROID_BAZEL_PATH}" \
   --server_javabase="${ANDROID_BAZEL_JDK_PATH}" \
   --output_user_root="${ABSOLUTE_OUT_DIR}/bazel/output_user_root" \
   --host_jvm_args=-Djava.io.tmpdir="${ABSOLUTE_OUT_DIR}/bazel/javatmp" \
+  --host_jvm_args="-XX:-UsePerfData" \
   --bazelrc="${ANDROID_BAZELRC_PATH}" \
   "${ADDITIONAL_FLAGS[@]}" \
   "$@"

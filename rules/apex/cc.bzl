@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "CcStubLibrariesInfo")
+load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 ApexCcInfo = provider(
@@ -26,39 +27,15 @@ ApexCcInfo = provider(
     },
 )
 
-# Return True if this target provides stubs that is equal to, or below, the
-# APEX's min_sdk_level.
+# Return True if this target provides stubs.
+#
+# There is no need to check versions of stubs any more, see aosp/1609533.
 #
 # These stable ABI libraries are intentionally omitted from APEXes as they are
 # provided from another APEX or the platform.  By omitting them from APEXes, we
 # ensure that there are no multiple copies of such libraries on a device.
 def has_cc_stubs(target, ctx):
-    if ctx.rule.kind != "_cc_library_shared_proxy":
-        # only _cc_library_shared_proxy contains merged CcStubLibrariesInfo providers
-        # (a provider aggregating CcStubInfo and CcSharedLibraryInfo)
-        return False
-
-    if len(target[CcStubLibrariesInfo].infos) == 0:
-        # Not all shared library targets have stubs
-        return False
-
-    # Minimum SDK version supported by the APEX that transitively depends on
-    # this target.
-    min_sdk_version = ctx.attr.min_sdk_version
-    apex_name = ctx.attr._apex_name[BuildSettingInfo].value
-
-    available_versions = []
-
-    # Check that the shared library has stubs built for (at least) the
-    # min_sdk_version of the APEX
-    for stub_info in target[CcStubLibrariesInfo].infos:
-        stub_version = stub_info["CcStubInfo"].version
-        available_versions.append(stub_version)
-        if stub_version <= min_sdk_version:
-            return True
-
-    fail("cannot find a stub lib version for min_sdk_level %s (%s apex)\navailable versions: %s (%s)" %
-         (min_sdk_version, apex_name, available_versions, target.label))
+    return (ctx.rule.kind == "_cc_library_shared_proxy" and target[CcStubLibrariesInfo].has_stubs) or ctx.rule.kind == "_cc_stub_library_shared"
 
 # Check if this target is specified as a direct dependency of the APEX,
 # as opposed to a transitive dependency, as the transitivity impacts
@@ -74,6 +51,7 @@ def _apex_cc_aspect_impl(target, ctx):
     is_direct_dep = is_apex_direct_dep(target, ctx)
 
     provides = []
+    requires = []
 
     if has_cc_stubs(target, ctx):
         if is_direct_dep:
@@ -86,10 +64,15 @@ def _apex_cc_aspect_impl(target, ctx):
             # propagate the libraries. Mark this target as required from the
             # system either via the system partition, or another APEX, and
             # propagate this list.
+            source_library = target[CcStubLibrarySharedInfo].source_library
+
+            # If a stub library is in the "provides" of the apex, it doesn't need to be in the "requires"
+            if not is_apex_direct_dep(source_library, ctx):
+                requires += [target[CcStubLibrarySharedInfo].source_library.label]
             return [
                 ApexCcInfo(
                     transitive_shared_libs = depset(),
-                    requires_native_libs = depset(direct = [target.label]),
+                    requires_native_libs = depset(direct = requires),
                     provides_native_libs = depset(direct = provides),
                 ),
             ]

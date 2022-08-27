@@ -17,14 +17,16 @@
 """Helpers pertaining to clang compile actions."""
 
 import collections
-import difflib
 import pathlib
 import subprocess
-from typing import Callable
 from commands import CommandInfo
 from commands import flag_repr
 from commands import is_flag_starts_with
 from commands import parse_flag_groups
+from diffs.diff import Diff, ExtractInfo
+from diffs.context import ContextDiff
+from diffs.nm import NmSymbolDiff
+from diffs.bloaty import BloatyDiff
 
 
 class ClangCompileInfo(CommandInfo):
@@ -137,29 +139,6 @@ def _process_includes(includes):
   return result
 
 
-# given a file, give a list of "information" about it
-ExtractInfo = Callable[[pathlib.Path], list[str]]
-
-
-def _diff(left_path: pathlib.Path, right_path: pathlib.Path, tool_name: str,
-    tool: ExtractInfo) -> list[str]:
-  """Returns a list of strings describing differences in `.o` files.
-  Returns the empty list if these files are deemed "similar enough".
-
-  The given files must exist and must be object (.o) files."""
-  errors = []
-
-  left = tool(left_path)
-  right = tool(right_path)
-  comparator = difflib.context_diff(left, right)
-  difflines = list(comparator)
-  if difflines:
-    err = "\n".join(difflines)
-    errors.append(
-      f"{left_path}\ndiffers from\n{right_path}\nper {tool_name}:\n{err}")
-  return errors
-
-
 def _external_tool(*args) -> ExtractInfo:
   return lambda file: subprocess.run([*args, str(file)],
                                      check=True, capture_output=True,
@@ -170,10 +149,8 @@ def _external_tool(*args) -> ExtractInfo:
 def nm_differences(left_path: pathlib.Path, right_path: pathlib.Path) -> list[
   str]:
   """Returns differences in symbol tables.
-  Returns the empty list if these files are deemed "similar enough".
-
-  The given files must exist and must be object (.o) files."""
-  return _diff(left_path, right_path, "symbol tables", _external_tool("nm"))
+  Returns the empty list if these files are deemed "similar enough"."""
+  return NmSymbolDiff(_external_tool("nm"), "symbol tables").diff(left_path, right_path)
 
 
 # TODO(usta) use readelf as a data dependency
@@ -183,5 +160,32 @@ def elf_differences(left_path: pathlib.Path, right_path: pathlib.Path) -> list[
   Returns the empty list if these files are deemed "similar enough".
 
   The given files must exist and must be object (.o) files."""
-  return _diff(left_path, right_path, "elf headers",
-               _external_tool("readelf", "-h"))
+  return ContextDiff(_external_tool("readelf", "-h"), "elf headers").diff(left_path, right_path)
+
+# TODO(usta) use bloaty as a data dependency
+def bloaty_differences(left_path: pathlib.Path, right_path: pathlib.Path) -> list[
+  str]:
+  """Returns differences in symbol and section tables.
+  Returns the empty list if these files are deemed "similar enough".
+
+  The given files must exist and must be object (.o) files."""
+  return _bloaty_differences(left_path, right_path)
+
+
+# TODO(usta) use bloaty as a data dependency
+def bloaty_differences_compileunits(left_path: pathlib.Path, right_path: pathlib.Path) -> list[
+  str]:
+  """Returns differences in symbol and section tables.
+  Returns the empty list if these files are deemed "similar enough".
+
+  The given files must exist and must be object (.o) files."""
+  return _bloaty_differences(left_path, right_path, True)
+
+
+# TODO(usta) use bloaty as a data dependency
+def _bloaty_differences(left_path: pathlib.Path, right_path: pathlib.Path, debug=False) -> list[
+  str]:
+  symbols = BloatyDiff("symbol tables", "symbols", has_debug_symbols=debug).diff(left_path, right_path)
+  sections = BloatyDiff("section tables", "sections", has_debug_symbols=debug).diff(left_path, right_path)
+  segments = BloatyDiff("segment tables", "segments", has_debug_symbols=debug).diff(left_path, right_path)
+  return symbols + sections + segments

@@ -16,6 +16,7 @@ load("//build/bazel/rules:sh_binary.bzl", "sh_binary")
 load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
+load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
 load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load(":apex.bzl", "ApexInfo", "apex")
@@ -611,17 +612,50 @@ def _test_apex_manifest_dependencies_requires():
         name = name + "_lib_with_dep",
         system_dynamic_deps = [],
         stl = "none",
-        implementation_dynamic_deps = [name + "_libfoo"],
+        implementation_dynamic_deps = select({
+            "//build/bazel/rules/apex:android-in_apex": [name + "_libfoo_stub_libs_current"],
+            "//build/bazel/rules/apex:android-non_apex": [name + "_libfoo"],
+        }),
         tags = ["manual"],
+        has_stubs = True,
+    )
+
+    native.genrule(
+        name = name + "_genrule_lib_with_dep_map_txt",
+        outs = [name + "_lib_with_dep.map.txt"],
+        cmd = "touch $@",
+        tags = ["manual"],
+    )
+
+    cc_stub_suite(
+        name = name + "_lib_with_dep_stub_libs",
+        soname = name + "_lib_with_dep.so",
+        source_library = ":" + name + "_lib_with_dep",
+        symbol_file = name + "_lib_with_dep.map.txt",
+        versions = ["30"],
     )
 
     cc_library_shared(
         name = name + "_libfoo",
         system_dynamic_deps = [],
         stl = "none",
-        stubs_versions = ["1"],
-        stubs_symbol_file = name + "_libfoo.map.txt",
         tags = ["manual"],
+        has_stubs = False,
+    )
+
+    native.genrule(
+        name = name + "_genrule_libfoo_map_txt",
+        outs = [name + "_libfoo.map.txt"],
+        cmd = "touch $@",
+        tags = ["manual"],
+    )
+
+    cc_stub_suite(
+        name = name + "_libfoo_stub_libs",
+        soname = name + "_libfoo.so",
+        source_library = ":" + name + "_libfoo",
+        symbol_file = name + "_libfoo.map.txt",
+        versions = ["30"],
     )
 
     test_apex(
@@ -634,7 +668,7 @@ def _test_apex_manifest_dependencies_requires():
         name = test_name,
         target_under_test = name,
         requires_native_libs = [name + "_libfoo"],
-        provides_native_libs = [],
+        provides_native_libs = [name + "_lib_with_dep"],
     )
 
     return test_name
@@ -645,11 +679,25 @@ def _test_apex_manifest_dependencies_provides():
 
     cc_library_shared(
         name = name + "_libfoo",
-        stubs_versions = ["1"],
-        stubs_symbol_file = name + "_libfoo.map.txt",
         system_dynamic_deps = [],
         stl = "none",
         tags = ["manual"],
+        has_stubs = True,
+    )
+
+    native.genrule(
+        name = name + "_genrule_libfoo_map_txt",
+        outs = [name + "_libfoo.map.txt"],
+        cmd = "touch $@",
+        tags = ["manual"],
+    )
+
+    cc_stub_suite(
+        name = name + "_libfoo_stub_libs",
+        soname = name + "_libfoo.so",
+        source_library = ":" + name + "_libfoo",
+        symbol_file = name + "_libfoo.map.txt",
+        versions = ["30"],
     )
 
     test_apex(
@@ -675,17 +723,50 @@ def _test_apex_manifest_dependencies_selfcontained():
         name = name + "_lib_with_dep",
         system_dynamic_deps = [],
         stl = "none",
-        implementation_dynamic_deps = [name + "_libfoo"],
+        implementation_dynamic_deps = select({
+            "//build/bazel/rules/apex:android-in_apex": [name + "_libfoo_stub_libs_current"],
+            "//build/bazel/rules/apex:android-non_apex": [name + "_libfoo"],
+        }),
         tags = ["manual"],
+        has_stubs = True,
+    )
+
+    native.genrule(
+        name = name + "_genrule_lib-with_dep_map_txt",
+        outs = [name + "_lib_with_dep.map.txt"],
+        cmd = "touch $@",
+        tags = ["manual"],
+    )
+
+    cc_stub_suite(
+        name = name + "_lib_with_dep_stub_libs",
+        soname = name + "_lib_with_dep.so",
+        source_library = ":" + name + "_lib_with_dep",
+        symbol_file = name + "_lib_with_dep.map.txt",
+        versions = ["30"],
     )
 
     cc_library_shared(
         name = name + "_libfoo",
-        stubs_versions = ["1"],
-        stubs_symbol_file = name + "_libfoo.map.txt",
         system_dynamic_deps = [],
         stl = "none",
         tags = ["manual"],
+        has_stubs = True,
+    )
+
+    native.genrule(
+        name = name + "_genrule_libfoo_map_txt",
+        outs = [name + "_libfoo.map.txt"],
+        cmd = "touch $@",
+        tags = ["manual"],
+    )
+
+    cc_stub_suite(
+        name = name + "_libfoo_stub_libs",
+        soname = name + "_libfoo.so",
+        source_library = ":" + name + "_libfoo",
+        symbol_file = name + "_libfoo.map.txt",
+        versions = ["30"],
     )
 
     test_apex(
@@ -704,7 +785,10 @@ def _test_apex_manifest_dependencies_selfcontained():
         name = test_name,
         target_under_test = name,
         requires_native_libs = [],
-        provides_native_libs = [name + "_libfoo"],
+        provides_native_libs = [
+            name + "_lib_with_dep",
+            name + "_libfoo",
+        ],
     )
 
     return test_name
@@ -719,8 +803,10 @@ def _test_apex_manifest_dependencies_cc_binary():
         system_deps = [],
         dynamic_deps = [
             name + "_lib_with_dep",
-            name + "_librequires2",
-        ],
+        ] + select({
+            "//build/bazel/rules/apex:android-in_apex": [name + "_librequires2_stub_libs_current"],
+            "//build/bazel/rules/apex:android-non_apex": [name + "_librequires2"],
+        }),
         tags = ["manual"],
     )
 
@@ -728,26 +814,57 @@ def _test_apex_manifest_dependencies_cc_binary():
         name = name + "_lib_with_dep",
         system_dynamic_deps = [],
         stl = "none",
-        implementation_dynamic_deps = [name + "_librequires"],
+        implementation_dynamic_deps = select({
+            "//build/bazel/rules/apex:android-in_apex": [name + "_librequires_stub_libs_current"],
+            "//build/bazel/rules/apex:android-non_apex": [name + "_librequires"],
+        }),
         tags = ["manual"],
     )
 
     cc_library_shared(
         name = name + "_librequires",
-        stubs_versions = ["1"],
-        stubs_symbol_file = name + "_librequires.map.txt",
         system_dynamic_deps = [],
         stl = "none",
         tags = ["manual"],
+        has_stubs = True,
+    )
+
+    native.genrule(
+        name = name + "_genrule_librequires_map_txt",
+        outs = [name + "_librequires.map.txt"],
+        cmd = "touch $@",
+        tags = ["manual"],
+    )
+
+    cc_stub_suite(
+        name = name + "_librequires_stub_libs",
+        soname = name + "_librequires.so",
+        source_library = ":" + name + "_librequires",
+        symbol_file = name + "_librequires.map.txt",
+        versions = ["30"],
     )
 
     cc_library_shared(
         name = name + "_librequires2",
-        stubs_versions = ["1"],
-        stubs_symbol_file = name + "_librequires2.map.txt",
         system_dynamic_deps = [],
         stl = "none",
         tags = ["manual"],
+        has_stubs = True,
+    )
+
+    native.genrule(
+        name = name + "_genrule_librequires2_map_txt",
+        outs = [name + "_librequires2.map.txt"],
+        cmd = "touch $@",
+        tags = ["manual"],
+    )
+
+    cc_stub_suite(
+        name = name + "_librequires2_stub_libs",
+        soname = name + "_librequires2.so",
+        source_library = ":" + name + "_librequires2",
+        symbol_file = name + "_librequires2.map.txt",
+        versions = ["30"],
     )
 
     test_apex(

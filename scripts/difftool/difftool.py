@@ -88,9 +88,19 @@ class EnumAction(argparse.Action):
 
 
 class ArtifactType(enum.Enum):
+  AUTO_INFER_FROM_SUFFIX = 0
   CC_OBJECT = 1
   CC_SHARED_LIBRARY = 2
+  CC_OBJECT_WITH_DEBUG_SYMBOLS = 3
   OTHER = 99
+
+
+FILE_TYPE_CHOICES = {
+   "auto": ArtifactType.AUTO_INFER_FROM_SUFFIX,
+   "object": ArtifactType.CC_OBJECT,
+   "object_with_debug_symbols": ArtifactType.CC_OBJECT_WITH_DEBUG_SYMBOLS,
+   "shared_library": ArtifactType.CC_SHARED_LIBRARY,
+}
 
 
 def _artifact_type(file_path):
@@ -116,10 +126,14 @@ def _diff_fns(artifact_type: ArtifactType, level: DiffLevel) -> list[
   DiffFunction]:
   fns = []
 
-  if artifact_type == ArtifactType.CC_OBJECT:
+  if artifact_type in [ArtifactType.CC_OBJECT, ArtifactType.CC_OBJECT_WITH_DEBUG_SYMBOLS]:
     fns.append(clangcompile.nm_differences)
     if level >= DiffLevel.WARNING:
       fns.append(clangcompile.elf_differences)
+      if artifact_type == ArtifactType.CC_OBJECT_WITH_DEBUG_SYMBOLS:
+        fns.append(clangcompile.bloaty_differences_compileunits)
+      else:
+        fns.append(clangcompile.bloaty_differences)
   else:
     fns.append(literal_diff)
 
@@ -145,7 +159,8 @@ def collect_commands(ninja_file_path: pathlib.Path,
 
 
 def file_differences(left_path: pathlib.Path, right_path: pathlib.Path,
-    level=DiffLevel.SEVERE) -> list[str]:
+                     level=DiffLevel.SEVERE,
+                     file_type=ArtifactType.AUTO_INFER_FROM_SUFFIX) -> list[str]:
   """Returns differences between the two given files.
   Returns the empty list if these files are deemed "similar enough"."""
 
@@ -157,13 +172,14 @@ def file_differences(left_path: pathlib.Path, right_path: pathlib.Path,
   if errors:
     return errors
 
-  left_type = _artifact_type(left_path)
-  right_type = _artifact_type(right_path)
-  if left_type != right_type:
-    errors += ["file types differ: %s and %s" % (left_type, right_type)]
-    return errors
+  if file_type is ArtifactType.AUTO_INFER_FROM_SUFFIX:
+    file_type = _artifact_type(left_path)
+    right_type = _artifact_type(right_path)
+    if file_type != right_type:
+      errors += ["file types differ: %s and %s" % (file_type, right_type)]
+      return errors
 
-  for fn in _diff_fns(left_type, level):
+  for fn in _diff_fns(file_type, level):
     errors += fn(left_path, right_path)
 
   return errors
@@ -253,6 +269,10 @@ def main():
   parser.add_argument("--right_file", "-r", dest="right_file", default=None,
                       help="the output file (relative to execution root) " +
                            "for the 'right' build invocation.")
+  parser.add_argument("--file_type", dest="file_type", default="auto",
+                      choices=FILE_TYPE_CHOICES.keys(),
+                      help="the type of file being diffed (overrides automatic " +
+                      "filetype resolution)")
   parser.add_argument("--allow_missing_file",
                       action=argparse.BooleanOptionalAction,
                       default=False,
@@ -288,7 +308,7 @@ def main():
     if not right_path.is_file():
       raise RuntimeError("Expected file %s was not found. " % right_path)
 
-  file_diff_errors = file_differences(left_path, right_path, level)
+  file_diff_errors = file_differences(left_path, right_path, level, FILE_TYPE_CHOICES[args.file_type])
 
   if file_diff_errors:
     for err in file_diff_errors:
