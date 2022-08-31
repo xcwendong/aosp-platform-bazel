@@ -87,7 +87,7 @@ _stl_deps_android_test = analysistest.make(
         "shared": attr.string_list(),
     },
     config_settings = {
-        "//command_line_option:platforms": "//build/bazel/platforms:android_x86",
+        "//command_line_option:platforms": "@//build/bazel/platforms:android_x86",
     },
 )
 
@@ -98,7 +98,7 @@ _stl_deps_non_android_test = analysistest.make(
         "shared": attr.string_list(),
     },
     config_settings = {
-        "//command_line_option:platforms": "//build/bazel/platforms:linux_x86",
+        "//command_line_option:platforms": "@//build/bazel/platforms:linux_x86",
     },
 )
 

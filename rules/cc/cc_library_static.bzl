@@ -145,8 +145,8 @@ def cc_library_static(
             ("hdrs", hdrs),
             # Add dynamic_deps to implementation_deps, as the include paths from the
             # dynamic_deps are also needed.
-            ("deps", [locals_name]),
-            ("interface_deps", [exports_name]),
+            ("implementation_deps", [locals_name]),
+            ("deps", [exports_name]),
             ("features", toolchain_features),
             ("toolchains", ["//build/bazel/platforms:android_target_product_vars"]),
             ("alwayslink", alwayslink),

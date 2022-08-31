@@ -131,7 +131,7 @@ Usage: $mypath [-c cuj_to_run] [-n] [-q] [TARGET1 [TARGET2 [ ...]]]
   -n: Dry Runs (a "resetting" run preceding a cuj will NOT be a dry run)
   -q: Quiet. Console output will be suppressed.
 If you omit targets, "${targets[*]}" will be used.
-Set `USE_BAZEL_ANALYSIS=1` for mixed builds.
+Set USE_BAZEL_ANALYSIS=1 for mixed builds.
 EOF
   exit 1
 }

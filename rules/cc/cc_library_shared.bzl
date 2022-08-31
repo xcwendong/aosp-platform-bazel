@@ -143,13 +143,13 @@ def cc_library_shared(
     deps_stub = name + "_deps"
     native.cc_library(
         name = imp_deps_stub,
-        interface_deps = implementation_deps + stl.static + implementation_dynamic_deps + system_dynamic_deps + stl.shared,
+        deps = implementation_deps + stl.static + implementation_dynamic_deps + system_dynamic_deps + stl.shared,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
     )
     native.cc_library(
         name = deps_stub,
-        interface_deps = deps + dynamic_deps,
+        deps = deps + dynamic_deps,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
     )

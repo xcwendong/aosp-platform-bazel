@@ -56,8 +56,8 @@ build --proto_compiler=//external/protobuf:aprotoc
 # are a long term goal.
 build --strategy=CppCompile=standalone
 
-# Enable use of the interface_deps attribute in native cc rules
-build --experimental_cc_interface_deps
+# Enable use of the implementation_deps attribute in native cc rules
+build --experimental_cc_implementation_deps
 
 # Use the llvm_coverage_map_format feature to turn on native code coverage.
 build --experimental_use_llvm_covmap

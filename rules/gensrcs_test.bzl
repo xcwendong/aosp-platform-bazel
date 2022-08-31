@@ -159,8 +159,8 @@ def _test_gensrcs_tool_builds_for_host_impl(ctx):
 _gensrcs_tool_builds_for_host_test = analysistest.make(
     _test_gensrcs_tool_builds_for_host_impl,
     config_settings = {
-        "//command_line_option:platforms": "//build/bazel/platforms:android_x86",  # ensure target != host so there is a transition
-        "//command_line_option:host_platform": "//build/bazel/platforms:darwin_x86_64",  # ensure target != host so there is a transition
+        "//command_line_option:platforms": "@//build/bazel/platforms:android_x86",  # ensure target != host so there is a transition
+        "//command_line_option:host_platform": "@//build/bazel/platforms:darwin_x86_64",  # ensure target != host so there is a transition
     },
 )
 
