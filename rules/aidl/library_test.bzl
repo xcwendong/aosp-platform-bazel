@@ -26,8 +26,13 @@ def _test_include_dirs_are_transitive_impl(ctx):
     asserts.equals(
         env,
         expected = [
-            paths.join(ctx.genfiles_dir.path, PACKAGE_ROOT, "_virtual_imports", "include_dirs_transitivity_dependency"),
+            # direct include dir is the first in the list returned from
+            # transitive_include_dirs.to_list() because transitive_include_dir
+            # is created with preorder
+            # TODO(b/243825300): Move direct include_dir out of transitive_include_dir
+            # so that we don't have to rely on preorder traversal
             paths.join(ctx.genfiles_dir.path, PACKAGE_ROOT, "_virtual_imports", "include_dirs_transitivity"),
+            paths.join(ctx.genfiles_dir.path, PACKAGE_ROOT, "_virtual_imports", "include_dirs_transitivity_dependency"),
         ],
         actual = target_under_test[AidlGenInfo].transitive_include_dirs.to_list(),
     )

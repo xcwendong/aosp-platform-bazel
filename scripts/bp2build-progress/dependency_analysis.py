@@ -61,8 +61,8 @@ _QUERYVIEW_IGNORE_KINDS = set([
     "cc_prebuilt_library_static",
     "cc_prebuilt_library_static",
     "cc_prebuilt_object",
-    "hidl_interface.go_android/soong/hidl.hidlGenFactory__loadHookModule", # implementation detail of hidl_interface
-    "hidl_package_root", # not being converted, contents converted as part of hidl_interface
+    "hidl_interface.go_android/soong/hidl.hidlGenFactory__loadHookModule",  # implementation detail of hidl_interface
+    "hidl_package_root",  # not being converted, contents converted as part of hidl_interface
     "java_import",
     "java_import_host",
     "java_sdk_library_import",
@@ -152,7 +152,8 @@ def visit_json_module_graph_post_order(module_graph, ignore_by_name,
   for module in module_graph:
     name = module["Name"]
     key = _ModuleKey(name, module["Variations"])
-    if is_windows_variation(module) or ignore_kind(module["Type"]) or name in ignore_by_name:
+    if is_windows_variation(module) or ignore_kind(
+        module["Type"]) or name in ignore_by_name:
       ignored.add(key)
       continue
     module_graph_map[key] = module
@@ -288,6 +289,8 @@ def visit_queryview_xml_module_graph_post_order(module_graph, ignored_by_name,
       if dep_name_with_variant in ignored:
         continue
       dep_name = name_with_variant_to_name[dep_name_with_variant]
+      if dep_name == "prebuilt_" + name:
+        continue
       if dep_name_with_variant not in visited:
         queryview_module_graph_post_traversal(dep_name_with_variant)
 
@@ -371,4 +374,5 @@ def ignore_json_dep(dep, module_name, ignored_keys):
   if is_prebuilt_to_source_dep(dep):
     return True
   name = dep["Name"]
-  return _ModuleKey(name, dep["Variations"]) in ignored_keys or name == module_name
+  return _ModuleKey(name,
+                    dep["Variations"]) in ignored_keys or name == module_name

@@ -515,6 +515,39 @@ class DependencyAnalysisTest(unittest.TestCase):
     expected_visited = ['d', 'b', 'b', 'e', 'c', 'a']
     self.assertListEqual(visited_modules, expected_visited)
 
+  def test_visit_queryview_xml_module_graph_post_order_skips_prebuilt_with_same_name(
+      self):
+    graph = ElementTree.Element('query', attrib={'version': '2'})
+    graph.append(
+        _make_xml_module(
+            '//pkg:a',
+            'a',
+            'module',
+            dep_names=['//other_pkg:prebuilt_a', '//pkg:b', '//pkg:c']))
+    graph.append(
+        _make_xml_module('//other_pkg:prebuilt_a', 'prebuilt_a',
+                         'prebuilt_module'))
+    graph.append(
+        _make_xml_module('//pkg:b', 'b', 'module', dep_names=['//pkg:d']))
+    graph.append(
+        _make_xml_module('//pkg:c', 'c', 'module', dep_names=['//pkg:e']))
+    graph.append(_make_xml_module('//pkg:d', 'd', 'module'))
+    graph.append(_make_xml_module('//pkg:e', 'e', 'module'))
+
+    def only_a(module):
+      return module.name == 'a'
+
+    visited_modules = []
+
+    def visit(module, _):
+      visited_modules.append(module.name)
+
+    dependency_analysis.visit_queryview_xml_module_graph_post_order(
+        graph, set(), only_a, visit)
+
+    expected_visited = ['d', 'b', 'e', 'c', 'a']
+    self.assertListEqual(visited_modules, expected_visited)
+
 
 if __name__ == '__main__':
   unittest.main()

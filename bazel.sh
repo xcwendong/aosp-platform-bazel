@@ -205,7 +205,6 @@ JAVA_HOME="${ANDROID_BAZEL_JDK_PATH}" "${ANDROID_BAZEL_PATH}" \
   --server_javabase="${ANDROID_BAZEL_JDK_PATH}" \
   --output_user_root="${ABSOLUTE_OUT_DIR}/bazel/output_user_root" \
   --host_jvm_args=-Djava.io.tmpdir="${ABSOLUTE_OUT_DIR}/bazel/javatmp" \
-  --host_jvm_args="-XX:-UsePerfData" \
   --bazelrc="${ANDROID_BAZELRC_PATH}" \
   "${ADDITIONAL_FLAGS[@]}" \
   "$@"

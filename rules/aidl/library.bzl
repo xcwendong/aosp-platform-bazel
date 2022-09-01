@@ -73,6 +73,9 @@ def _aidl_library_rule_impl(ctx):
             transitive_include_dirs = depset(
                 direct = [include_path],
                 transitive = transitive_include_dirs,
+                # build with preorder so that transitive_include_dirs.to_list()
+                # return direct include path in the first element
+                order = "preorder",
             ),
             flags = ctx.attr.flags,
         ),
