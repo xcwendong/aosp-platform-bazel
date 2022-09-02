@@ -28,6 +28,7 @@ load(":versioned_cc_common.bzl", "versioned_binary")
 
 def cc_binary(
         name,
+        suffix = "",
         dynamic_deps = [],
         srcs = [],
         srcs_c = [],
@@ -152,6 +153,7 @@ def cc_binary(
 
     stripped_binary(
         name = name,
+        suffix = suffix,
         src = versioned_name,
         runtime_deps = runtime_deps,
         target_compatible_with = target_compatible_with,

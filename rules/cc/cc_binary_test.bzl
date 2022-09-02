@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
+load(":cc_binary.bzl", "cc_binary")
 
 def _cc_binary_strip_test(ctx):
     env = analysistest.begin(ctx)
@@ -180,6 +180,65 @@ def _cc_binary_strip_all():
 
     return test_name
 
+def _cc_binary_suffix_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    info = target[DefaultInfo]
+    suffix = ctx.attr.suffix
+
+    outputs = info.files.to_list()
+    asserts.true(
+        env,
+        len(outputs) == 1,
+        "Expected 1 output file; got %s" % outputs,
+    )
+    out = outputs[0].path
+    asserts.true(
+        env,
+        out.endswith(suffix),
+        "Expected output filename to end in `%s`; it was instead %s" % (suffix, out),
+    )
+
+    return analysistest.end(env)
+
+cc_binary_suffix_test = analysistest.make(
+    _cc_binary_suffix_test_impl,
+    attrs = {"suffix": attr.string()},
+)
+
+def _cc_binary_suffix():
+    name = "cc_binary_suffix"
+    test_name = name + "_test"
+    suffix = "-suf"
+
+    cc_binary(
+        name,
+        srcs = ["src.cc"],
+        tags = ["manual"],
+        suffix = suffix,
+    )
+    cc_binary_suffix_test(
+        name = test_name,
+        target_under_test = name,
+        suffix = suffix,
+    )
+    return test_name
+
+def _cc_binary_empty_suffix():
+    name = "cc_binary_empty_suffix"
+    test_name = name + "_test"
+
+    cc_binary(
+        name,
+        srcs = ["src.cc"],
+        tags = ["manual"],
+    )
+    cc_binary_suffix_test(
+        name = test_name,
+        target_under_test = name,
+    )
+    return test_name
+
 def cc_binary_test_suite(name):
     native.test_suite(
         name = name,
@@ -189,5 +248,7 @@ def cc_binary_test_suite(name):
             _cc_binary_strip_keep_symbols_and_debug_frame(),
             _cc_binary_strip_keep_symbols_list(),
             _cc_binary_strip_all(),
+            _cc_binary_suffix(),
+            _cc_binary_empty_suffix(),
         ],
     )

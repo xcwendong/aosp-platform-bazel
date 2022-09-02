@@ -32,6 +32,7 @@ CcTocInfo = _CcTocInfo
 
 def cc_library_shared(
         name,
+        suffix = "",
         # Common arguments between shared_root and the shared library
         features = [],
         dynamic_deps = [],
@@ -67,7 +68,6 @@ def cc_library_shared(
 
         # Purely _shared arguments
         strip = {},
-        soname = "",
 
         # TODO(b/202299295): Handle data attribute.
         data = [],
@@ -161,8 +161,7 @@ def cc_library_shared(
         stl.shared,
     )
 
-    if len(soname) == 0:
-        soname = name + ".so"
+    soname = name + suffix + ".so"
     soname_flag = "-Wl,-soname," + soname
 
     native.cc_shared_library(

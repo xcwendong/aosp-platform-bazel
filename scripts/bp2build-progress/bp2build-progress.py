@@ -159,6 +159,15 @@ def generate_report_data(modules, converted, input_module):
 
   for module, deps in sorted(modules.items()):
     unconverted_deps = set(dep for dep in deps if dep not in converted)
+
+    # replace deps count with transitive deps rather than direct deps count
+    module = _ModuleInfo(
+        module.name,
+        module.kind,
+        module.dirname,
+        len(deps),
+    )
+
     for dep in unconverted_deps:
       all_unconverted_modules[dep].add(module)
 

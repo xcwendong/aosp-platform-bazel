@@ -44,8 +44,8 @@ def get_strip_args(attrs):
     return strip_args
 
 # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/builder.go;l=131-146;drc=master
-def _stripped_impl(ctx, prefix = "", extension = ""):
-    out_file = ctx.actions.declare_file(prefix + ctx.attr.name + extension)
+def _stripped_impl(ctx, prefix = "", suffix = "", extension = ""):
+    out_file = ctx.actions.declare_file(prefix + ctx.attr.name + suffix + extension)
     if not needs_strip(ctx.attr):
         ctx.actions.symlink(
             output = out_file,
@@ -139,7 +139,7 @@ common_attrs = {
 }
 
 def _stripped_shared_library_impl(ctx):
-    out_file = _stripped_impl(ctx, "lib", ".so")
+    out_file = _stripped_impl(ctx, prefix = "lib", extension = ".so")
 
     return [
         DefaultInfo(files = depset([out_file])),
@@ -174,7 +174,7 @@ def _stripped_binary_impl(ctx):
         StrippedCcBinaryInfo(),  # a marker for dependents
     ]
 
-    out_file = _stripped_impl(ctx)
+    out_file = _stripped_impl(ctx, suffix = ctx.attr.suffix)
 
     return [
         DefaultInfo(
@@ -192,6 +192,7 @@ stripped_binary = rule(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
         ),
+        suffix = attr.string(),
     ),
     executable = True,
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
