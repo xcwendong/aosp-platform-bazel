@@ -40,11 +40,20 @@ def _prebuilt_file_rule_impl(ctx):
     if not acceptable:
         fail("dir for", ctx.label.name, "is `", dir, "`, but we only handle these:\n", _handled_dirs)
 
+    if ctx.attr.filename_from_src and ctx.attr.filename != "":
+        fail("filename is set. filename_from_src cannot be true")
+    elif ctx.attr.filename != "":
+        filename = ctx.attr.filename
+    elif ctx.attr.filename_from_src:
+        filename = srcs[0]
+    else:
+        filename = ctx.attr.name
+
     return [
         PrebuiltFileInfo(
             src = srcs[0],
             dir = dir,
-            filename = ctx.attr.filename,
+            filename = filename,
             installable = ctx.attr.installable,
         ),
         DefaultInfo(
@@ -63,6 +72,7 @@ _prebuilt_file = rule(
         ),
         "dir": attr.string(mandatory = True),
         "filename": attr.string(),
+        "filename_from_src": attr.bool(default = True),
         "installable": attr.bool(default = True),
     },
 )
@@ -75,6 +85,7 @@ def prebuilt_file(
         installable = True,
         # TODO(b/207489266): Fully support;
         # data is currently dropped to prevent breakages from e.g. prebuilt_etc
+        filename_from_src = False,
         data = [],
         **kwargs):
     "Bazel macro to correspond with the e.g. prebuilt_etc and prebuilt_usr_share Soong modules."
@@ -85,5 +96,6 @@ def prebuilt_file(
         dir = dir,
         filename = filename,
         installable = installable,
+        filename_from_src = filename_from_src,
         **kwargs
     )

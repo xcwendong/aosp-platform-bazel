@@ -103,7 +103,9 @@ def combine_report_data(data):
     for module, blocked in item.blocked_modules.items():
       if module in ret.blocked_modules and ret.blocked_modules[
           module] != blocked:
-        raise Exception("dependencies should match")
+        diffs = blocked ^ ret.blocked_modules[module]
+        raise Exception(
+            f"Combining: dependencies should match {module} diffs: {diffs}")
       ret.blocked_modules[module] = blocked
     ret.dirs_with_unconverted_modules.update(item.dirs_with_unconverted_modules)
     ret.kind_of_unconverted_modules.update(item.kind_of_unconverted_modules)
@@ -175,7 +177,9 @@ def generate_report_data(modules, converted, input_module):
     if module.name not in converted:
       if module in blocked_modules and blocked_modules[
           module] != unconverted_deps:
-        raise Exception("dependencies should match")
+        diffs = unconverted_deps ^ blocked_modules[module]
+        raise Exception(
+            f"Generating: dependencies should match {module} diffs: {diffs}")
       blocked_modules[module] = unconverted_deps
       dirs_with_unconverted_modules.add(module.dirname)
       kind_of_unconverted_modules.add(module.kind)
