@@ -80,7 +80,10 @@ def cc_library_shared(
         **kwargs):
     "Bazel macro to correspond with the cc_library_shared Soong module."
 
-    shared_root_name = name + "_root"
+    # There exist modules named 'libtest_missing_symbol' and
+    # 'libtest_missing_symbol_root'. Ensure that that the target suffixes are
+    # sufficiently unique.
+    shared_root_name = name + "__internal_root"
     unstripped_name = name + "_unstripped"
     stripped_name = name + "_stripped"
     toc_name = name + "_toc"

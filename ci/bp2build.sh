@@ -34,9 +34,6 @@ FLAGS_LIST=(
   --config=bp2build
   --config=ci
 
-  # Ensure that a test command will also build non-test targets.
-  --build_tests_only=false
-
   # Make the apexer log verbosely on CI
   --//build/bazel/rules/apex:apexer_verbose
 )
@@ -58,6 +55,7 @@ BUILD_TARGETS_LIST=(
   //packages/...
   //prebuilts/clang/host/linux-x86:all
   //prebuilts/build-tools/tests/...
+  //platform_testing/...
   //system/...
   //tools/apksig/...
   //tools/platform-compat/...
@@ -78,15 +76,18 @@ TEST_TARGETS_LIST=(
 TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
 
 ###########
-# Iterate over various architectures supported in the platform build and perform:
-# 1) builds for all build and test targets
-# 2) tests
-# 3) dist for mainline modules
+# Iterate over various architectures supported in the platform build.
 ###########
 
 for platform in android_x86 android_x86_64 android_arm android_arm64; do
-  # Use a loop to prevent unnecessarily switching --platforms because that drops the Bazel analysis cache.
-  tools/bazel --max_idle_secs=5 test ${FLAGS} --config=${platform} -k -- ${BUILD_TARGETS} ${TEST_TARGETS}
+  # Use a loop to prevent unnecessarily switching --platforms because that drops
+  # the Bazel analysis cache.
+  #
+  # 1. Build every target in $BUILD_TARGETS
+  tools/bazel --max_idle_secs=5 build ${FLAGS} --config=${platform} -k -- ${BUILD_TARGETS}
+  # 2. Test every target that is compatible with an android target platform (e.g. analysis_tests, sh_tests, diff_tests).
+  tools/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only --config=${platform} -k -- ${TEST_TARGETS}
+  # 3. Dist mainline modules.
   tools/bazel --max_idle_secs=5 run //build/bazel/ci/dist:mainline_modules ${FLAGS} --config=${platform} -- --dist_dir="${DIST_DIR}/mainline_modules_${platform}"
 done
 
@@ -112,8 +113,9 @@ HOST_INCOMPATIBLE_TARGETS=(
   -//packages/modules/adb/pairing_connection:all
 )
 
-# Host-only builds and tests, relying on incompatible target skipping.
-tools/bazel --max_idle_secs=5 test ${FLAGS} --config=linux_x86_64 \
+# We can safely build and test all targets on the host linux config, and rely on
+# incompatible target skipping for tests that cannot run on the host.
+tools/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only=false -k --config=linux_x86_64 \
   -- ${BUILD_TARGETS} ${TEST_TARGETS} "${HOST_INCOMPATIBLE_TARGETS[@]}"
 
 ###################

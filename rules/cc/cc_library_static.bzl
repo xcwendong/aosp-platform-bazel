@@ -192,6 +192,7 @@ def cc_library_static(
         deps = [cpp_name, c_name, asm_name] + whole_archive_deps + implementation_whole_archive_deps,
         runtime_deps = runtime_deps,
         target_compatible_with = target_compatible_with,
+        alwayslink = alwayslink,
         tags = tags,
     )
 
@@ -242,6 +243,7 @@ def _cc_library_combiner_impl(ctx):
                 cc_toolchain = cc_toolchain,
                 static_library = output_file,
                 objects = objects_to_link,
+                alwayslink = ctx.attr.alwayslink,
             ),
         ]),
     )
@@ -304,6 +306,13 @@ _cc_library_combiner = rule(
         "_cc_toolchain": attr.label(
             default = Label("@local_config_cc//:toolchain"),
             providers = [cc_common.CcToolchainInfo],
+        ),
+        "alwayslink": attr.bool(
+            doc = """At link time, whether these libraries should be wrapped in
+            the --whole_archive block. This causes all libraries in the static
+            archive to be unconditionally linked, regardless of whether the
+            symbols in these object files are being searched by the linker.""",
+            default = False,
         ),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],

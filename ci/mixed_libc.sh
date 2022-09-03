@@ -22,8 +22,8 @@ TARGETS=(
 # Run a mixed build of "libc"
 build/soong/soong_ui.bash --make-mode \
   --mk-metrics \
+  --bazel-mode-dev \
   BP2BUILD_VERBOSE=1 \
-  USE_BAZEL_ANALYSIS=1 \
   BAZEL_STARTUP_ARGS="--max_idle_secs=5" \
   BAZEL_BUILD_ARGS="--color=no --curses=no --show_progress_rate_limit=5" \
   TARGET_PRODUCT=aosp_arm64 \

@@ -73,9 +73,6 @@ common --show_progress_rate_limit=0.05
 common --color=yes
 common --curses=yes
 
-# Show the full set of flags for observability and debuggability.
-common --announce_rc
-
 # Run bazel query from the workspace, without cd'ing into out/soong/queryview
 # Note that this hardcodes the output dir. It will not work if $OUT_DIR != out.
 common:queryview --package_path=%workspace%/out/soong/queryview
@@ -89,6 +86,8 @@ common:ci --color=no
 common:ci --curses=no
 common:ci --show_progress_rate_limit=5
 common:ci --noshow_loading_progress
+ # Show the full set of flags for observability and debuggability.
+common:ci --announce_rc
 build:ci --verbose_failures
 test:ci --keep_going
 test:ci --test_output=errors
@@ -96,16 +95,16 @@ test:ci --test_output=errors
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
 
+common --experimental_google_legacy_api
 build --android_sdk=//prebuilts/sdk:android_sdk
 build --experimental_enable_android_migration_apis
-build --experimental_google_legacy_api
 build --incompatible_java_common_parameters
 build --android_databinding_use_v3_4_args
 build --experimental_android_databinding_v2
 build --define=android_incremental_dexing_tool=d8_dexbuilder
 build --define=android_dexmerger_tool=d8_dexmerger
 build --nouse_workers_with_dexbuilder
-# TODO(b/240761789): This flag should be abandonned in favor of platform/toolchain resolution.
+# TODO(b/240761789): This flag should be abandoned in favor of platform/toolchain resolution.
 build --fat_apk_cpu=k8
 
 # TODO(b/199038020): Use a python_toolchain when we have Starlark rules_python.

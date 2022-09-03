@@ -61,7 +61,7 @@ for ((i = 0; i < ${#MODULES[@]}; i++)); do
     "$NINJA_FILE" "$LEGACY_COLLECTION"
   build/soong/soong_ui.bash \
     --make-mode \
-    USE_BAZEL_ANALYSIS=1 \
+    --bazel-mode-dev \
     BAZEL_STARTUP_ARGS="--max_idle_secs=5" \
     BAZEL_BUILD_ARGS="--color=no --curses=no --noshow_progress" \
     "$MODULE"

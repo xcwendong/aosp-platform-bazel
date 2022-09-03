@@ -69,6 +69,7 @@ sh_test(
         "manual",
         "no_windows",
     ],
+    visibility = ["//build/bazel/rules/aidl:__subpackages__"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
@@ -138,5 +139,6 @@ sh_test(
         "manual",
         "no_windows",
     ],
+    visibility = ["//build/bazel/rules/aidl:__subpackages__"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
