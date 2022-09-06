@@ -9,9 +9,8 @@ for this branch.
 ## Prerequisites
 
 * `/usr/bin/dot`: turning dot graphviz files into .pngs
-* Optional: `/usr/bin/jq`: running the query scripts over the json-module-graph.
 
-Tip: `--use_queryview=true` allows running `bp2build-progress.py` without `jq`.
+Tip: `--use_queryview=true` runs `bp2build-progress.py` with queryview.
 
 ## Instructions
 

@@ -87,6 +87,10 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_json_module_graph_post_order_visits_all_in_post_order(self):
     graph = [
+        _make_json_module('q', 'module', [
+            _make_json_dep('a'),
+            _make_json_dep('b'),
+        ]),
         _make_json_module('a', 'module', [
             _make_json_dep('b'),
             _make_json_dep('c'),
