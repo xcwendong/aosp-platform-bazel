@@ -42,3 +42,22 @@ constants = struct(
     ArchToFeatures = _arch_to_features,
     AndroidArchToVariantToFeatures = _android_arch_feature_for_arch_variant,
 )
+
+def power_set(items, *, include_empty = True):
+    """Calculates the power set of the given items."""
+
+    def _exp(x, y):
+        result = 1
+        for i in range(y):
+            result *= x
+        return result
+
+    power_set = []
+    n = len(items)
+    for i in range(0 if include_empty else 1, _exp(2, n)):
+        combination = []
+        for j in range(n):
+            if (i >> j) % 2 == 1:
+                combination.append(items[j])
+        power_set.append(combination)
+    return power_set

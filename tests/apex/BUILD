@@ -27,6 +27,7 @@ apex_compression_test(
 apex_aab_test(
     name = "build.bazel.examples.apex.minimal_mainline-module",
     apex = "//build/bazel/examples/apex/minimal:build.bazel.examples.apex.minimal",
+    golden = ":build.bazel.examples.apex.minimal.aab",
 )
 
 apex_package_name_test(
