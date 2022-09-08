@@ -90,7 +90,6 @@ def _test_unset_output_extension_impl(ctx):
 
     actions = analysistest.target_actions(env)
     asserts.equals(env, expected = 1, actual = len(actions))
-    print(actions)
     action = actions[0]
     asserts.equals(
         env,
