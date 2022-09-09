@@ -132,6 +132,7 @@ def _test_canned_fs_config_binaries():
             "/lib{64_OR_BLANK} 0 2000 0755",
             "",  # ends with a newline
         ],
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
     )
 
     return test_name
@@ -383,6 +384,7 @@ def _test_canned_fs_config_runtime_deps():
             "/lib{64_OR_BLANK} 0 2000 0755",
             "",  # ends with a newline
         ],
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
     )
 
     return test_name
@@ -669,6 +671,7 @@ def _test_apex_manifest_dependencies_requires():
         target_under_test = name,
         requires_native_libs = [name + "_libfoo"],
         provides_native_libs = [name + "_lib_with_dep"],
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
     )
 
     return test_name
@@ -789,6 +792,7 @@ def _test_apex_manifest_dependencies_selfcontained():
             name + "_lib_with_dep",
             name + "_libfoo",
         ],
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
     )
 
     return test_name
@@ -879,6 +883,7 @@ def _test_apex_manifest_dependencies_cc_binary():
             name + "_librequires",
             name + "_librequires2",
         ],
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
     )
 
     return test_name

@@ -201,4 +201,5 @@ def cc_stub_suite(name, source_library, versions, symbol_file, export_includes =
         # duplicated name if "current" is one of the versions of a library.
         name = name + "_current",
         actual = name + "-" + versions[-1],
+        tags = tags,
     )
