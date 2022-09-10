@@ -56,19 +56,6 @@ def _get_java_source_extensions(module):
   return out
 
 
-def _get_set_properties(module):
-  set_properties = set()
-  if "Module" not in module:
-    return set_properties
-  if "Android" not in module["Module"]:
-    return set_properties
-  if "SetProperties" not in module["Module"]["Android"]:
-    return set_properties
-  for prop in module["Module"]["Android"]["SetProperties"]:
-    set_properties.add(prop["Name"])
-  return set_properties
-
-
 def module_type_info_from_json(module_graph, module_type, ignored_dep_names):
   """Builds a map of module name to _ModuleTypeInfo for each module of module_type.
 
@@ -100,7 +87,7 @@ def module_type_info_from_json(module_graph, module_type, ignored_dep_names):
 
     if module["Type"]:
       info.type_to_properties[module["Type"]].update(
-          _get_set_properties(module))
+          dependency_analysis.get_property_names(module))
 
     for dep_name in deps:
       for dep_type, dep_type_properties in type_infos[

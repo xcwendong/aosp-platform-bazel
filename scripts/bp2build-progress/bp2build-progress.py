@@ -41,7 +41,7 @@ import os.path
 import subprocess
 import sys
 import xml
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional
 
 import bp2build_pb2
 import dependency_analysis
@@ -52,10 +52,18 @@ class _ModuleInfo:
   name: str
   kind: str
   dirname: str
+  created_by: Optional[str]
   num_deps: int = 0
 
   def __str__(self):
     return f"{self.name} [{self.kind}] [{self.dirname}]"
+
+  def is_converted(self, converted: Set[str]):
+    if self.name in converted:
+      return True
+    if self.created_by:
+      return self.created_by in converted
+    return False
 
 
 @dataclasses.dataclass(frozen=True, order=True)
@@ -115,23 +123,24 @@ def combine_report_data(data):
 
 
 # Generate a dot file containing the transitive closure of the module.
-def generate_dot_file(modules: Dict[_ModuleInfo, Set[str]],
+def generate_dot_file(modules: Dict[_ModuleInfo, Set[_ModuleInfo]],
                       converted: Set[str]):
   # Check that all modules in the argument are in the list of converted modules
-  all_converted = lambda modules: all(m in converted for m in modules)
+  all_converted = lambda modules: all(
+      m.is_converted(converted) for m in modules)
 
   dot_entries = []
 
   for module, deps in modules.items():
-    if module.name in converted:
-      # Skip converted modules (nodes)
+    if module.is_converted(converted):
+      # Skip converted modules (nodeps)
       continue
 
     dot_entries.append(
         f'"{module.name}" [label="{module.name}\\n{module.kind}" color=black, style=filled, '
         f"fillcolor={'yellow' if all_converted(deps) else 'tomato'}]")
-    dot_entries.extend(
-        f'"{module.name}" -> "{dep}"' for dep in deps if dep not in converted)
+    dot_entries.extend(f'"{module.name}" -> "{dep.name}"' for dep in deps
+                       if not dep.is_converted(converted))
 
   print("""
 digraph mygraph {{
@@ -160,13 +169,15 @@ def generate_report_data(modules, converted, input_module):
   input_module_info = None
 
   for module, deps in sorted(modules.items()):
-    unconverted_deps = set(dep for dep in deps if dep not in converted)
+    unconverted_deps = set(
+        dep.name for dep in deps if not dep.is_converted(converted))
 
     # replace deps count with transitive deps rather than direct deps count
     module = _ModuleInfo(
         module.name,
         module.kind,
         module.dirname,
+        module.created_by,
         len(deps),
     )
 
@@ -174,7 +185,8 @@ def generate_report_data(modules, converted, input_module):
       all_unconverted_modules[dep].add(module)
 
     unconverted_count = len(unconverted_deps)
-    if module.name not in converted:
+
+    if not module.is_converted(converted):
       if module in blocked_modules and blocked_modules[
           module] != unconverted_deps:
         diffs = unconverted_deps ^ blocked_modules[module]
@@ -281,7 +293,7 @@ def adjacency_list_from_json(
     ignore_by_name: List[str],
     top_level_module: str,
     collect_transitive_dependencies: bool = True
-) -> Dict[_ModuleInfo, Set[str]]:
+) -> Dict[_ModuleInfo, Set[_ModuleInfo]]:
 
   def filter_by_name(json):
     return json["Name"] == top_level_module
@@ -296,16 +308,20 @@ def adjacency_list_from_json(
         name,
         _ModuleInfo(
             name=name,
+            created_by=module["CreatedBy"],
             kind=module["Type"],
             dirname=os.path.dirname(module["Blueprint"]),
             num_deps=len(deps_names),
         ))
+
     module_info = name_to_info[name]
 
-    module_adjacency_list[module_info].update(deps_names)
-    if collect_transitive_dependencies:
-      for dep in deps_names:
-        dep_module_info = name_to_info[dep]
+    # ensure module_info added to adjacency list even with no deps
+    module_adjacency_list[module_info].update(set())
+    for dep in deps_names:
+      dep_module_info = name_to_info[dep]
+      module_adjacency_list[module_info].add(dep_module_info)
+      if collect_transitive_dependencies:
         module_adjacency_list[module_info].update(
             module_adjacency_list.get(dep_module_info, set()))
 
@@ -320,7 +336,7 @@ def adjacency_list_from_queryview_xml(
     ignore_by_name: List[str],
     top_level_module: str,
     collect_transitive_dependencies: bool = True
-) -> Dict[_ModuleInfo, Set[str]]:
+) -> Dict[_ModuleInfo, Set[_ModuleInfo]]:
 
   def filter_by_name(module):
     return module.name == top_level_module
@@ -336,14 +352,18 @@ def adjacency_list_from_queryview_xml(
             name=module.name,
             kind=module.kind,
             dirname=module.dirname,
+            # required so that it cannot be forgotten when updating num_deps
+            created_by=None,
             num_deps=len(deps_names),
         ))
     module_info = name_to_info[module.name]
 
-    module_adjacency_list[module_info].update(deps_names)
-    if collect_transitive_dependencies:
-      for dep in deps_names:
-        dep_module_info = name_to_info[dep]
+    # ensure module_info added to adjacency list even with no deps
+    module_adjacency_list[module_info].update(set())
+    for dep in deps_names:
+      dep_module_info = name_to_info[dep]
+      module_adjacency_list[module_info].add(dep_module_info)
+      if collect_transitive_dependencies:
         module_adjacency_list[module_info].update(
             module_adjacency_list.get(dep_module_info, set()))
 
@@ -358,7 +378,7 @@ def get_module_adjacency_list(
     use_queryview: bool,
     ignore_by_name: List[str],
     collect_transitive_dependencies: bool = True,
-    banchan_mode: bool = False) -> Dict[_ModuleInfo, Set[str]]:
+    banchan_mode: bool = False) -> Dict[_ModuleInfo, Set[_ModuleInfo]]:
   # The main module graph containing _all_ modules in the Soong build,
   # and the list of converted modules.
   try:

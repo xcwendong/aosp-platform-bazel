@@ -50,6 +50,8 @@ IGNORED_KINDS = set([
     "java_defaults",
     "hidl_interface.go_android/soong/hidl.hidlGenFactory__loadHookModule",  # implementation detail of hidl_interface
     "hidl_package_root",  # not being converted, contents converted as part of hidl_interface
+    "aidl_interface.go_android/soong/aidl.wrapLibraryFactory.func1__topDownMutatorModule", # implementation detail of aidl_interface
+    "aidl_gen_rule.go_android/soong/aidl.aidlGenFactory__loadHookModule", # implementation detail of aidl_interface
 ])
 
 # queryview doesn't have information on the type of deps, so we explicitly skip
@@ -99,6 +101,28 @@ def _build_with_soong(target, banchan_mode=False):
   )
 
 
+def get_properties(json_module):
+  set_properties = {}
+  if "Module" not in json_module:
+    return set_properties
+  if "Android" not in json_module["Module"]:
+    return set_properties
+  if "SetProperties" not in json_module["Module"]["Android"]:
+    return set_properties
+
+  for prop in json_module['Module']['Android']['SetProperties']:
+    if prop["Values"]:
+      value = prop["Values"]
+    else:
+      value = prop["Value"]
+    set_properties[prop["Name"]] = value
+  return set_properties
+
+
+def get_property_names(json_module):
+  return get_properties(json_module).keys()
+
+
 def get_queryview_module_info(module, banchan_mode=False):
   """Returns the list of transitive dependencies of input module as built by queryview."""
   _build_with_soong("queryview", banchan_mode)
@@ -131,6 +155,24 @@ out/soong/module-graph.json
 JSONDecodeError: {err}""")
 
 
+def _ignore_json_module(json_module, ignore_by_name):
+  # windows is not a priority currently
+  if is_windows_variation(json_module):
+    return True
+  if ignore_kind(json_module['Type']):
+    return True
+  if json_module['Name'] in ignore_by_name:
+    return True
+  # for filegroups with a name the same as the source, we are not migrating the
+  # filegroup and instead just rely on the filename being exported
+  if json_module['Type'] == 'filegroup':
+    set_properties = get_properties(json_module)
+    srcs = set_properties.get('Srcs', [])
+    if len(srcs) == 1:
+      return json_module['Name'] in srcs
+  return False
+
+
 def visit_json_module_graph_post_order(module_graph, ignore_by_name,
                                        filter_predicate, visit):
   # The set of ignored modules. These modules (and their dependencies) are not shown
@@ -145,8 +187,7 @@ def visit_json_module_graph_post_order(module_graph, ignore_by_name,
   for module in module_graph:
     name = module["Name"]
     key = _ModuleKey(name, module["Variations"])
-    if is_windows_variation(module) or ignore_kind(
-        module["Type"]) or name in ignore_by_name:
+    if _ignore_json_module(module, ignore_by_name):
       ignored.add(key)
       continue
     module_graph_map[key] = module

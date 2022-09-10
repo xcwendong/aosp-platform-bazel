@@ -35,12 +35,25 @@ def _make_json_variation(mutator, variation):
   }
 
 
-def _make_json_module(name, typ, deps, variations=None):
+def _make_json_module(name, typ, deps = [], variations=None, json_props=[]):
   return {
       'Name': name,
       'Type': typ,
       'Deps': deps,
       'Variations': variations,
+      'Module': {
+          'Android': {
+              'SetProperties': json_props,
+          },
+      },
+  }
+
+
+def make_json_property(name, value="", values=None):
+  return {
+      'Name': name,
+      'Value': value,
+      'Values': values,
   }
 
 
@@ -309,6 +322,47 @@ class DependencyAnalysisTest(unittest.TestCase):
         graph, set(), only_a, visit)
 
     expected_visited = ['d', 'b', 'a', 'e', 'c', 'a']
+    self.assertListEqual(visited_modules, expected_visited)
+
+  def test_visit_json_module_skips_filegroup_with_src_same_as_name(self):
+    graph = [
+        _make_json_module(
+            'a',
+            'filegroup',
+            [
+                _make_json_dep('b'),
+            ],
+            json_props=[
+                make_json_property(
+                    name='Srcs',
+                    values=['other_file'],
+                ),
+            ],
+        ),
+        _make_json_module(
+            'b',
+            'filegroup',
+            json_props=[
+                make_json_property(
+                    name='Srcs',
+                    values=['b'],
+                ),
+            ],
+        ),
+    ]
+
+    def only_a(json):
+      return json['Name'] == 'a'
+
+    visited_modules = []
+
+    def visit(module, _):
+      visited_modules.append(module['Name'])
+
+    dependency_analysis.visit_json_module_graph_post_order(
+        graph, set(), only_a, visit)
+
+    expected_visited = ['a']
     self.assertListEqual(visited_modules, expected_visited)
 
   def test_visit_queryview_xml_module_graph_post_order_visits_all(self):

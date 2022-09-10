@@ -22,21 +22,17 @@ readonly expected_query="\
 //build/bazel/rules/aidl/testing:aidl_interface_test-V1
 //build/bazel/rules/aidl/testing:aidl_interface_test-V2
 //build/bazel/rules/aidl/testing:aidl_interface_test-latest
-//build/bazel/rules/aidl/testing:aidl_interface_test
 //build/bazel/rules/aidl/testing:aidl_interface_test-V1-java
 //build/bazel/rules/aidl/testing:aidl_interface_test-V2-java
-//build/bazel/rules/aidl/testing:aidl_interface_test-latest-java
-//build/bazel/rules/aidl/testing:aidl_interface_test-java"
+//build/bazel/rules/aidl/testing:aidl_interface_test-latest-java"
 
 readonly query_paths=(
   "__main__/build/bazel/rules/aidl/testing/aidl_library_V1_produced_by_default_query"
   "__main__/build/bazel/rules/aidl/testing/aidl_library_V2_produced_by_default_query"
   "__main__/build/bazel/rules/aidl/testing/aidl_library_latest_produced_by_default_query"
-  "__main__/build/bazel/rules/aidl/testing/aidl_library_unversioned_produced_by_default_query"
   "__main__/build/bazel/rules/aidl/testing/java_backend_V1_produced_by_default_query"
   "__main__/build/bazel/rules/aidl/testing/java_backend_V2_produced_by_default_query"
   "__main__/build/bazel/rules/aidl/testing/java_backend_latest_produced_by_default_query"
-  "__main__/build/bazel/rules/aidl/testing/java_backend_unversioned_produced_by_default_query"
 )
 actual_query=""
 for runfile in ${query_paths[@]}; do

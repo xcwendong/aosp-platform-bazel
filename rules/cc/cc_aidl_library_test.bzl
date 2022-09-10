@@ -117,85 +117,10 @@ def _cc_aidl_code_gen_test():
 
     return test_name
 
-def _ndk_backend_aidl_code_gen_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    actions = analysistest.target_actions(env)
-    asserts.true(
-        env,
-        len(actions) == 1,
-        "expected to have one action per aidl_library target",
-    )
-    cc_aidl_code_gen_target = analysistest.target_under_test(env)
-
-    # output_path: <bazel-bin>/<package-dir>/<cc_aidl_library-labelname>_aidl_code_gen
-    # Since cc_aidl_library-label is unique among cpp and ndk backends,
-    # the output_path is guaranteed to be unique
-    output_path = paths.join(
-        ctx.genfiles_dir.path,
-        ctx.label.package,
-        cc_aidl_code_gen_target.label.name,
-    )
-    expected_outputs = [
-        # headers for ndk backend are nested in aidl directory to prevent
-        # collision in c++ namespaces with cpp backend
-        paths.join(output_path, "aidl/b/BpFoo.h"),
-        paths.join(output_path, "aidl/b/BnFoo.h"),
-        paths.join(output_path, "aidl/b/Foo.h"),
-        paths.join(output_path, "b/Foo.cpp"),
-    ]
-
-    # Check output files in DefaultInfo provider
-    asserts.set_equals(
-        env,
-        sets.make(expected_outputs),
-        sets.make([
-            output.path
-            for output in cc_aidl_code_gen_target[DefaultInfo].files.to_list()
-        ]),
-    )
-
-    # Check the output path is correctly added to includes in CcInfo.compilation_context
-    asserts.true(
-        env,
-        output_path in cc_aidl_code_gen_target[CcInfo].compilation_context.includes.to_list(),
-        "output path is added to CcInfo.compilation_context.includes",
-    )
-
-    return analysistest.end(env)
-
-ndk_backend_aidl_code_gen_test = analysistest.make(
-    _ndk_backend_aidl_code_gen_test_impl,
-)
-
-def _ndk_backend_aidl_code_gen_test():
-    name = "ndk_backend"
-    aidl_code_gen_name = name + "_aidl_code_gen"
-    test_name = aidl_code_gen_name + "_test"
-
-    aidl_library(
-        name = "some_aidl_library",
-        srcs = ["a/b/Foo.aidl"],
-        strip_import_prefix = "a",
-        tags = ["manual"],
-    )
-    cc_aidl_library(
-        name = name,
-        deps = [":some_aidl_library"],
-        lang = "ndk",
-        tags = ["manual"],
-    )
-    ndk_backend_aidl_code_gen_test(
-        name = test_name,
-        target_under_test = aidl_code_gen_name,
-    )
-
-    return test_name
-
 def cc_aidl_library_test_suite(name):
     native.test_suite(
         name = name,
         tests = [
             _cc_aidl_code_gen_test(),
-            _ndk_backend_aidl_code_gen_test(),
         ],
     )

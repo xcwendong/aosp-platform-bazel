@@ -16,16 +16,6 @@ fi
 
 # Generate BUILD files into out/soong/bp2build
 AOSP_ROOT="$(dirname $0)/../../.."
-"${AOSP_ROOT}/build/soong/soong_ui.bash" --make-mode BP2BUILD_VERBOSE=1 --skip-soong-tests bp2build dist
-
-# Dist the entire workspace of generated BUILD files, rooted from
-# out/soong/bp2build. This is done early so it's available even if builds/tests
-# fail.
-tar -czf "${DIST_DIR}/bp2build_generated_workspace.tar.gz" -C out/soong/bp2build .
-
-# Remove the ninja_build output marker file to communicate to buildbot that this is not a regular Ninja build, and its
-# output should not be parsed as such.
-rm -f out/ninja_build
 
 # Before you add flags to this list, cosnider adding it to the "ci" bazelrc
 # config instead of this list so that flags are not duplicated between scripts
@@ -33,9 +23,6 @@ rm -f out/ninja_build
 FLAGS_LIST=(
   --config=bp2build
   --config=ci
-
-  # Make the apexer log verbosely on CI
-  --//build/bazel/rules/apex:apexer_verbose
 )
 FLAGS="${FLAGS_LIST[@]}"
 
@@ -77,16 +64,31 @@ TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
 # Iterate over various architectures supported in the platform build.
 ###########
 
-for platform in android_x86 android_x86_64 android_arm android_arm64; do
+product_prefix="aosp_"
+for arch in arm arm64 x86 x86_64; do
+  product=${product_prefix}${arch}
+  # Re-run product config and bp2build for every TARGET_PRODUCT.
+  "${AOSP_ROOT}/build/soong/soong_ui.bash" --make-mode BP2BUILD_VERBOSE=1 TARGET_PRODUCT=${product} --skip-soong-tests bp2build dist
+  # Remove the ninja_build output marker file to communicate to buildbot that this is not a regular Ninja build, and its
+  # output should not be parsed as such.
+  rm -f out/ninja_build
+
+
+  # Dist the entire workspace of generated BUILD files, rooted from
+  # out/soong/bp2build. This is done early so it's available even if
+  # builds/tests fail. Currently the generated BUILD files can be different
+  # between products due to Soong plugins and non-deterministic codegeneration.
+  tar --mtime='1970-01-01' -czf "${DIST_DIR}/bp2build_generated_workspace_${product}.tar.gz" -C out/soong/bp2build .
+
   # Use a loop to prevent unnecessarily switching --platforms because that drops
   # the Bazel analysis cache.
   #
   # 1. Build every target in $BUILD_TARGETS
-  tools/bazel --max_idle_secs=5 build ${FLAGS} --config=${platform} -k -- ${BUILD_TARGETS}
+  tools/bazel --max_idle_secs=5 build ${FLAGS} --config=android -k -- ${BUILD_TARGETS}
   # 2. Test every target that is compatible with an android target platform (e.g. analysis_tests, sh_tests, diff_tests).
-  tools/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only --config=${platform} -k -- ${TEST_TARGETS}
+  tools/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only --config=android -k -- ${TEST_TARGETS}
   # 3. Dist mainline modules.
-  tools/bazel --max_idle_secs=5 run //build/bazel/ci/dist:mainline_modules ${FLAGS} --config=${platform} -- --dist_dir="${DIST_DIR}/mainline_modules_${platform}"
+  tools/bazel --max_idle_secs=5 run //build/bazel/ci/dist:mainline_modules ${FLAGS} --config=android -- --dist_dir="${DIST_DIR}/mainline_modules_${arch}"
 done
 
 #########
@@ -101,7 +103,7 @@ HOST_INCOMPATIBLE_TARGETS=(
 
 # We can safely build and test all targets on the host linux config, and rely on
 # incompatible target skipping for tests that cannot run on the host.
-tools/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only=false -k --config=linux_x86_64 \
+tools/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only=false -k \
   -- ${BUILD_TARGETS} ${TEST_TARGETS} "${HOST_INCOMPATIBLE_TARGETS[@]}"
 
 ###################
@@ -121,10 +123,10 @@ mkdir -p "${bp2build_progress_output_dir}"
 report_args=""
 for m in "${BP2BUILD_PROGRESS_MODULES[@]}"; do
   report_args="$report_args -m ""${m}"
-  tools/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- graph  -m "${m}" --use-queryview > "${bp2build_progress_output_dir}/${m}_graph.dot"
+  tools/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- graph  -m "${m}" > "${bp2build_progress_output_dir}/${m}_graph.dot"
 done
 
 tools/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- \
-  report ${report_args} --use-queryview \
+  report ${report_args} \
   --proto-file=$( realpath "${bp2build_progress_output_dir}" )"/bp2build-progress.pb" \
   > "${bp2build_progress_output_dir}/progress_report.txt"

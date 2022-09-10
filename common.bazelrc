@@ -1,16 +1,16 @@
 # Platforms and toolchains for AOSP.
 #
 # Set default target platform for builds to rely on product config's arch and os variables
-build --platforms //build/bazel/platforms:android_target
+build --platforms //build/bazel/platforms:linux_x86_64
 build --platform_mappings=build/bazel/platforms/platform_mappings
 
-# Configs to group/simplify target platform specific flags.
-build:android_x86_64 --platforms=//build/bazel/platforms:android_x86_64
-build:android_x86 --platforms=//build/bazel/platforms:android_x86
-build:android_arm64 --platforms=//build/bazel/platforms:android_arm64
-build:android_arm --platforms=//build/bazel/platforms:android_arm
-
+build:android --platforms=//build/bazel/platforms:android_target
 build:linux_x86_64 --platforms=//build/bazel/platforms:linux_x86_64
+
+# Ban command line usage of setting --platforms to anything other than
+# android_target and host linux. The target platform should be determined by
+# product config / lunch.
+startup --invocation_policy="flag_policies { flag_name: \"platforms\" allow_values { allowed_values: \"//build/bazel/platforms:android_target\", allowed_values: \"//build/bazel/platforms:linux_x86_64\"}}"
 
 # Use the target platform (android_x86, android_arm) in the bazel-out/ output
 # directory name fragment instead of the CPU (darwin, k8). This avoids
@@ -86,9 +86,11 @@ common:ci --color=no
 common:ci --curses=no
 common:ci --show_progress_rate_limit=5
 common:ci --noshow_loading_progress
- # Show the full set of flags for observability and debuggability.
+# Show the full set of flags for observability and debuggability.
 common:ci --announce_rc
 build:ci --verbose_failures
+# Log apexer verbosely on CI (it has a noisy but useful output)
+build:ci --//build/bazel/rules/apex:apexer_verbose
 test:ci --keep_going
 test:ci --test_output=errors
 

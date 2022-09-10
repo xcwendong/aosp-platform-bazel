@@ -123,6 +123,7 @@ def _generate_proto_action(
 
     args.add_all(["-I", proto_info.proto_source_root])
     args.add_all(["-I{0}={1}".format(f.short_path, f.path) for f in transitive_proto_srcs.to_list()])
+    args.add_all(["-I" + path for path in proto_info.transitive_proto_path.to_list()])
     args.add_all([f.short_path for f in proto_srcs])
 
     inputs = depset(
