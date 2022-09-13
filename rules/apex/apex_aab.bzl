@@ -124,7 +124,7 @@ def _apex_base_file(ctx, arch, module_name, apex_proto_file):
     )
     return base_file
 
-def _build_bundle_config(ctx, arch, module_name):
+def _build_bundle_config(ctx, module_name):
     """Create bundle_config.json as configuration for running bundletool."""
     file_content = {
         "compression": {
@@ -224,10 +224,7 @@ def _apex_aab_impl(ctx):
         base_file = _apex_base_file(ctx, arch, module_name, proto_convert_file)
         apex_base_files.append(base_file)
 
-        # It is assumed that the bundle config is the same for all products.
-        if bundle_config_file == None:
-            bundle_config_file = _build_bundle_config(ctx, arch, module_name)
-
+    bundle_config_file = _build_bundle_config(ctx, module_name)
     merged_base_file = _merge_base_files(ctx, module_name, apex_base_files)
     bundle_file = _apex_bundle(ctx, module_name, merged_base_file, bundle_config_file)
 

@@ -189,7 +189,8 @@ def cc_library_static(
     # Root target to handle combining of the providers of the language-specific targets.
     _cc_library_combiner(
         name = name,
-        deps = [cpp_name, c_name, asm_name] + whole_archive_deps + implementation_whole_archive_deps,
+        roots = [cpp_name, c_name, asm_name],
+        deps = whole_archive_deps + implementation_whole_archive_deps,
         runtime_deps = runtime_deps,
         target_compatible_with = target_compatible_with,
         alwayslink = alwayslink,
@@ -205,9 +206,15 @@ def cc_library_static(
 def _cc_library_combiner_impl(ctx):
     old_owner_labels = []
     cc_infos = []
-    for dep in ctx.attr.deps:
+    for dep in ctx.attr.roots:
         old_owner_labels.append(dep.label)
         cc_infos.append(dep[CcInfo])
+    for dep in ctx.attr.deps:
+        old_owner_labels.append(dep.label)
+        cc_info = dep[CcInfo]
+
+        # do not propagate includes, hdrs, etc, already handled by roots
+        cc_infos.append(CcInfo(linking_context = cc_info.linking_context))
     combined_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
 
     objects_to_link = []
@@ -298,6 +305,7 @@ def _cc_library_combiner_impl(ctx):
 _cc_library_combiner = rule(
     implementation = _cc_library_combiner_impl,
     attrs = {
+        "roots": attr.label_list(providers = [CcInfo]),
         "deps": attr.label_list(providers = [CcInfo]),
         "runtime_deps": attr.label_list(
             providers = [CcInfo],

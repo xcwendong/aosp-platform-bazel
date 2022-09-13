@@ -9,13 +9,13 @@
 # Setup
 #######
 
-if [[ -z ${DIST_DIR+x} ]]; then
-  echo "DIST_DIR not set. Using out/dist. This should only be used for manual developer testing."
-  DIST_DIR="out/dist"
-fi
-
-# Generate BUILD files into out/soong/bp2build
+# Set the test output directories.
 AOSP_ROOT="$(dirname $0)/../../.."
+OUT_DIR=$(realpath ${OUT_DIR:-${AOSP_ROOT}/out})
+if [[ -z ${DIST_DIR+x} ]]; then
+  DIST_DIR="${OUT_DIR}/dist"
+  echo "DIST_DIR not set. Using ${OUT_DIR}/dist. This should only be used for manual developer testing."
+fi
 
 # Before you add flags to this list, cosnider adding it to the "ci" bazelrc
 # config instead of this list so that flags are not duplicated between scripts
@@ -61,18 +61,17 @@ TEST_TARGETS_LIST=(
 TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
 
 ###########
-# Iterate over various architectures supported in the platform build.
+# Iterate over various products supported in the platform build.
 ###########
 
 product_prefix="aosp_"
 for arch in arm arm64 x86 x86_64; do
-  product=${product_prefix}${arch}
   # Re-run product config and bp2build for every TARGET_PRODUCT.
+  product=${product_prefix}${arch}
   "${AOSP_ROOT}/build/soong/soong_ui.bash" --make-mode BP2BUILD_VERBOSE=1 TARGET_PRODUCT=${product} --skip-soong-tests bp2build dist
   # Remove the ninja_build output marker file to communicate to buildbot that this is not a regular Ninja build, and its
   # output should not be parsed as such.
   rm -f out/ninja_build
-
 
   # Dist the entire workspace of generated BUILD files, rooted from
   # out/soong/bp2build. This is done early so it's available even if
@@ -80,15 +79,24 @@ for arch in arm arm64 x86 x86_64; do
   # between products due to Soong plugins and non-deterministic codegeneration.
   tar --mtime='1970-01-01' -czf "${DIST_DIR}/bp2build_generated_workspace_${product}.tar.gz" -C out/soong/bp2build .
 
+  STARTUP_FLAGS=(
+    --max_idle_secs=5
+    # Unique output bases per product to help with incremental builds across
+    # invocations of this script.
+    # e.g. the second invocation of this script for aosp_x86 would use the output_base
+    # of aosp_x86 from the first invocation.
+    --output_base="${OUT_DIR}/bazel/test_output_bases/${product}"
+  )
+
   # Use a loop to prevent unnecessarily switching --platforms because that drops
   # the Bazel analysis cache.
   #
   # 1. Build every target in $BUILD_TARGETS
-  tools/bazel --max_idle_secs=5 build ${FLAGS} --config=android -k -- ${BUILD_TARGETS}
+  tools/bazel ${STARTUP_FLAGS[@]} build ${FLAGS} --config=android -k -- ${BUILD_TARGETS}
   # 2. Test every target that is compatible with an android target platform (e.g. analysis_tests, sh_tests, diff_tests).
-  tools/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only --config=android -k -- ${TEST_TARGETS}
+  tools/bazel ${STARTUP_FLAGS[@]} test ${FLAGS} --build_tests_only --config=android -k -- ${TEST_TARGETS}
   # 3. Dist mainline modules.
-  tools/bazel --max_idle_secs=5 run //build/bazel/ci/dist:mainline_modules ${FLAGS} --config=android -- --dist_dir="${DIST_DIR}/mainline_modules_${arch}"
+  tools/bazel ${STARTUP_FLAGS[@]} run //build/bazel/ci/dist:mainline_modules ${FLAGS} --config=android -- --dist_dir="${DIST_DIR}/mainline_modules_${arch}"
 done
 
 #########

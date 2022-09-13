@@ -42,7 +42,7 @@ def _provides_correct_outputs_test_impl(ctx):
     )
     for name in ["foo", "bar"]:
         expected_cpp_path = get_package_dir_based_path(
-            ctx,
+            env,
             "sysprop/path/to/%s.sysprop.cpp" % (name),
         )
         asserts.true(
@@ -58,7 +58,7 @@ def _provides_correct_outputs_test_impl(ctx):
             ),
         )
         expected_header_path = get_package_dir_based_path(
-            ctx,
+            env,
             "sysprop/include/path/to/%s.sysprop.h" % (name),
         )
         asserts.true(
@@ -74,7 +74,7 @@ def _provides_correct_outputs_test_impl(ctx):
             ),
         )
         expected_public_header_path = get_package_dir_based_path(
-            ctx,
+            env,
             "sysprop/public/include/path/to/%s.sysprop.h" % (name),
         )
         asserts.true(
@@ -106,7 +106,7 @@ def _provides_correct_ccinfo_test_impl(ctx):
     actual_includes = target_ccinfo.compilation_context.includes.to_list()
     actual_headers = target_ccinfo.compilation_context.headers.to_list()
     expected_package_relative_include = get_package_dir_based_path(
-        ctx,
+        env,
         "sysprop/include",
     )
     asserts.true(
@@ -120,7 +120,7 @@ def _provides_correct_ccinfo_test_impl(ctx):
         ),
     )
     expected_root_relative_include = get_output_and_package_dir_based_path(
-        ctx,
+        env,
         "sysprop/include",
     )
     asserts.true(
@@ -149,7 +149,7 @@ def _provides_correct_ccinfo_test_impl(ctx):
         asserts.true(
             env,
             get_output_and_package_dir_based_path(
-                ctx,
+                env,
                 "sysprop/include/path/to/%s.sysprop.h" % (name),
             ) in actual_header_strings,
             ("Generated header file for %s.sysprop not present in CcInfo " +
@@ -186,19 +186,19 @@ def _correct_args_test_impl(ctx):
 
         asserts.equals(
             env,
-            get_output_and_package_dir_based_path(ctx, "sysprop/include/path/to"),
+            get_output_and_package_dir_based_path(env, "sysprop/include/path/to"),
             get_arg_value(actual_args, "--header-dir"),
             "--header-dir argument incorrect or not found.\n",
         )
         asserts.equals(
             env,
-            get_output_and_package_dir_based_path(ctx, "sysprop/public/include/path/to"),
+            get_output_and_package_dir_based_path(env, "sysprop/public/include/path/to"),
             get_arg_value(actual_args, "--public-header-dir"),
             "--public-header-dir argument incorrect or not found.\n",
         )
         asserts.equals(
             env,
-            get_output_and_package_dir_based_path(ctx, "sysprop/path/to"),
+            get_output_and_package_dir_based_path(env, "sysprop/path/to"),
             get_arg_value(actual_args, "--source-dir"),
             "--source-dir argument incorrect or not found.\n",
         )
@@ -209,7 +209,7 @@ def _correct_args_test_impl(ctx):
             "--include-name argument incorrect or not found.\n",
         )
         expected_input = get_package_dir_based_path(
-            ctx,
+            env,
             "path/to/%s.sysprop" % name,
         )
         actual_cli_string = " ".join(actual_args)

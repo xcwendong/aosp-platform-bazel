@@ -30,7 +30,7 @@ def _single_l_file_to_c_test_impl(ctx):
     asserts.equals(env, 1, len(actions))
 
     actual_list_foo = [input.path for input in actions[0].inputs.to_list()]
-    expected_path_foo = get_package_dir_based_path(ctx, "foo.l")
+    expected_path_foo = get_package_dir_based_path(env, "foo.l")
     asserts.true(
         env,
         expected_path_foo in actual_list_foo,
@@ -40,7 +40,7 @@ def _single_l_file_to_c_test_impl(ctx):
             actual_list_foo,
         ),
     )
-    expected_output = get_output_and_package_dir_based_path(ctx, "foo.c")
+    expected_output = get_output_and_package_dir_based_path(env, "foo.c")
     actual_outputs = [output.path for output in actions[0].outputs.to_list()]
     asserts.true(
         env,
@@ -78,7 +78,7 @@ def _single_ll_file_to_cc_test_impl(ctx):
     asserts.equals(env, 1, len(actions))
 
     actual_list_foo = [input.path for input in actions[0].inputs.to_list()]
-    expected_path_foo = get_package_dir_based_path(ctx, "foo.ll")
+    expected_path_foo = get_package_dir_based_path(env, "foo.ll")
     asserts.true(
         env,
         expected_path_foo in actual_list_foo,
@@ -88,7 +88,7 @@ def _single_ll_file_to_cc_test_impl(ctx):
             actual_list_foo,
         ),
     )
-    expected_output = get_output_and_package_dir_based_path(ctx, "foo.cc")
+    expected_output = get_output_and_package_dir_based_path(env, "foo.cc")
     actual_outputs = [output.path for output in actions[0].outputs.to_list()]
     asserts.true(
         env,
@@ -126,7 +126,7 @@ def _multiple_files_correct_type_test_impl(ctx):
     asserts.equals(env, 2, len(actions))
 
     actual_list_foo = [input.path for input in actions[0].inputs.to_list()]
-    expected_path_foo = get_package_dir_based_path(ctx, "foo.l")
+    expected_path_foo = get_package_dir_based_path(env, "foo.l")
     asserts.true(
         env,
         expected_path_foo in actual_list_foo,
@@ -137,7 +137,7 @@ def _multiple_files_correct_type_test_impl(ctx):
         ),
     )
     actual_list_bar = [input.path for input in actions[1].inputs.to_list()]
-    expected_path_bar = get_package_dir_based_path(ctx, "bar.l")
+    expected_path_bar = get_package_dir_based_path(env, "bar.l")
     asserts.true(
         env,
         expected_path_bar in actual_list_bar,
@@ -148,7 +148,7 @@ def _multiple_files_correct_type_test_impl(ctx):
         ),
     )
 
-    expected_output = get_output_and_package_dir_based_path(ctx, "foo.c")
+    expected_output = get_output_and_package_dir_based_path(env, "foo.c")
     actual_outputs = [output.path for output in actions[0].outputs.to_list()]
     asserts.true(
         env,
@@ -160,7 +160,7 @@ def _multiple_files_correct_type_test_impl(ctx):
             actual_outputs,
         ),
     )
-    expected_output = get_output_and_package_dir_based_path(ctx, "bar.c")
+    expected_output = get_output_and_package_dir_based_path(env, "bar.c")
     actual_outputs = [output.path for output in actions[1].outputs.to_list()]
     asserts.true(
         env,
@@ -199,7 +199,7 @@ def _output_arg_test_impl(ctx):
     actions = analysistest.target_actions(env)
     actual_list = actions[0].argv
     cli_string = " ".join(actions[0].argv)
-    expected_value = get_output_and_package_dir_based_path(ctx, "foo.c")
+    expected_value = get_output_and_package_dir_based_path(env, "foo.c")
 
     asserts.equals(
         env,
@@ -236,7 +236,7 @@ def _input_arg_test_impl(ctx):
 
     actions = analysistest.target_actions(env)
     actual_argv = actions[0].argv
-    expected_value = get_package_dir_based_path(ctx, "foo.l")
+    expected_value = get_package_dir_based_path(env, "foo.l")
 
     asserts.true(
         env,

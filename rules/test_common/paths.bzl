@@ -14,19 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//lib:unittest.bzl", "analysistest")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-def get_package_dir_based_path(ctx, path):
+def get_package_dir_based_path(env, path):
     """
     Returns the given path prefixed with the full package directory path
     """
 
-    return paths.join(ctx.label.package, path)
+    return paths.join(analysistest.target_under_test(env).label.package, path)
 
-def get_output_and_package_dir_based_path(ctx, path):
+def get_output_and_package_dir_based_path(env, path):
     """
     Returns the given path prefixed with the full output and package directory
     paths
     """
 
-    return paths.join(ctx.bin_dir.path, ctx.label.package, path)
+    return paths.join(analysistest.target_bin_dir_path(env), analysistest.target_under_test(env).label.package, path)
