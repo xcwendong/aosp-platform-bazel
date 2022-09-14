@@ -35,10 +35,11 @@ def _make_json_variation(mutator, variation):
   }
 
 
-def _make_json_module(name, typ, deps = [], variations=None, json_props=[]):
+def _make_json_module(name, typ, deps = [], variations=None, created_by = "", json_props=[]):
   return {
       'Name': name,
       'Type': typ,
+      "CreatedBy": created_by,
       'Deps': deps,
       'Variations': variations,
       'Module': {
@@ -363,6 +364,35 @@ class DependencyAnalysisTest(unittest.TestCase):
         graph, set(), only_a, visit)
 
     expected_visited = ['a']
+    self.assertListEqual(visited_modules, expected_visited)
+
+  def test_visit_json_module_graph_post_order_include_created_by(
+      self):
+    graph = [
+        _make_json_module('a', 'module', [
+            _make_json_dep('b'),
+            _make_json_dep('c'),
+        ]),
+        _make_json_module('b', 'module', created_by='d'),
+        _make_json_module('c', 'module', [
+            _make_json_dep('e'),
+        ]),
+        _make_json_module('d', 'module', []),
+        _make_json_module('e', 'module', []),
+    ]
+
+    def only_a(json):
+      return json['Name'] == 'a'
+
+    visited_modules = []
+
+    def visit(module, _):
+      visited_modules.append(module['Name'])
+
+    dependency_analysis.visit_json_module_graph_post_order(
+        graph, set(), only_a, visit)
+
+    expected_visited = ['d', 'b', 'e', 'c', 'a']
     self.assertListEqual(visited_modules, expected_visited)
 
   def test_visit_queryview_xml_module_graph_post_order_visits_all(self):

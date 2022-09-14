@@ -96,7 +96,8 @@ def aidl_interface(
         aidl_flags.append("--stability=" + stability)
 
         # TODO(b/245738285): Add support for vintf stability in java backend
-        backends.remove("java")
+        if "java" in backends:
+            backends.remove("java")
 
     if srcs != None and len(srcs) > 0:
         create_aidl_binding_for_backends(

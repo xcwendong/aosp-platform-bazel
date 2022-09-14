@@ -59,11 +59,16 @@ class _ModuleInfo:
     return f"{self.name} [{self.kind}] [{self.dirname}]"
 
   def is_converted(self, converted: Set[str]):
-    if self.name in converted:
+    return self.name in converted
+
+  def is_converted_or_skipped(self, converted: Set[str]):
+    if self.is_converted(converted):
       return True
-    if self.created_by:
-      return self.created_by in converted
-    return False
+    # these are implementation details of another module type that can never be
+    # created in a BUILD file
+    return ".go_android/soong" in self.kind and (
+        self.kind.endswith("__loadHookModule") or
+        self.kind.endswith("__topDownMutatorModule"))
 
 
 @dataclasses.dataclass(frozen=True, order=True)
@@ -79,47 +84,16 @@ class _InputModule:
     return f"{self.module.name}: {percent:.1f}% ({converted}/{total}) converted"
 
 
-_ReportData = collections.namedtuple("_ReportData", [
-    "input_module",
-    "total_deps",
-    "unconverted_deps",
-    "all_unconverted_modules",
-    "blocked_modules",
-    "dirs_with_unconverted_modules",
-    "kind_of_unconverted_modules",
-    "converted",
-])
-
-
-def combine_report_data(data):
-  ret = _ReportData(
-      input_module=set(),
-      total_deps=set(),
-      unconverted_deps=set(),
-      all_unconverted_modules=collections.defaultdict(set),
-      blocked_modules=collections.defaultdict(dict),
-      dirs_with_unconverted_modules=set(),
-      kind_of_unconverted_modules=set(),
-      converted=set(),
-  )
-  for item in data:
-    ret.input_module.add(item.input_module)
-    ret.total_deps.update(item.total_deps)
-    ret.unconverted_deps.update(item.unconverted_deps)
-    for key, value in item.all_unconverted_modules.items():
-      ret.all_unconverted_modules[key].update(value)
-    for module, blocked in item.blocked_modules.items():
-      if module in ret.blocked_modules and ret.blocked_modules[
-          module] != blocked:
-        diffs = blocked ^ ret.blocked_modules[module]
-        raise Exception(
-            f"Combining: dependencies should match {module} diffs: {diffs}")
-      ret.blocked_modules[module] = blocked
-    ret.dirs_with_unconverted_modules.update(item.dirs_with_unconverted_modules)
-    ret.kind_of_unconverted_modules.update(item.kind_of_unconverted_modules)
-    if len(ret.converted) == 0:
-      ret.converted.update(item.converted)
-  return ret
+@dataclasses.dataclass(frozen=True)
+class _ReportData:
+  input_modules: Set[_InputModule]
+  total_deps: Set[_ModuleInfo]
+  unconverted_deps: Set[_ModuleInfo]
+  all_unconverted_modules: Dict[str, Set[_ModuleInfo]]
+  blocked_modules: Dict[_ModuleInfo, Set[str]]
+  dirs_with_unconverted_modules: Set[str]
+  kind_of_unconverted_modules: Set[str]
+  converted: Set[str]
 
 
 # Generate a dot file containing the transitive closure of the module.
@@ -152,7 +126,9 @@ digraph mygraph {{
 
 
 # Generate a report for each module in the transitive closure, and the blockers for each module
-def generate_report_data(modules, converted, input_module):
+def generate_report_data(modules: Dict[_ModuleInfo, Set[_ModuleInfo]],
+                         converted: Set[str],
+                         input_modules_names: Set[str]) -> _ReportData:
   # Map of [number of unconverted deps] to list of entries,
   # with each entry being the string: "<module>: <comma separated list of unconverted modules>"
   blocked_modules = collections.defaultdict(set)
@@ -166,11 +142,11 @@ def generate_report_data(modules, converted, input_module):
 
   input_all_deps = set()
   input_unconverted_deps = set()
-  input_module_info = None
+  input_modules = set()
 
   for module, deps in sorted(modules.items()):
     unconverted_deps = set(
-        dep.name for dep in deps if not dep.is_converted(converted))
+        dep.name for dep in deps if not dep.is_converted_or_skipped(converted))
 
     # replace deps count with transitive deps rather than direct deps count
     module = _ModuleInfo(
@@ -186,24 +162,18 @@ def generate_report_data(modules, converted, input_module):
 
     unconverted_count = len(unconverted_deps)
 
-    if not module.is_converted(converted):
-      if module in blocked_modules and blocked_modules[
-          module] != unconverted_deps:
-        diffs = unconverted_deps ^ blocked_modules[module]
-        raise Exception(
-            f"Generating: dependencies should match {module} diffs: {diffs}")
-      blocked_modules[module] = unconverted_deps
+    if not module.is_converted_or_skipped(converted):
+      blocked_modules[module].update(unconverted_deps)
       dirs_with_unconverted_modules.add(module.dirname)
       kind_of_unconverted_modules.add(module.kind)
 
-    if module.name == input_module:
-      input_module_info = module
-      input_all_deps = deps
-      input_unconverted_deps = unconverted_deps
+    if module.name in input_modules_names:
+      input_modules.add(_InputModule(module, len(deps), len(unconverted_deps)))
+      input_all_deps.update(deps)
+      input_unconverted_deps.update(unconverted_deps)
 
   return _ReportData(
-      input_module=_InputModule(input_module_info, len(input_all_deps),
-                                len(input_unconverted_deps)),
+      input_modules=input_modules,
       total_deps=input_all_deps,
       unconverted_deps=input_unconverted_deps,
       all_unconverted_modules=all_unconverted_modules,
@@ -216,7 +186,7 @@ def generate_report_data(modules, converted, input_module):
 
 def generate_proto(report_data, file_name):
   message = bp2build_pb2.Bp2buildConversionProgress(
-      root_modules=[m.module.name for m in report_data.input_module],
+      root_modules=[m.module.name for m in report_data.input_modules],
       num_deps=len(report_data.total_deps),
   )
   for module, unconverted_deps in report_data.blocked_modules.items():
@@ -234,7 +204,7 @@ def generate_proto(report_data, file_name):
 
 def generate_report(report_data):
   report_lines = []
-  input_module_str = ", ".join(str(i) for i in sorted(report_data.input_module))
+  input_module_str = ", ".join(str(i) for i in sorted(report_data.input_modules))
 
   report_lines.append("# bp2build progress report for: %s\n" % input_module_str)
 
@@ -291,12 +261,12 @@ def generate_report(report_data):
 def adjacency_list_from_json(
     module_graph: ...,
     ignore_by_name: List[str],
-    top_level_module: str,
+    top_level_modules: List[str],
     collect_transitive_dependencies: bool = True
 ) -> Dict[_ModuleInfo, Set[_ModuleInfo]]:
 
   def filter_by_name(json):
-    return json["Name"] == top_level_module
+    return json["Name"] in top_level_modules
 
   module_adjacency_list = collections.defaultdict(set)
   name_to_info = {}
@@ -334,12 +304,12 @@ def adjacency_list_from_json(
 def adjacency_list_from_queryview_xml(
     module_graph: xml.etree.ElementTree,
     ignore_by_name: List[str],
-    top_level_module: str,
+    top_level_modules: List[str],
     collect_transitive_dependencies: bool = True
 ) -> Dict[_ModuleInfo, Set[_ModuleInfo]]:
 
   def filter_by_name(module):
-    return module.name == top_level_module
+    return module.name in top_level_modules
 
   module_adjacency_list = collections.defaultdict(set)
   name_to_info = {}
@@ -374,7 +344,7 @@ def adjacency_list_from_queryview_xml(
 
 
 def get_module_adjacency_list(
-    top_level_module: str,
+    top_level_modules: List[str],
     use_queryview: bool,
     ignore_by_name: List[str],
     collect_transitive_dependencies: bool = True,
@@ -384,15 +354,14 @@ def get_module_adjacency_list(
   try:
     if use_queryview:
       module_graph = dependency_analysis.get_queryview_module_info(
-          top_level_module, banchan_mode)
+          top_level_modules, banchan_mode)
       module_adjacency_list = adjacency_list_from_queryview_xml(
-          module_graph, ignore_by_name, top_level_module,
+          module_graph, ignore_by_name, top_level_modules,
           collect_transitive_dependencies)
     else:
-      module_graph = dependency_analysis.get_json_module_info(
-          top_level_module, banchan_mode)
+      module_graph = dependency_analysis.get_json_module_info(banchan_mode)
       module_adjacency_list = adjacency_list_from_json(
-          module_graph, ignore_by_name, top_level_module,
+          module_graph, ignore_by_name, top_level_modules,
           collect_transitive_dependencies)
   except subprocess.CalledProcessError as err:
     sys.exit(f"""Error running: '{' '.join(err.cmd)}':"
@@ -402,6 +371,31 @@ Stderr:
 {err.stderr.decode('utf-8') if err.stderr else ''}""")
 
   return module_adjacency_list
+
+
+def add_created_by_to_converted(
+    converted: Set[str],
+    module_adjacency_list: Dict[_ModuleInfo, Set[_ModuleInfo]]) -> Set[str]:
+  modules_by_name = {m.name: m for m in module_adjacency_list.keys()}
+
+  converted_modules = set()
+  converted_modules.update(converted)
+
+  def _update_converted(module_name):
+    if module_name in converted_modules:
+      return True
+    if module_name not in modules_by_name:
+      return False
+    module = modules_by_name[module_name]
+    if module.created_by and _update_converted(module.created_by):
+      converted_modules.add(module_name)
+      return True
+    return False
+
+  for module in modules_by_name.keys():
+    _update_converted(module)
+
+  return converted_modules
 
 
 def main():
@@ -443,31 +437,29 @@ def main():
   use_queryview = args.use_queryview
   ignore_by_name = args.ignore_by_name.split(",")
   banchan_mode = args.banchan
+  modules = set(args.module)
 
-  report_infos = []
-  for top_level_module in args.module:
-    module_adjacency_list = get_module_adjacency_list(
-        top_level_module,
-        use_queryview,
-        ignore_by_name,
-        collect_transitive_dependencies=mode != "graph",
-        banchan_mode=banchan_mode)
-    converted = dependency_analysis.get_bp2build_converted_modules()
+  converted = dependency_analysis.get_bp2build_converted_modules()
 
-    if mode == "graph":
-      generate_dot_file(module_adjacency_list, converted)
-    elif mode == "report":
-      report_infos.append(
-          generate_report_data(module_adjacency_list, converted,
-                               top_level_module))
-    else:
-      raise RuntimeError("unknown mode: %s" % mode)
+  module_adjacency_list = get_module_adjacency_list(
+      modules,
+      use_queryview,
+      ignore_by_name,
+      collect_transitive_dependencies=mode != "graph",
+      banchan_mode=banchan_mode)
 
-  if mode == "report":
-    combined_data = combine_report_data(report_infos)
-    generate_report(combined_data)
+  converted = add_created_by_to_converted(converted, module_adjacency_list)
+
+  if mode == "graph":
+    generate_dot_file(module_adjacency_list, converted)
+  elif mode == "report":
+    report_data = generate_report_data(module_adjacency_list, converted,
+                                       modules)
+    generate_report(report_data)
     if args.proto_file:
-      generate_proto(combined_data, args.proto_file)
+      generate_proto(report_data, args.proto_file)
+  else:
+    raise RuntimeError("unknown mode: %s" % mode)
 
 
 if __name__ == "__main__":

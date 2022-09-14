@@ -111,6 +111,7 @@ def _cc_gen_sysprop_common(
     cc_gen_sysprop(
         name = sysprop_gen_name,
         dep = dep,
+        tags = ["manual"],
     )
 
     return sysprop_gen_name
@@ -132,7 +133,8 @@ sysprop_dynamic_deps = select({
 def cc_sysprop_library_shared(
         name,
         dep,
-        min_sdk_version = ""):
+        min_sdk_version = "",
+        **kwargs):
     sysprop_gen_name = _cc_gen_sysprop_common(name, dep)
 
     cc_library_shared(
@@ -140,16 +142,19 @@ def cc_sysprop_library_shared(
         min_sdk_version = min_sdk_version,
         deps = sysprop_deps + [sysprop_gen_name],
         dynamic_deps = sysprop_dynamic_deps,
+        **kwargs
     )
 
 def cc_sysprop_library_static(
         name,
         dep,
-        min_sdk_version = ""):
+        min_sdk_version = "",
+        **kwargs):
     sysprop_gen_name = _cc_gen_sysprop_common(name, dep)
     cc_library_static(
         name = name,
         min_sdk_version = min_sdk_version,
         deps = sysprop_deps + [sysprop_gen_name],
         dynamic_deps = sysprop_dynamic_deps,
+        **kwargs
     )

@@ -122,3 +122,25 @@ local_repository(
 )
 
 register_toolchains("@local_jdk//:all")
+
+local_repository(
+    name = "kotlin_maven_interface",
+    path = "build/bazel/rules/kotlin/maven_interface",
+)
+
+local_repository(
+    name = "rules_kotlin",
+    path = "external/bazelbuild-kotlin-rules",
+    repo_mapping = {
+        "@maven": "@kotlin_maven_interface",
+        "@bazel_platforms": "@platforms",
+    },
+)
+
+new_local_repository(
+    name = "kotlinc",
+    build_file = "@rules_kotlin//bazel:kotlinc.BUILD",
+    path = "external/kotlinc",
+)
+
+register_toolchains("@rules_kotlin//toolchains/kotlin_jvm:kt_jvm_toolchain")
