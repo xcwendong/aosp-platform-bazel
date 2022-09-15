@@ -172,7 +172,7 @@ done
   -n: Dry ninja runs (except "resetting" runs that precede CUJs)
   -q: Quiet. Console output will be suppressed.
 If you omit targets, "${targets[*]}" will be used.
-Set USE_BAZEL_ANALYSIS=1 for mixed builds.
+Set --bazel-mode-dev for mixed builds.
 EOF
   exit 1
 }

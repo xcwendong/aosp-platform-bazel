@@ -192,14 +192,15 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
                 **kwargs
             )
         elif backend == "cpp" or backend == "ndk":
-            implementation_deps = []
+            dynamic_deps = []
+
+            # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface_backends.go;l=564;drc=0517d97079d4b08f909e7f35edfa33b88fcc0d0e
             if deps != None:
                 # For each aidl_library target label versioned_name, there's an
-                # associated cpp/ndk binding target with label versioned_name-cpp/ndk
-                implementation_deps = ["{}-{}".format(dep, backend) for dep in deps]
+                # associated cc_library_shared target with label versioned_name-<cpp|ndk>
+                dynamic_deps.extend(["{}-{}".format(dep, backend) for dep in deps])
 
             # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface_backends.go;l=111;drc=ef9f1352a1a8fec7bb134b1c713e13fc3ccee651
-            dynamic_deps = []
             if backend == "cpp":
                 dynamic_deps.extend([
                     "//frameworks/native/libs/binder:libbinder",
@@ -211,9 +212,6 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
             _cc_aidl_libraries(
                 name = "{}-{}".format(aidl_library_name, backend),
                 aidl_library = ":" + aidl_library_name,
-                # Pass generated headers of deps explicitly to implementation_deps
-                # for cc library to compile
-                implementation_deps = implementation_deps,
                 dynamic_deps = dynamic_deps,
                 lang = backend,
                 **kwargs
