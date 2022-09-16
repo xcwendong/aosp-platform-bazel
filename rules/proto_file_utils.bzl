@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:sets.bzl", "sets")
 
 def _generate_and_declare_output_files(
         ctx,
@@ -38,7 +39,7 @@ def _generate_and_declare_output_files(
     return ret
 
 def _generate_jar_proto_action(
-        proto_info,
+        proto_infos,
         protoc,
         ctx,
         out_flags = [],
@@ -50,7 +51,7 @@ def _generate_jar_proto_action(
     jar_file = ctx.actions.declare_file(jar_name)
 
     _generate_proto_action(
-        proto_info = proto_info,
+        proto_infos = proto_infos,
         protoc = protoc,
         ctx = ctx,
         out_flags = out_flags,
@@ -70,7 +71,7 @@ def _generate_jar_proto_action(
     return srcjar_file
 
 def _generate_proto_action(
-        proto_info,
+        proto_infos,
         protoc,
         ctx,
         type_dictionary = None,
@@ -82,7 +83,7 @@ def _generate_proto_action(
     """ Utility function for creating proto_compiler action.
 
     Args:
-      proto_info: ProtoInfo
+      proto_infos: A list of ProtoInfo.
       protoc: proto compiler executable.
       ctx: context, used for declaring new files only.
       type_dictionary: a dictionary of types to output extensions
@@ -95,8 +96,20 @@ def _generate_proto_action(
     Returns:
       Dictionary with declared files grouped by type from the type_dictionary.
     """
-    proto_srcs = proto_info.direct_sources
-    transitive_proto_srcs = proto_info.transitive_imports
+
+    # TODO(B/245629074): Don't build external/protobuf if it is provided in
+    #  toolchain already.
+    proto_srcs = []
+    proto_source_root_list = sets.make()
+    transitive_proto_srcs_list = []
+    transitive_proto_path_list = sets.make()
+
+    for proto_info in proto_infos:
+        sets.insert(proto_source_root_list, proto_info.proto_source_root)
+        proto_srcs.extend(proto_info.direct_sources)
+        transitive_proto_srcs_list.append(proto_info.transitive_imports)
+        for p in proto_info.transitive_proto_path.to_list():
+            sets.insert(transitive_proto_path_list, p)
 
     protoc_out_name = paths.join(ctx.bin_dir.path, ctx.label.package)
     if output_file:
@@ -121,14 +134,17 @@ def _generate_proto_action(
     else:
         args.add("{}={}:{}".format(out_arg, ",".join(out_flags), protoc_out_name))
 
-    args.add_all(["-I", proto_info.proto_source_root])
-    args.add_all(["-I{0}={1}".format(f.short_path, f.path) for f in transitive_proto_srcs.to_list()])
-    args.add_all(["-I" + path for path in proto_info.transitive_proto_path.to_list()])
+    # the order matters so we add the source roots first
+    args.add_all(["-I" + p for p in sets.to_list(proto_source_root_list)])
+
+    args.add_all(["-I" + p for p in sets.to_list(transitive_proto_path_list)])
+    args.add_all(["-I{0}={1}".format(f.short_path, f.path) for t in transitive_proto_srcs_list for f in t.to_list()])
+
     args.add_all([f.short_path for f in proto_srcs])
 
     inputs = depset(
         direct = proto_srcs,
-        transitive = [transitive_proto_srcs],
+        transitive = transitive_proto_srcs_list,
     )
 
     outputs = []

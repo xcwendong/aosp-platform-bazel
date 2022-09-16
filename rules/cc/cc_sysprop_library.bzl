@@ -139,6 +139,10 @@ def cc_sysprop_library_shared(
 
     cc_library_shared(
         name = name,
+        # TODO(b/246659653): Fix sysprop_deps so that the generated cpp file
+        # can be propagated and passes linking step.
+        # this is needed to build cc module that include sysprop as part of
+        # shared_libs prop
         min_sdk_version = min_sdk_version,
         deps = sysprop_deps + [sysprop_gen_name],
         dynamic_deps = sysprop_dynamic_deps,
@@ -153,6 +157,7 @@ def cc_sysprop_library_static(
     sysprop_gen_name = _cc_gen_sysprop_common(name, dep)
     cc_library_static(
         name = name,
+        srcs = [":" + sysprop_gen_name],
         min_sdk_version = min_sdk_version,
         deps = sysprop_deps + [sysprop_gen_name],
         dynamic_deps = sysprop_dynamic_deps,

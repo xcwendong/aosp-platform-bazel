@@ -21,6 +21,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 
 _SOURCES_KEY = "sources"
 _HEADERS_KEY = "headers"
+PROTO_GEN_NAME_SUFFIX = "_proto_gen"
 
 def _cc_proto_sources_gen_rule_impl(ctx):
     out_flags = []
@@ -36,22 +37,26 @@ def _cc_proto_sources_gen_rule_impl(ctx):
     srcs = []
     hdrs = []
     includes = []
+    proto_infos = []
+
     for dep in ctx.attr.deps:
         proto_info = dep[ProtoInfo]
+        proto_infos.append(proto_info)
         if proto_info.proto_source_root == ".":
             includes.append(paths.join(ctx.label.name, ctx.label.package))
         includes.append(ctx.label.name)
-        outs = _generate_cc_proto_action(
-            proto_info = proto_info,
-            protoc = ctx.executable._protoc,
-            ctx = ctx,
-            is_cc = True,
-            out_flags = out_flags,
-            plugin_executable = plugin_executable,
-            out_arg = out_arg,
-        )
-        srcs.extend(outs[_SOURCES_KEY])
-        hdrs.extend(outs[_HEADERS_KEY])
+
+    outs = _generate_cc_proto_action(
+        proto_infos = proto_infos,
+        protoc = ctx.executable._protoc,
+        ctx = ctx,
+        is_cc = True,
+        out_flags = out_flags,
+        plugin_executable = plugin_executable,
+        out_arg = out_arg,
+    )
+    srcs.extend(outs[_SOURCES_KEY])
+    hdrs.extend(outs[_HEADERS_KEY])
 
     return [
         DefaultInfo(files = depset(direct = srcs + hdrs)),
@@ -94,7 +99,7 @@ def _src_extension(is_cc):
     return "c"
 
 def _generate_cc_proto_action(
-        proto_info,
+        proto_infos,
         protoc,
         ctx,
         plugin_executable,
@@ -106,7 +111,7 @@ def _generate_cc_proto_action(
         _HEADERS_KEY: ".pb.h",
     }
     return proto_file_utils.generate_proto_action(
-        proto_info,
+        proto_infos,
         protoc,
         ctx,
         type_dictionary,
@@ -120,16 +125,18 @@ def _cc_proto_library(
         name,
         deps = [],
         plugin = None,
+        tags = [],
         target_compatible_with = [],
         out_format = None,
         proto_dep = None):
-    proto_lib_name = name + "_proto_gen"
+    proto_lib_name = name + PROTO_GEN_NAME_SUFFIX
 
     _cc_proto_sources_gen(
         name = proto_lib_name,
         deps = deps,
         plugin = plugin,
         out_format = out_format,
+        tags = ["manual"],
     )
 
     cc_library_static(
@@ -140,6 +147,7 @@ def _cc_proto_library(
             proto_dep,
         ],
         local_includes = ["."],
+        tags = tags,
         target_compatible_with = target_compatible_with,
     )
 
@@ -147,11 +155,13 @@ def cc_lite_proto_library(
         name,
         deps = [],
         plugin = None,
+        tags = [],
         target_compatible_with = []):
     _cc_proto_library(
         name,
         deps = deps,
         plugin = plugin,
+        tags = tags,
         target_compatible_with = target_compatible_with,
         out_format = "lite",
         proto_dep = "//external/protobuf:libprotobuf-cpp-lite",
@@ -161,11 +171,13 @@ def cc_proto_library(
         name,
         deps = [],
         plugin = None,
+        tags = [],
         target_compatible_with = []):
     _cc_proto_library(
         name,
         deps = deps,
         plugin = plugin,
+        tags = tags,
         target_compatible_with = target_compatible_with,
         proto_dep = "//external/protobuf:libprotobuf-cpp-full",
     )

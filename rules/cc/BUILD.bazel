@@ -19,6 +19,7 @@ load(":cc_hidl_library_test.bzl", "cc_hidl_library_test_suite")
 load(":cc_library_common_test.bzl", "cc_library_common_test_suites")
 load(":cc_library_shared_test.bzl", "cc_library_shared_test_suite")
 load(":cc_library_static_test.bzl", "cc_library_static_test_suite")
+load(":cc_proto_test.bzl", "cc_proto_test_suite")
 load(":cc_sysprop_library_test.bzl", "cc_gen_sysprop_test_suite")
 load(":flex_test.bzl", "flex_test_suite")
 load(":stl_test.bzl", "stl_test_suite")
@@ -37,6 +38,8 @@ cc_library_shared_test_suite(name = "cc_library_shared_tests")
 cc_library_static_test_suite(name = "cc_library_static_tests")
 
 cc_gen_sysprop_test_suite(name = "cc_gen_sysprop_tests")
+
+cc_proto_test_suite(name = "cc_proto_tests")
 
 flex_test_suite(name = "flex_tests")
 

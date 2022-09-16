@@ -174,6 +174,7 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
         aidl_library_name = name + "-V" + version
         strip_import_prefix = "aidl_api/{}/{}".format(name, version)
         srcs = native.glob([strip_import_prefix + "/**/*.aidl"])
+        aidl_flags.append("--version=" + version)
 
     aidl_library(
         name = aidl_library_name,

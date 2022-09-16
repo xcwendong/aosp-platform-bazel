@@ -30,17 +30,20 @@ def _java_proto_sources_gen_rule_impl(ctx):
             out_flags.append(ctx.attr.out_format)
 
     srcs = []
+    proto_infos = []
+
     for dep in ctx.attr.deps:
-        proto_info = dep[ProtoInfo]
-        out_jar = _generate_java_proto_action(
-            proto_info = proto_info,
-            protoc = ctx.executable._protoc,
-            ctx = ctx,
-            out_flags = out_flags,
-            plugin_executable = plugin_executable,
-            out_arg = out_arg,
-        )
-        srcs.append(out_jar)
+        proto_infos.append(dep[ProtoInfo])
+
+    out_jar = _generate_java_proto_action(
+        proto_infos = proto_infos,
+        protoc = ctx.executable._protoc,
+        ctx = ctx,
+        out_flags = out_flags,
+        plugin_executable = plugin_executable,
+        out_arg = out_arg,
+    )
+    srcs.append(out_jar)
 
     return [
         DefaultInfo(files = depset(direct = srcs)),
