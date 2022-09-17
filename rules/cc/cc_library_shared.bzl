@@ -51,6 +51,7 @@ def cc_library_shared(
         implementation_deps = [],
         deps = [],
         whole_archive_deps = [],
+        implementation_whole_archive_deps = [],
         system_dynamic_deps = None,
         runtime_deps = [],
         export_includes = [],
@@ -129,6 +130,7 @@ def cc_library_shared(
         dynamic_deps = dynamic_deps,
         implementation_deps = implementation_deps + stl.static,
         implementation_dynamic_deps = implementation_dynamic_deps + stl.shared,
+        implementation_whole_archive_deps = implementation_whole_archive_deps,
         system_dynamic_deps = system_dynamic_deps,
         deps = deps + whole_archive_deps,
         features = features,
@@ -146,7 +148,7 @@ def cc_library_shared(
     deps_stub = name + "_deps"
     native.cc_library(
         name = imp_deps_stub,
-        deps = implementation_deps + stl.static + implementation_dynamic_deps + system_dynamic_deps + stl.shared,
+        deps = implementation_deps + implementation_whole_archive_deps + stl.static + implementation_dynamic_deps + system_dynamic_deps + stl.shared,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
     )

@@ -58,6 +58,11 @@ local_repository(
     path = "external/bazelbuild-rules_android",
 )
 
+local_repository(
+    name = "rules_license",
+    path = "external/bazelbuild-rules_license",
+)
+
 register_toolchains(
     "//prebuilts/build-tools:py_toolchain",
     "//prebuilts/clang/host/linux-x86:all",
