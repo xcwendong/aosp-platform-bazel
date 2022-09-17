@@ -44,7 +44,28 @@ def is_apex_direct_dep(target, ctx):
     apex_direct_deps = ctx.attr._apex_direct_deps[BuildSettingInfo].value
     return str(target.label) in apex_direct_deps
 
+def _validate_min_sdk_version(ctx):
+    # ctx.features refer to the features of the (e.g. cc_library) target being visited
+    for f in ctx.features:
+        # min_sdk_version in cc targets are represented as features
+        if f.startswith("sdk_version_"):
+            # e.g. sdk_version_29 or sdk_version_10000
+            # TODO(b/244744629): handle apex_inherit version
+            version = f.split("_")[-1]
+
+            # The APEX's min_sdk_version is propagated as an attribute of this
+            # parameterized aspect, which is accessed through "ctx.attr". This
+            # is opposed to accessing the attrs of the target being visited
+            # using "ctx.rule.attr".
+            if ctx.attr.min_sdk_version < version:
+                fail("The apex %s's min_sdk_version %s cannot be lower than the dep's min_sdk_version %s" %
+                     (ctx.attr._apex_name[BuildSettingInfo].value, ctx.attr.min_sdk_version, version))
+            return
+
 def _apex_cc_aspect_impl(target, ctx):
+    # Ensure that dependencies are compatible with this apex's min_sdk_level
+    _validate_min_sdk_version(ctx)
+
     # Whether this dep is a direct dep of an APEX or makes a difference in dependency
     # traversal, and aggregation of libs that are required from the platform/other APEXes,
     # and libs that this APEX will provide to others.

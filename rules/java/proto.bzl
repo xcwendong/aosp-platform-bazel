@@ -79,14 +79,14 @@ If not provided, defaults to full protos.
 )
 
 def _generate_java_proto_action(
-        proto_info,
+        proto_infos,
         protoc,
         ctx,
         plugin_executable,
         out_arg,
         out_flags):
     return proto_file_utils.generate_jar_proto_action(
-        proto_info,
+        proto_infos,
         protoc,
         ctx,
         out_flags,

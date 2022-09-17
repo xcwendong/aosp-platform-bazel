@@ -113,15 +113,3 @@ build --fat_apk_cpu=k8
 # This also means all python scripts are using py3 runtime.
 build --python_top=//prebuilts/build-tools:python3
 build --noincompatible_use_python_toolchains
-
-# Developer instance for result storage. This only works if you have access
-# to the Bazel GCP project. Follow the GCP gcloud client's auth instructions to
-# use --google_default_credentials.
-build:results --remote_instance_name=projects/bazel-untrusted/instances/default_instance
-build:results --project_id=bazel-untrusted
-build:results --remote_timeout=600
-build:results --google_default_credentials
-build:results --test_summary=detailed
-build:results --bes_backend=buildeventservice.googleapis.com
-build:results --bes_results_url=https://source.cloud.google.com/results/invocations
-build:results --show_progress_rate_limit=5

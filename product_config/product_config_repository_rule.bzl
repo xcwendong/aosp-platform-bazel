@@ -20,6 +20,7 @@ def _make_vars_to_starlark(txt):
             continue
         parts = l.split(":=", 1)
         parts[0] = parts[0].strip().replace('"', '\\"')
+        parts[1] = parts[1].strip().replace("\\", "\\\\")
         parts[1] = parts[1].strip().replace('"', '\\"')
         lines.append(parts)
 

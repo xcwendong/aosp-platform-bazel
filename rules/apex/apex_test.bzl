@@ -1000,6 +1000,84 @@ def _test_generate_file_contexts():
 
     return test_name
 
+def _min_sdk_version_failure_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    asserts.expect_failure(
+        env,
+        "min_sdk_version %s cannot be lower than the dep's min_sdk_version %s" %
+        (ctx.attr.apex_min, ctx.attr.dep_min),
+    )
+
+    return analysistest.end(env)
+
+min_sdk_version_failure_test = analysistest.make(
+    _min_sdk_version_failure_test_impl,
+    expect_failure = True,
+    attrs = {
+        "apex_min": attr.string(),
+        "dep_min": attr.string(),
+    },
+)
+
+def _test_min_sdk_version_failure():
+    name = "min_sdk_version_failure"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_lib_cc",
+        srcs = [name + "_lib.cc"],
+        tags = ["manual"],
+        min_sdk_version = "32",
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_lib_cc"],
+        min_sdk_version = "30",
+    )
+
+    min_sdk_version_failure_test(
+        name = test_name,
+        target_under_test = name,
+        apex_min = "30",
+        dep_min = "32",
+    )
+
+    return test_name
+
+def _test_min_sdk_version_failure_transitive():
+    name = "min_sdk_version_failure_transitive"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_lib_cc",
+        dynamic_deps = [name + "_lib2_cc"],
+        tags = ["manual"],
+    )
+
+    cc_library_shared(
+        name = name + "_lib2_cc",
+        srcs = [name + "_lib2.cc"],
+        tags = ["manual"],
+        min_sdk_version = "32",
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_lib_cc"],
+        min_sdk_version = "30",
+    )
+
+    min_sdk_version_failure_test(
+        name = test_name,
+        target_under_test = name,
+        apex_min = "30",
+        dep_min = "32",
+    )
+
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -1024,5 +1102,7 @@ def apex_test_suite(name):
             _test_logging_parent_flag(),
             _test_generate_file_contexts(),
             _test_default_apex_manifest_version(),
+            _test_min_sdk_version_failure(),
+            _test_min_sdk_version_failure_transitive(),
         ],
     )

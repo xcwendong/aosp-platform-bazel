@@ -116,10 +116,11 @@ def _cc_gen_sysprop_common(
 
     return sysprop_gen_name
 
-sysprop_deps = ["//system/libbase:libbase_headers"] + select({
-    "//build/bazel/platforms/os:android": [],
+sysprop_deps = select({
+    "//build/bazel/platforms/os:android": ["//system/libbase:libbase_headers"],
     "//conditions:default": [
         "//system/libbase:libbase_bp2build_cc_library_static",
+        "//system/logging/liblog:liblog_bp2build_cc_library_static",
     ],
 })
 
@@ -139,10 +140,7 @@ def cc_sysprop_library_shared(
 
     cc_library_shared(
         name = name,
-        # TODO(b/246659653): Fix sysprop_deps so that the generated cpp file
-        # can be propagated and passes linking step.
-        # this is needed to build cc module that include sysprop as part of
-        # shared_libs prop
+        srcs = [":" + sysprop_gen_name],
         min_sdk_version = min_sdk_version,
         deps = sysprop_deps + [sysprop_gen_name],
         dynamic_deps = sysprop_dynamic_deps,

@@ -161,5 +161,6 @@ def parse_sdk_version(version):
         # See also b/234321488#comment2
         return version
     else:
-        fail("Unknown sdk version: %s, could not be parsed as " +
-             "an integer and/or is not a recognized codename" % (version))
+        fail("Unknown sdk version: %s, could not be parsed as " % version +
+             "an integer and/or is not a recognized codename. Valid api levels are:" +
+             str(api_levels))
