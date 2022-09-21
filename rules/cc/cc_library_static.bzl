@@ -68,7 +68,6 @@ def cc_library_static(
         data = [],
         sdk_version = "",
         min_sdk_version = "",
-        use_version_lib = False,
         tags = []):
     "Bazel macro to correspond with the cc_library_static Soong module."
 
@@ -91,10 +90,6 @@ def cc_library_static(
             "non_external_compiler_flags",
             "-external_compiler_flags",
         ]
-
-    if use_version_lib:
-        libbuildversionLabel = "//build/soong/cc/libbuildversion:libbuildversion"
-        whole_archive_deps = whole_archive_deps + [libbuildversionLabel]
 
     if rtti:
         toolchain_features += ["rtti"]

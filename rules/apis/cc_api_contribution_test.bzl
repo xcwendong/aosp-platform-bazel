@@ -15,7 +15,7 @@ limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load(":cc_api_contribution.bzl", "CcApiContributionInfo", "CcApiHeaderInfo", "cc_api_contribution", "cc_api_headers")
+load(":cc_api_contribution.bzl", "CcApiContributionInfo", "CcApiHeaderInfo", "CcApiHeaderInfoList", "cc_api_contribution", "cc_api_headers", "cc_api_library_headers")
 
 def _empty_include_dir_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -67,6 +67,49 @@ def _nonempty_include_dir_test():
         name = test_name,
         target_under_test = subject_name,
         expected_include_dir = include_dir,
+    )
+    return test_name
+
+def _api_library_headers_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    asserts.true(env, CcApiHeaderInfoList in target_under_test)
+    headers_list = target_under_test[CcApiHeaderInfoList].headers_list
+    actual_includes = sorted([headers.root for headers in headers_list if not headers.system])
+    actual_system_includes = sorted([headers.root for headers in headers_list if headers.system])
+    asserts.equals(env, ctx.attr.expected_includes, actual_includes)
+    asserts.equals(env, ctx.attr.expected_system_includes, actual_system_includes)
+    return analysistest.end(env)
+
+api_library_headers_test = analysistest.make(
+    impl = _api_library_headers_test_impl,
+    attrs = {
+        "expected_includes": attr.string_list(),
+        "expected_system_includes": attr.string_list(),
+    },
+)
+
+def _api_library_headers_test():
+    test_name = "api_library_headers_test"
+    subject_name = test_name + "_subject"
+    cc_api_library_headers(
+        name = subject_name,
+        hdrs = [],
+        export_includes = ["include1", "include2"],
+        export_system_includes = ["system_include1"],
+        deps = [":otherlib"],
+        tags = ["manual"],
+    )
+    cc_api_headers(
+        name = "otherlib",
+        hdrs = [],
+        include_dir = "otherinclude",
+    )
+    api_library_headers_test(
+        name = test_name,
+        target_under_test = subject_name,
+        expected_includes = ["build/bazel/rules/apis/include1", "build/bazel/rules/apis/include2", "build/bazel/rules/apis/otherinclude"],
+        expected_system_includes = ["build/bazel/rules/apis/system_include1"],
     )
     return test_name
 
@@ -158,6 +201,7 @@ def cc_api_test_suite(name):
         tests = [
             _empty_include_dir_test(),
             _nonempty_include_dir_test(),
+            _api_library_headers_test(),
             _api_path_is_relative_to_workspace_root_test(),
             _empty_library_name_gets_label_name_test(),
             _nonempty_library_name_preferred_test(),

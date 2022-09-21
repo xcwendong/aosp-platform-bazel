@@ -134,7 +134,6 @@ def cc_library_shared(
         system_dynamic_deps = system_dynamic_deps,
         deps = deps + whole_archive_deps,
         features = features,
-        use_version_lib = use_version_lib,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
     )

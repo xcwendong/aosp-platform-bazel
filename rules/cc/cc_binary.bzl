@@ -126,7 +126,6 @@ def cc_binary(
         stl = "none",
         system_dynamic_deps = system_dynamic_deps,
         target_compatible_with = target_compatible_with,
-        use_version_lib = use_version_lib,
         tags = ["manual"],
     )
 

@@ -37,13 +37,19 @@ def _cc_api_header_impl(ctx):
     root = paths.dirname(ctx.build_file_path)
     if ctx.attr.include_dir:
         root = paths.join(root, ctx.attr.include_dir)
+    info = CcApiHeaderInfo(
+        name = ctx.label.name,
+        root = root,
+        headers = headers_filepath,
+        system = ctx.attr.system,
+        arch = ctx.attr.arch,
+    )
+
+    # TODO: Use depset for CcApiHeaderInfoList to optimize merges in `_cc_api_contribution_impl`
     return [
-        CcApiHeaderInfo(
-            name = ctx.label.name,
-            root = root,
-            headers = headers_filepath,
-            system = ctx.attr.system,
-            arch = ctx.attr.arch,
+        info,
+        CcApiHeaderInfoList(
+            headers_list = [info],
         ),
     ]
 
@@ -81,6 +87,71 @@ cc_api_headers = rule(
     },
 )
 
+"""List container for multiple CcApiHeaderInfo providers"""
+CcApiHeaderInfoList = provider(
+    fields = {
+        "headers_list": "List of CcApiHeaderInfo providers presented by a target",
+    },
+)
+
+def _cc_api_library_headers_impl(ctx):
+    hdrs_list = [dep[CcApiHeaderInfo] for dep in ctx.attr.hdrs]
+    return [
+        CcApiHeaderInfoList(
+            headers_list = hdrs_list,
+        ),
+    ]
+
+_cc_api_library_headers = rule(
+    implementation = _cc_api_library_headers_impl,
+    attrs = {
+        "hdrs": attr.label_list(
+            mandatory = True,
+            providers = [CcApiHeaderInfo],
+        ),
+    },
+)
+
+def cc_api_library_headers(
+        name,
+        hdrs = [],
+        export_includes = [],
+        export_system_includes = [],
+        arch = None,
+        deps = [],
+        **kwargs):
+    header_deps = []
+    for include in export_includes:
+        _name = name + "_" + include
+        cc_api_headers(
+            name = _name,
+            include_dir = include,
+            hdrs = native.glob([paths.join(include, "**/*.h")]),
+            system = False,
+            arch = arch,
+        )
+        header_deps.append(_name)
+
+    for system_include in export_system_includes:
+        _name = name + "_" + system_include
+        cc_api_headers(
+            name = _name,
+            include_dir = system_include,
+            hdrs = native.glob([paths.join(system_include, "**/*.h")]),
+            system = True,
+            arch = arch,
+        )
+        header_deps.append(_name)
+
+    # deps should be exported
+    header_deps.extend(deps)
+
+    _cc_api_library_headers(
+        name = name,
+        hdrs = header_deps,
+        **kwargs
+    )
+
 """A Bazel provider that encapsulates the contributions of a CC library to an API surface"""
 CcApiContributionInfo = provider(
     fields = {
@@ -94,7 +165,7 @@ def _cc_api_contribution_impl(ctx):
     """Implemenation for the cc_api_contribution rule
     This rule does not have any build actions, but returns a `CcApiContributionInfo` provider object"""
     api_filepath = ctx.file.api.path
-    headers = [header[CcApiHeaderInfo] for header in ctx.attr.hdrs]
+    headers = [h[CcApiHeaderInfo] for headers_list in ctx.attr.hdrs for h in headers_list[CcApiHeaderInfoList]]
     name = ctx.attr.library_name or ctx.label.name
     return [
         CcApiContributionInfo(
@@ -118,7 +189,7 @@ cc_api_contribution = rule(
         ),
         "hdrs": attr.label_list(
             mandatory = False,
-            providers = [CcApiHeaderInfo],
+            providers = [CcApiHeaderInfoList],
             doc = "Header contributions of the cc library. This should return a `CcApiHeaderInfo` provider",
         ),
     },
