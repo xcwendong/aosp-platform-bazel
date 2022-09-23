@@ -25,8 +25,8 @@ _gtest_copts = select({
     "//build/bazel/platforms/os:windows": ["-DGTEST_OS_WINDOWS"],
     "//conditions:default": ["-DGTEST_OS_LINUX_ANDROID"],
 }) + select({
-    "//build/bazel/platforms/os:android": ["-O0", "-g"],
-    "//conditions:default": [],
+    "//build/bazel/platforms/os:android": [],
+    "//conditions:default": ["-O0", "-g"],  # here, default == host platform
 }) + [
     "-DGTEST_HAS_STD_STRING",
     "-Wno-unused-result",  # TODO(b/244433518): Figure out why this is necessary in the bazel compile action.

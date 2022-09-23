@@ -195,6 +195,35 @@ def _nonempty_library_name_preferred_test():
     )
     return test_name
 
+def _api_surfaces_attr_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    asserts.equals(env, ctx.attr.expected_api_surfaces, target_under_test[CcApiContributionInfo].api_surfaces)
+    return analysistest.end(env)
+
+api_surfaces_attr_test = analysistest.make(
+    impl = _api_surfaces_attr_test_impl,
+    attrs = {
+        "expected_api_surfaces": attr.string_list(),
+    },
+)
+
+def _api_surfaces_attr_test():
+    test_name = "api_surfaces_attr_test"
+    subject_name = test_name + "_subject"
+    cc_api_contribution(
+        name = subject_name,
+        api = "libfoo.map.txt",
+        api_surfaces = ["publicapi", "systemapi"],
+        tags = ["manual"],
+    )
+    api_surfaces_attr_test(
+        name = test_name,
+        target_under_test = subject_name,
+        expected_api_surfaces = ["publicapi", "systemapi"],
+    )
+    return test_name
+
 def cc_api_test_suite(name):
     native.test_suite(
         name = name,
@@ -205,5 +234,6 @@ def cc_api_test_suite(name):
             _api_path_is_relative_to_workspace_root_test(),
             _empty_library_name_gets_label_name_test(),
             _nonempty_library_name_preferred_test(),
+            _api_surfaces_attr_test(),
         ],
     )

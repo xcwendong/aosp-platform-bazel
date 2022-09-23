@@ -26,44 +26,15 @@ FLAGS_LIST=(
 )
 FLAGS="${FLAGS_LIST[@]}"
 
+source "$(dirname $0)/target_lists.sh"
+
 ###############
 # Build and test targets for device target platform.
 ###############
-BUILD_TARGETS_LIST=(
-  //art/...
-  //bionic/...
-  //bootable/recovery/tools/recovery_l10n/...
-  //build/...
-  //cts/...
-  //development/...
-  //external/...
-  //frameworks/...
-  //libnativehelper/...
-  //packages/...
-  //prebuilts/clang/host/linux-x86:all
-  //prebuilts/build-tools/tests/...
-  //platform_testing/...
-  //system/...
-  //tools/apksig/...
-  //tools/platform-compat/...
-
-  # These tools only build for host currently
-  -//external/e2fsprogs/misc:all
-  -//external/e2fsprogs/resize:all
-  -//external/e2fsprogs/debugfs:all
-  -//external/e2fsprogs/e2fsck:all
-)
-BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
-
-TEST_TARGETS_LIST=(
-  //build/bazel/...
-)
-TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
 
 ###########
 # Iterate over various products supported in the platform build.
 ###########
-
 product_prefix="aosp_"
 for arch in arm arm64 x86 x86_64; do
   # Re-run product config and bp2build for every TARGET_PRODUCT.
@@ -102,12 +73,6 @@ done
 #########
 # Host-only builds and tests
 #########
-
-HOST_INCOMPATIBLE_TARGETS=(
-  # TODO(b/216626461): add support for host_ldlibs
-  -//packages/modules/adb:all
-  -//packages/modules/adb/pairing_connection:all
-)
 
 # We can safely build and test all targets on the host linux config, and rely on
 # incompatible target skipping for tests that cannot run on the host.

@@ -16,8 +16,8 @@ limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load(":cc_api_contribution.bzl", "cc_api_contribution")
-load(":api_domain_contribution.bzl", "api_domain_contribution")
+load(":cc_api_contribution.bzl", "VALID_API_SURFACES", "cc_api_contribution")
+load(":api_domain.bzl", "api_domain")
 
 # Check that a .json file is created
 def _json_output_test_impl(ctx):
@@ -25,7 +25,7 @@ def _json_output_test_impl(ctx):
     actions = analysistest.target_actions(env)
     asserts.equals(
         env,
-        expected = 1,
+        expected = len(VALID_API_SURFACES),
         actual = len(actions),
     )
     asserts.equals(
@@ -45,12 +45,9 @@ json_output_test = analysistest.make(_json_output_test_impl)
 def _json_output_test():
     test_name = "json_output_test"
     subject_name = test_name + "_subject"
-    api_domain_contribution(
+    api_domain(
         name = subject_name,
-        surface_name = subject_name,
-        api_domain = "system",
-        version = 1,
-        cc_libraries = [],
+        cc_api_contributions = [],
         tags = ["manual"],
     )
     json_output_test(
@@ -65,9 +62,11 @@ def _json_output_contains_cc_test_impl(ctx):
     actions = analysistest.target_actions(env)
     asserts.equals(
         env,
-        expected = 1,
+        expected = len(VALID_API_SURFACES),
         actual = len(actions),
     )
+
+    # First element corresponds to publicapi
     output = json.decode(actions[0].content.replace("'", ""))  # Trim the surrounding '
     asserts.true(env, "cc_libraries" in output)
     cc_contributions_in_output = output.get("cc_libraries")
@@ -110,12 +109,9 @@ def _json_output_contains_cc_test():
         api = symbolfile,
         tags = ["manual"],
     )
-    api_domain_contribution(
+    api_domain(
         name = subject_name,
-        surface_name = subject_name,
-        api_domain = "system",
-        version = 1,
-        cc_libraries = [cc_subject_name],
+        cc_api_contributions = [cc_subject_name],
         tags = ["manual"],
     )
     json_output_contains_cc_test(
@@ -126,7 +122,7 @@ def _json_output_contains_cc_test():
     )
     return test_name
 
-def api_domain_contribution_test_suite(name):
+def api_domain_test_suite(name):
     native.test_suite(
         name = name,
         tests = [

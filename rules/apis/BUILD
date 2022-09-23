@@ -14,8 +14,8 @@ limitations under the License.
 """
 
 load(":cc_api_contribution_test.bzl", "cc_api_test_suite")
-load(":api_domain_contribution_test.bzl", "api_domain_contribution_test_suite")
+load(":api_domain_test.bzl", "api_domain_test_suite")
 
 cc_api_test_suite(name = "cc_api_test_suite")
 
-api_domain_contribution_test_suite(name = "api_domain_contribution_test_suite")
+api_domain_test_suite(name = "api_domain_test_suite")

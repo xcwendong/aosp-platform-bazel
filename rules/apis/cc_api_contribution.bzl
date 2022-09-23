@@ -158,8 +158,20 @@ CcApiContributionInfo = provider(
         "name": "Name of the cc library",
         "api": "Path of map.txt describing the stable APIs of the library. Path is relative to workspace root",
         "headers": "metadata of the header files of the cc library",
+        "api_surfaces": "API surface(s) this library contributes to",
     },
 )
+
+VALID_API_SURFACES = [
+    "publicapi",
+    "systemapi",
+    "vendorapi",
+]
+
+def _validate_api_surfaces(api_surfaces):
+    for api_surface in api_surfaces:
+        if api_surface not in VALID_API_SURFACES:
+            fail(api_surface, " is not a valid API surface. Acceptable values: ", VALID_API_SURFACES)
 
 def _cc_api_contribution_impl(ctx):
     """Implemenation for the cc_api_contribution rule
@@ -167,11 +179,14 @@ def _cc_api_contribution_impl(ctx):
     api_filepath = ctx.file.api.path
     headers = [h[CcApiHeaderInfo] for headers_list in ctx.attr.hdrs for h in headers_list[CcApiHeaderInfoList]]
     name = ctx.attr.library_name or ctx.label.name
+    _validate_api_surfaces(ctx.attr.api_surfaces)
+
     return [
         CcApiContributionInfo(
             name = name,
             api = api_filepath,
             headers = headers,
+            api_surfaces = ctx.attr.api_surfaces,
         ),
     ]
 
@@ -191,6 +206,10 @@ cc_api_contribution = rule(
             mandatory = False,
             providers = [CcApiHeaderInfoList],
             doc = "Header contributions of the cc library. This should return a `CcApiHeaderInfo` provider",
+        ),
+        "api_surfaces": attr.string_list(
+            doc = "API surface(s) this library contributes to. See VALID_API_SURFACES in cc_api_contribution.bzl for valid values for API surfaces",
+            default = ["publicapi"],
         ),
     },
 )

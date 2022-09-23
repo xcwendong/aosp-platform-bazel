@@ -13,13 +13,15 @@ if [[ -z ${TARGET_PRODUCT+x} ]]; then
 fi
 
 TARGETS=(
-  libbacktrace
-  libfdtrack
-  libsimpleperf
-  com.android.adbd
-  com.android.runtime
+  CaptivePortalLogin
   bluetoothtbd
+  com.android.media
+  com.android.media.swcodec
+  com.android.neuralnetworks
+  com.android.runtime
   framework-minus-apex
+  libbacktrace
+  libsimpleperf
 )
 
 # Run a mixed build of "libc"

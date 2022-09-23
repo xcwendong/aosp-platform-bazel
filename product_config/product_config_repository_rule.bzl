@@ -33,15 +33,7 @@ def _impl(rctx):
     workspace_root = str(rctx.path(Label("//:WORKSPACE")).dirname)
     output_file = rctx.path("out/rbc_variable_dump.txt")
 
-    res = rctx.execute(["mkdir", str(output_file.dirname)])
-    if res.return_code != 0:
-        fail("mkdir " + str(output_file.dirname) + " failed to run\n" + res.stderr)
-
-    res = rctx.execute([
-        "prebuilts/build-tools/linux-x86/bin/ckati",
-        "-f",
-        "build/make/core/config.mk",
-    ], environment = {
+    env = {
         "OUT_DIR": str(rctx.path("out")),
         "TMPDIR": str(rctx.path("tmp")),
         "BUILD_DATETIME_FILE": str(rctx.path("out/build_date.txt")),
@@ -49,7 +41,37 @@ def _impl(rctx):
         "TARGET_PRODUCT": rctx.os.environ.get("TARGET_PRODUCT", "aosp_arm"),
         "TARGET_BUILD_VARIANT": rctx.os.environ.get("TARGET_BUILD_VARIANT", "eng"),
         "RBC_DUMP_CONFIG_FILE": str(output_file),
-    }, working_directory = workspace_root)
+    }
+
+    res = rctx.execute(["mkdir", str(output_file.dirname)])
+    if res.return_code != 0:
+        fail("mkdir " + str(output_file.dirname) + " failed to run\n" + res.stderr)
+
+    # TODO(b/247773786) Run a dumpvars-mode step to trigger soong_ui's Finder to
+    # generate AndroidProducts.mk.list for this repo rule context.
+    #
+    # Otherwise the available products are the only ones listed in
+    # $(SRC_TARGET_DIR)/products/AndroidProducts.mk, and ones like aosp_barbet
+    # aren't discoverable.
+    #
+    # https://cs.android.com/android/platform/superproject/+/master:build/make/target/product/AndroidProducts.mk?q=product%2FAndroidProducts.mk
+    #
+    # We can optimize this by adding a soong_ui mode that just runs finder.
+    res = rctx.execute(["mkdir", "tmp"])  # needed by soong_ui.bash step
+    res = rctx.execute([
+        "build/soong/soong_ui.bash",
+        "--dumpvars-mode",
+        "--vars",
+        "TARGET_PRODUCT",
+    ], environment = env, working_directory = workspace_root)
+    if res.return_code != 0:
+        fail(res.stderr)
+
+    res = rctx.execute([
+        "prebuilts/build-tools/linux-x86/bin/ckati",
+        "-f",
+        "build/make/core/config.mk",
+    ], environment = env, working_directory = workspace_root)
     if res.return_code != 0:
         fail("ckati -f config.mk failed to run\n" + res.stderr)
 
