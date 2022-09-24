@@ -17,10 +17,10 @@ def apex_package_name_test(name, apex, expected_package_name):
     """Compare the actual package name of an apex using aapt2."""
     native.genrule(
         name = name + "_actual_package_name",
-        tools = ["//prebuilts/sdk/tools:linux/bin/aapt2"],
+        tools = ["//frameworks/base/tools/aapt2"],
         srcs = [apex],
         outs = [name + "_actual_package_name.txt"],
-        cmd = "$(location //prebuilts/sdk/tools:linux/bin/aapt2) dump packagename $< > $@",
+        cmd = "$(location //frameworks/base/tools/aapt2) dump packagename $< > $@",
         tags = ["manual"],
     )
 

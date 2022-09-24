@@ -79,7 +79,7 @@ toolchain_type(name = "apex_toolchain_type")
 
 apex_toolchain(
     name = "apex_toolchain",
-    aapt2 = "//prebuilts/sdk/tools:linux/bin/aapt2",
+    aapt2 = "//frameworks/base/tools/aapt2",
     android_jar = "//prebuilts/sdk/current:public/android.jar",
     apex_compression_tool = "//system/apex/tools:apex_compression_tool",
     apexer = "//system/apex/apexer",
@@ -90,7 +90,7 @@ apex_toolchain(
     mke2fs = "//external/e2fsprogs/misc:mke2fs",
     resize2fs = "//external/e2fsprogs/resize:resize2fs",
     sefcontext_compile = "//external/selinux/libselinux:sefcontext_compile",
-    soong_zip = "//prebuilts/build-tools:linux-x86/bin/soong_zip",
+    soong_zip = "//build/soong/zip/cmd:soong_zip",
 )
 
 toolchain(

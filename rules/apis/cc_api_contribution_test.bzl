@@ -224,6 +224,53 @@ def _api_surfaces_attr_test():
     )
     return test_name
 
+def _api_headers_contribution_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    asserts.equals(env, ctx.attr.expected_include_dirs, [hdr_info.root for hdr_info in target_under_test[CcApiContributionInfo].headers])
+    return analysistest.end(env)
+
+api_headers_contribution_test = analysistest.make(
+    impl = _api_headers_contribution_test_impl,
+    attrs = {
+        "expected_include_dirs": attr.string_list(),
+    },
+)
+
+def _api_headers_contribution_test():
+    test_name = "api_headers_contribution_test"
+    subject_name = test_name + "_subject"
+    cc_api_contribution(
+        name = subject_name,
+        api = ":libfoo.map.txt",
+        hdrs = [
+            subject_name + "_headers",
+            subject_name + "_library_headers",
+        ],
+        tags = ["manual"],
+    )
+    cc_api_headers(
+        name = subject_name + "_headers",
+        hdrs = [],
+        include_dir = "dir1",
+        tags = ["manual"],
+    )
+    cc_api_library_headers(
+        name = subject_name + "_library_headers",
+        export_includes = ["dir2", "dir3"],
+        tags = ["manual"],
+    )
+    api_headers_contribution_test(
+        name = test_name,
+        target_under_test = subject_name,
+        expected_include_dirs = [
+            "build/bazel/rules/apis/dir1",
+            "build/bazel/rules/apis/dir2",
+            "build/bazel/rules/apis/dir3",
+        ],
+    )
+    return test_name
+
 def cc_api_test_suite(name):
     native.test_suite(
         name = name,
@@ -235,5 +282,6 @@ def cc_api_test_suite(name):
             _empty_library_name_gets_label_name_test(),
             _nonempty_library_name_preferred_test(),
             _api_surfaces_attr_test(),
+            _api_headers_contribution_test(),
         ],
     )

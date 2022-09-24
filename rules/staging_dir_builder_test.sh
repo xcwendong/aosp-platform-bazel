@@ -27,7 +27,7 @@ resize2fs_path="${RUNFILES_DIR}/__main__/external/e2fsprogs/resize"
 sefcontext_compile_path="${RUNFILES_DIR}/__main__/external/selinux/libselinux"
 debugfs_path="${RUNFILES_DIR}/__main__/external/e2fsprogs/debugfs"
 soong_zip_path="${RUNFILES_DIR}/__main__/prebuilts/build-tools/linux-x86/bin"
-aapt2_path="${RUNFILES_DIR}/__main__/prebuilts/sdk/tools/linux/bin"
+aapt2_path="${RUNFILES_DIR}/__main__/frameworks/base/tools/aapt2"
 android_jar="${RUNFILES_DIR}/__main__/prebuilts/sdk/current/public/android.jar"
 
 input_dir=$(mktemp -d)

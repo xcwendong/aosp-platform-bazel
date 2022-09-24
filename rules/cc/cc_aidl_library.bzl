@@ -17,14 +17,19 @@ limitations under the License.
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_aidl_code_gen.bzl", "cc_aidl_code_gen")
 
-def cc_aidl_library(name, deps = [], **kwargs):
+def cc_aidl_library(
+        name,
+        deps = [],
+        implementation_dynamic_deps = [],
+        **kwargs):
     """
     Generate AIDL stub code for C++ and wrap it in a cc_library_static target
 
     Args:
-        name:               (String) name of the cc_library_static target
-        deps:               (list[AidlGenInfo]) list of all aidl_libraries that this cc_aidl_library depends on
-        **kwargs:           extra arguments that will be passesd to cc_aidl_code_gen and cc_library_static.
+        name:                        (String) name of the cc_library_static target
+        deps:                        (list[AidlGenInfo]) list of all aidl_libraries that this cc_aidl_library depends on
+        implementation_dynamic_deps: (list[CcInfo]) list of cc_library_shared needed to compile the created cc_library_static target
+        **kwargs:                    extra arguments that will be passesd to cc_aidl_code_gen and cc_library_static.
     """
 
     aidl_code_gen = name + "_aidl_code_gen"
@@ -47,7 +52,7 @@ def cc_aidl_library(name, deps = [], **kwargs):
         implementation_deps = [
             "//frameworks/native/libs/binder:libbinder_headers",
         ],
+        implementation_dynamic_deps = implementation_dynamic_deps,
         deps = [aidl_code_gen],
-        # dynamic_deps = dynamic_deps,
         **kwargs
     )

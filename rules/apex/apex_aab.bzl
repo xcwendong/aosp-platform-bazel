@@ -259,7 +259,7 @@ apex_aab = rule(
             allow_single_file = True,
             cfg = "exec",
             executable = True,
-            default = "//prebuilts/sdk/tools:linux/bin/aapt2",
+            default = "//frameworks/base/tools/aapt2",
         ),
         "_merge_zips": attr.label(
             allow_single_file = True,
@@ -271,7 +271,7 @@ apex_aab = rule(
             allow_single_file = True,
             cfg = "exec",
             executable = True,
-            default = "//prebuilts/build-tools:linux-x86/bin/zip2zip",
+            default = "//build/soong/cmd/zip2zip:zip2zip",
         ),
         "_bundletool": attr.label(
             cfg = "exec",

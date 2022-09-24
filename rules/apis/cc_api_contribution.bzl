@@ -177,7 +177,11 @@ def _cc_api_contribution_impl(ctx):
     """Implemenation for the cc_api_contribution rule
     This rule does not have any build actions, but returns a `CcApiContributionInfo` provider object"""
     api_filepath = ctx.file.api.path
-    headers = [h[CcApiHeaderInfo] for headers_list in ctx.attr.hdrs for h in headers_list[CcApiHeaderInfoList]]
+    hdrs_info = []
+    for hdr in ctx.attr.hdrs:
+        for hdr_info in hdr[CcApiHeaderInfoList].headers_list:
+            hdrs_info.append(hdr_info)
+
     name = ctx.attr.library_name or ctx.label.name
     _validate_api_surfaces(ctx.attr.api_surfaces)
 
@@ -185,7 +189,7 @@ def _cc_api_contribution_impl(ctx):
         CcApiContributionInfo(
             name = name,
             api = api_filepath,
-            headers = headers,
+            headers = hdrs_info,
             api_surfaces = ctx.attr.api_surfaces,
         ),
     ]
