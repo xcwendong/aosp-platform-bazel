@@ -41,10 +41,17 @@ for product in "${PRODUCTS[@]}"; do
     --max_idle_secs=5
   )
 
-  tools/bazel ${STARTUP_FLAGS[@]} build --nobuild --config=bp2build --config=linux_x86_64 -k -- ${BUILD_TARGETS} || \
+  FLAGS=(
+    --config=bp2build
+    --config=ci
+    --nobuild
+    --keep_going
+  )
+
+  tools/bazel ${STARTUP_FLAGS[@]} build ${FLAGS[@]} --config=linux_x86_64 -- ${BUILD_TARGETS} || \
     FAILED_PRODUCTS+=("${product} --config=linux_x86_64")
 
-  tools/bazel ${STARTUP_FLAGS[@]} build --nobuild --config=bp2build --config=android -k -- ${BUILD_TARGETS} || \
+  tools/bazel ${STARTUP_FLAGS[@]} build ${FLAGS[@]} --config=android -- ${BUILD_TARGETS} || \
     FAILED_PRODUCTS+=("${product} --config=android")
 
   count=$((count+1))
