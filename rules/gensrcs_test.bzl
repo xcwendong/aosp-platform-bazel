@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/bazel/rules:gensrcs.bzl", "gensrcs")
@@ -36,36 +37,37 @@ EXPECTED_OUTS = [
 
 def _test_actions_impl(ctx):
     env = analysistest.begin(ctx)
-
+    target = analysistest.target_under_test(env)
     actions = analysistest.target_actions(env)
-    build_file_dirname = paths.dirname(ctx.build_file_path)
 
     # Expect an action for each pair of input/output file
     asserts.equals(env, expected = len(SRCS), actual = len(actions))
 
-    # Check name for input and output files for each action
-    for i in range(len(actions)):
-        action = actions[i]
-        in_file = action.inputs.to_list()[0]
-        out_file = action.outputs.to_list()[0]
-
-        asserts.equals(
-            env,
-            expected = SRCS[i],
-            actual = in_file.short_path[len(build_file_dirname) + 1:],
-        )
-        asserts.equals(
-            env,
-            expected = EXPECTED_OUTS[i],
-            actual = out_file.short_path[len(build_file_dirname) + 1:],
-        )
+    asserts.set_equals(
+        env,
+        sets.make([
+            # given an input file build/bazel/rules/texts/src1.txt
+            # the corresponding output file is
+            # <GENDIR>/build/bazel/rules/build/bazel/rules/texts/src1.out
+            # the second "build/bazel/rules" is to accomodate the srcs from
+            # external package
+            paths.join(
+                ctx.genfiles_dir.path,
+                "build/bazel/rules",
+                "build/bazel/rules",
+                out,
+            )
+            for out in EXPECTED_OUTS
+        ]),
+        sets.make([file.path for file in target.files.to_list()]),
+    )
 
     return analysistest.end(env)
 
 actions_test = analysistest.make(_test_actions_impl)
 
 def _test_actions():
-    name = "actions"
+    name = "gensrcs_output_paths"
     test_name = name + "_test"
 
     # Rule under test

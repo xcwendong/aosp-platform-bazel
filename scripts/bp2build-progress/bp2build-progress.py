@@ -289,6 +289,10 @@ def adjacency_list_from_json(
     # ensure module_info added to adjacency list even with no deps
     module_adjacency_list[module_info].update(set())
     for dep in deps_names:
+      # this may occur if there is a cycle between a module and created_by
+      # module
+      if not dep in name_to_info:
+        continue
       dep_module_info = name_to_info[dep]
       module_adjacency_list[module_info].add(dep_module_info)
       if collect_transitive_dependencies:
