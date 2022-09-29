@@ -20,8 +20,10 @@ load("//build/bazel/rules/cc:cc_aidl_code_gen.bzl", "cc_aidl_code_gen")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 
-#TODO(b/229251008) set _allowed_backends = ["java", "cpp", "rust", "ndk"]
-_allowed_backends = ["java", "ndk", "cpp"]
+JAVA = "java"
+CPP = "cpp"
+NDK = "ndk"
+#TODO(b/246803961) Add support for rust backend
 
 def _check_versions(versions):
     versions = sorted([int(i) for i in versions])  # ensure that all versions are ints
@@ -32,20 +34,23 @@ def _check_versions(versions):
             fail("all versions should be > 0, but found version:", v)
     return [str(i) for i in versions]
 
-def _create_latest_version_aliases(name, last_version_name, backends, **kwargs):
+def _create_latest_version_aliases(name, last_version_name, backend_configs, **kwargs):
     latest_name = name + "-latest"
     native.alias(
         name = latest_name,
         actual = ":" + last_version_name,
         **kwargs
     )
-    for b in backends:
-        language_binding_name = last_version_name + "-" + b
+    for lang in backend_configs.keys():
+        language_binding_name = last_version_name + "-" + lang
         native.alias(
-            name = latest_name + "-" + b,
+            name = latest_name + "-" + lang,
             actual = ":" + language_binding_name,
             **kwargs
         )
+
+def is_config_enabled(config):
+    return config != None and "enabled" in config and config["enabled"] == True
 
 def aidl_interface(
         name,
@@ -53,7 +58,9 @@ def aidl_interface(
         strip_import_prefix = "",
         srcs = None,
         flags = None,
-        backends = _allowed_backends,
+        java_config = None,
+        cpp_config = None,
+        ndk_config = None,
         stability = None,
         # TODO: Remove versions after aidl_interface module type deprecates
         # versions prop in favor of versions_with_info prop
@@ -69,17 +76,18 @@ def aidl_interface(
     based on the values passed to the `backends` argument.
 
     Arguments:
-        name: string, base name of generated targets: <module-name>-V<version number>-<language-type>
-        versions: List[str], list of version labels with associated source directories
-        deps: List[AidlGenInfo], a list of other aidl_libraries that all versions of this interface depend on
-        include_dir: str, a local directory to pass to the AIDL compiler to satisfy imports
-        srcs: List[file], a list of files to include in the development (unversioned) version of the aidl_interface
-        flags: List[string], a list of flags to pass to the AIDL compiler
-        backends: List[string], a list of the languages to generate bindings for
+        name:                   string, base name of generated targets: <module-name>-V<version number>-<language-type>
+        versions:               List[str], list of version labels with associated source directories
+        deps:                   List[AidlGenInfo], a list of other aidl_libraries that all versions of this interface depend on
+        strip_import_prefix:    str, a local directory to pass to the AIDL compiler to satisfy imports
+        srcs:                   List[file], a list of files to include in the development (unversioned) version of the aidl_interface
+        flags:                  List[string], a list of flags to pass to the AIDL compiler
+        java_config:            Dict{"enabled": bool}, config for java backend
+        cpp_config:             Dict{"enabled": bool, "min_sdk_version": string}, config for cpp backend
+        ndk_config:             Dict{"enabled": bool, "min_sdk_version": string}, config for ndk backend
+        stability:              string, stability promise of the interface. Currently, only supports "vintf"
+        backends:               List[string], a list of the languages to generate bindings for
     """
-    for b in backends:
-        if b not in _allowed_backends:
-            fail("Cannot use backend `{}` in aidl_interface. Allowed backends: {}".format(b, _allowed_backends))
 
     # When versions_with_info is set, versions is no-op.
     # TODO(b/244349745): Modify bp2build to skip convert versions if versions_with_info is set
@@ -90,14 +98,22 @@ def aidl_interface(
     if flags != None:
         aidl_flags.extend(flags)
 
+    enabled_backend_configs = {}
+    if is_config_enabled(java_config):
+        enabled_backend_configs[JAVA] = java_config
+    if is_config_enabled(cpp_config):
+        enabled_backend_configs[CPP] = cpp_config
+    if is_config_enabled(ndk_config):
+        enabled_backend_configs[NDK] = ndk_config
+
     # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=329;drc=e88d9a9b14eafb064a234d555a5cd96de97ca9e2
     # only vintf is allowed currently
     if stability != None and stability in ["vintf"]:
         aidl_flags.append("--stability=" + stability)
 
         # TODO(b/245738285): Add support for vintf stability in java backend
-        if "java" in backends:
-            backends.remove("java")
+        if JAVA in enabled_backend_configs:
+            enabled_backend_configs.pop(JAVA)
 
     if srcs != None and len(srcs) > 0:
         create_aidl_binding_for_backends(
@@ -105,7 +121,7 @@ def aidl_interface(
             srcs = srcs,
             strip_import_prefix = strip_import_prefix,
             deps = deps,
-            backends = backends,
+            backend_configs = enabled_backend_configs,
             aidl_flags = aidl_flags,
             **kwargs
         )
@@ -120,16 +136,16 @@ def aidl_interface(
             create_aidl_binding_for_backends(
                 name = name,
                 version = version_with_info["version"],
-                deps = version_with_info["deps"],
+                deps = version_with_info.get("deps"),
                 aidl_flags = aidl_flags,
-                backends = backends,
+                backend_configs = enabled_backend_configs,
                 **kwargs
             )
         if len(versions_with_info) > 0:
             _create_latest_version_aliases(
                 name,
                 name + "-V" + versions[-1],
-                backends,
+                enabled_backend_configs,
                 **kwargs
             )
     elif versions != None and len(versions) > 0:
@@ -140,18 +156,18 @@ def aidl_interface(
                 version = version,
                 deps = deps,
                 aidl_flags = aidl_flags,
-                backends = backends,
+                backend_configs = enabled_backend_configs,
                 **kwargs
             )
         if len(versions) > 0:
             _create_latest_version_aliases(
                 name,
                 name + "-V" + versions[-1],
-                backends,
+                enabled_backend_configs,
                 **kwargs
             )
 
-def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_import_prefix = "", deps = None, aidl_flags = [], backends = [], **kwargs):
+def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_import_prefix = "", deps = None, aidl_flags = [], backend_configs = {}, **kwargs):
     """
     Create aidl_library target and corrending <backend>_aidl_library target for a given version
 
@@ -185,36 +201,44 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
         **kwargs
     )
 
-    for backend in backends:
-        if backend == "java":
+    for lang, config in backend_configs.items():
+        aidl_flags_for_backend = []
+        if "min_sdk_version" in config:
+            aidl_flags_for_backend.append(
+                "--min_sdk_version={}".format(config["min_sdk_version"]),
+            )
+
+        if lang == JAVA:
             java_aidl_library(
                 name = aidl_library_name + "-java",
                 deps = [":" + aidl_library_name],
+                # TODO(b/249276008): Pass aidl_flags_for_backend to java_aidl_library
                 **kwargs
             )
-        elif backend == "cpp" or backend == "ndk":
+        elif lang == CPP or lang == NDK:
             dynamic_deps = []
 
             # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface_backends.go;l=564;drc=0517d97079d4b08f909e7f35edfa33b88fcc0d0e
             if deps != None:
                 # For each aidl_library target label versioned_name, there's an
                 # associated cc_library_shared target with label versioned_name-<cpp|ndk>
-                dynamic_deps.extend(["{}-{}".format(dep, backend) for dep in deps])
+                dynamic_deps.extend(["{}-{}".format(dep, lang) for dep in deps])
 
             # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface_backends.go;l=111;drc=ef9f1352a1a8fec7bb134b1c713e13fc3ccee651
-            if backend == "cpp":
+            if lang == CPP:
                 dynamic_deps.extend([
                     "//frameworks/native/libs/binder:libbinder",
                     "//system/core/libutils:libutils",
                 ])
-            elif backend == "ndk":
+            elif lang == NDK:
                 dynamic_deps.append("//frameworks/native/libs/binder/ndk:libbinder_ndk")
 
             _cc_aidl_libraries(
-                name = "{}-{}".format(aidl_library_name, backend),
+                name = "{}-{}".format(aidl_library_name, lang),
                 aidl_library = ":" + aidl_library_name,
                 dynamic_deps = dynamic_deps,
-                lang = backend,
+                lang = lang,
+                aidl_flags = aidl_flags_for_backend,
                 **kwargs
             )
 
@@ -231,6 +255,7 @@ def _cc_aidl_libraries(
         implementation_deps = [],
         dynamic_deps = [],
         lang = None,
+        aidl_flags = [],
         **kwargs):
     """
     Generate AIDL stub code for cpp or ndk backend and wrap it in cc libraries (both shared and static variant)
@@ -255,6 +280,7 @@ def _cc_aidl_libraries(
         name = aidl_code_gen,
         deps = [aidl_library],
         lang = lang,
+        aidl_flags = aidl_flags,
         **kwargs
     )
 

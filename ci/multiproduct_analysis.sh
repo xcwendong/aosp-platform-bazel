@@ -38,7 +38,12 @@ for product in "${PRODUCTS[@]}"; do
   rm -f out/ninja_build
 
   STARTUP_FLAGS=(
-    --max_idle_secs=5
+    # Keep the Bazel server alive, package cache hot and reduce excessive I/O
+    # and wall time by ensuring that max_idle_secs is longer than bp2build which
+    # runs in every loop. bp2build takes ~20 seconds to run, so set this to a
+    # minute to account for resource contention, but still ensure that the bazel
+    # server doesn't stick around after.
+    --max_idle_secs=60
   )
 
   FLAGS=(

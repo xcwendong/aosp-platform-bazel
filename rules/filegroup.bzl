@@ -55,16 +55,19 @@ def filegroup(name, srcs = [], **kwargs):
     native.genrule(
         name = name + "_null_cc",
         outs = [name + "_null.cc"],
+        tags = ["manual"],
         cmd = "touch $@",
     )
     native.genrule(
         name = name + "_null_c",
         outs = [name + "_null.c"],
+        tags = ["manual"],
         cmd = "touch $@",
     )
     native.genrule(
         name = name + "_null_s",
         outs = [name + "_null.S"],
+        tags = ["manual"],
         cmd = "touch $@",
     )
 
@@ -72,12 +75,15 @@ def filegroup(name, srcs = [], **kwargs):
     native.filegroup(
         name = name + "_cpp_srcs",
         srcs = [name + "_null.cc"] + cpp_srcs,
+        tags = ["manual"],
     )
     native.filegroup(
         name = name + "_c_srcs",
         srcs = [name + "_null.c"] + c_srcs,
+        tags = ["manual"],
     )
     native.filegroup(
         name = name + "_as_srcs",
         srcs = [name + "_null.S"] + as_srcs,
+        tags = ["manual"],
     )

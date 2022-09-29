@@ -30,7 +30,7 @@ def _make_vars_to_starlark(txt):
 """ % "\n    ".join(['"' + x[0] + '": "' + x[1] + '",' for x in lines])
 
 def _impl(rctx):
-    workspace_root = str(rctx.path(Label("//:WORKSPACE")).dirname)
+    workspace_root = str(rctx.workspace_root)
     output_file = rctx.path("out/rbc_variable_dump.txt")
 
     env = {

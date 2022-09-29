@@ -35,6 +35,9 @@ aidl_library(
 
 aidl_interface(
     name = "aidl_interface_test",
+    java_config = {
+        "enabled": True,
+    },
     tags = ["manual"],
     versions = [
         "1",

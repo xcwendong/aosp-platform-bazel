@@ -62,6 +62,9 @@ build --experimental_cc_implementation_deps
 # Use the llvm_coverage_map_format feature to turn on native code coverage.
 build --experimental_use_llvm_covmap
 
+# Always emit the stdout of failing tests as they should be emphasized. (b/247516541)
+test --test_output=errors
+
 # Enable building targets in //external:__subpackages__.
 common --experimental_sibling_repository_layout
 common --experimental_disable_external_package
@@ -92,7 +95,6 @@ build:ci --verbose_failures
 # Log apexer verbosely on CI (it has a noisy but useful output)
 build:ci --//build/bazel/rules/apex:apexer_verbose
 test:ci --keep_going
-test:ci --test_output=errors
 
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
