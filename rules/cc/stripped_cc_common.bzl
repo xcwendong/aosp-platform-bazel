@@ -19,13 +19,16 @@ limitations under the License.
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
 # Keep this consistent with soong/cc/strip.go#NeedsStrip.
-def needs_strip(attrs):
-    force_disable = attrs.none
-    force_enable = attrs.all or attrs.keep_symbols or attrs.keep_symbols_and_debug_frame or attrs.keep_symbols_list
-    return force_enable and not force_disable
+def _needs_strip(ctx):
+    if ctx.attr.none:
+        return False
+    if ctx.target_platform_has_constraint(ctx.attr._android_constraint[platform_common.ConstraintValueInfo]):
+        return True
+    return (ctx.attr.all or ctx.attr.keep_symbols or
+            ctx.attr.keep_symbols_and_debug_frame or ctx.attr.keep_symbols_list)
 
 # Keep this consistent with soong/cc/strip.go#strip and soong/cc/builder.go#transformStrip.
-def get_strip_args(attrs):
+def _get_strip_args(attrs):
     strip_args = []
     keep_mini_debug_info = False
     if attrs.keep_symbols:
@@ -46,7 +49,7 @@ def get_strip_args(attrs):
 # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/builder.go;l=131-146;drc=master
 def _stripped_impl(ctx, prefix = "", suffix = "", extension = ""):
     out_file = ctx.actions.declare_file(prefix + ctx.attr.name + suffix + extension)
-    if not needs_strip(ctx.attr):
+    if not _needs_strip(ctx):
         ctx.actions.symlink(
             output = out_file,
             target_file = ctx.files.src[0],
@@ -72,7 +75,7 @@ def _stripped_impl(ctx, prefix = "", suffix = "", extension = ""):
         ],
         outputs = [out_file, d_file],
         executable = ctx.executable._strip_script,
-        arguments = get_strip_args(ctx.attr) + [
+        arguments = _get_strip_args(ctx.attr) + [
             "-i",
             ctx.files.src[0].path,
             "-o",
@@ -135,6 +138,9 @@ common_attrs = {
     "_cc_toolchain": attr.label(
         default = Label("@local_config_cc//:toolchain"),
         providers = [cc_common.CcToolchainInfo],
+    ),
+    "_android_constraint": attr.label(
+        default = Label("//build/bazel/platforms/os:android"),
     ),
 }
 

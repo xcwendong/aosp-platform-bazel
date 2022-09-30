@@ -21,14 +21,10 @@ def _cc_binary_strip_test(ctx):
     env = analysistest.begin(ctx)
     actions = analysistest.target_actions(env)
     filtered_actions = [a for a in actions if a.mnemonic == "CcStrip"]
-    if not ctx.attr.strip_flags:
-        asserts.true(
-            env,
-            len(filtered_actions) == 0,
-            "expected to not find an action with CcStrip mnemonic in %s" % actions,
-        )
-        return analysistest.end(env)
-    else:
+    on_target = ctx.target_platform_has_constraint(
+        ctx.attr._android_constraint[platform_common.ConstraintValueInfo],
+    )
+    if ctx.attr.strip_flags or on_target:
         # expected to find strip flags, so look for a CcStrip action.
         asserts.true(
             env,
@@ -36,24 +32,35 @@ def _cc_binary_strip_test(ctx):
             "expected to find an action with CcStrip mnemonic in %s" % actions,
         )
 
-        strip_action = filtered_actions[0]
+        if ctx.attr.strip_flags or not on_target:
+            strip_action = filtered_actions[0]
 
-        # Extract these flags from strip_action (for example):
-        # build/soong/scripts/strip.sh --keep-symbols --add-gnu-debuglink -i <in> -o <out> -d <out>.d
-        #                              ^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^
-        flag_start_idx = 1  # starts after the strip.sh executable
-        flag_end_idx = strip_action.argv.index("-i")  # end of the flags
-        asserts.equals(
+            # Extract these flags from strip_action (for example):
+            # build/soong/scripts/strip.sh --keep-symbols --add-gnu-debuglink -i <in> -o <out> -d <out>.d
+            #                              ^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^
+            flag_start_idx = 1  # starts after the strip.sh executable
+            flag_end_idx = strip_action.argv.index("-i")  # end of the flags
+            asserts.equals(
+                env,
+                strip_action.argv[flag_start_idx:flag_end_idx],
+                ctx.attr.strip_flags,
+            )
+
+    else:
+        asserts.true(
             env,
-            strip_action.argv[flag_start_idx:flag_end_idx],
-            ctx.attr.strip_flags,
+            len(filtered_actions) == 0,
+            "expected to not find an action with CcStrip mnemonic in %s" % actions,
         )
 
-        return analysistest.end(env)
+    return analysistest.end(env)
 
 cc_binary_strip_test = analysistest.make(
     _cc_binary_strip_test,
-    attrs = {"strip_flags": attr.string_list()},
+    attrs = {
+        "strip_flags": attr.string_list(),
+        "_android_constraint": attr.label(default = Label("//build/bazel/platforms/os:android")),
+    },
 )
 
 def _cc_binary_strip_default():
