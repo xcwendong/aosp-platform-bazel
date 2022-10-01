@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("//build/bazel/platforms:transitions.bzl", "default_android_transition")
 load(":apex.bzl", "ApexInfo")
 
 def _arch_transition_impl(settings, attr):
@@ -52,13 +53,13 @@ _arch_abi_map = {
     "x86": "x86",
 }
 
-def _apex_proto_convert(ctx, arch, module_name, apex_file):
+def _apex_proto_convert(ctx, aapt2, arch, module_name, apex_file):
     """Run 'aapt2 convert' to convert resource files to protobuf format."""
 
     # Inputs
     inputs = [
         apex_file,
-        ctx.executable._aapt2,
+        aapt2,
     ]
 
     # Outputs
@@ -81,7 +82,7 @@ def _apex_proto_convert(ctx, arch, module_name, apex_file):
     ctx.actions.run(
         inputs = inputs,
         outputs = outputs,
-        executable = ctx.executable._aapt2,
+        executable = aapt2,
         arguments = [args],
         mnemonic = "ApexProtoConvert",
     )
@@ -198,6 +199,8 @@ def _apex_bundle(ctx, module_name, merged_base_file, bundle_config_file):
 def _apex_aab_impl(ctx):
     """Implementation of apex_aab rule, which drives the process of creating aab
     file from apex files created for each arch."""
+    apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
+
     prefixed_signed_apex_files = []
     apex_base_files = []
     bundle_config_file = None
@@ -220,7 +223,7 @@ def _apex_aab_impl(ctx):
         )
         prefixed_signed_apex_files.append(prefixed_signed_apex_file)
 
-        proto_convert_file = _apex_proto_convert(ctx, arch, module_name, signed_apex)
+        proto_convert_file = _apex_proto_convert(ctx, apex_toolchain.aapt2, arch, module_name, signed_apex)
         base_file = _apex_base_file(ctx, arch, module_name, proto_convert_file)
         apex_base_files.append(base_file)
 
@@ -239,6 +242,8 @@ def _apex_aab_impl(ctx):
 # by invoking Soong multiple times.
 apex_aab = rule(
     implementation = _apex_aab_impl,
+    cfg = default_android_transition,
+    toolchains = ["//build/bazel/rules/apex:apex_toolchain_type"],
     attrs = {
         "mainline_module": attr.label(
             mandatory = True,
@@ -249,17 +254,6 @@ apex_aab = rule(
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
             doc = "Allow transition.",
-        ),
-        "_zipper": attr.label(
-            cfg = "exec",
-            executable = True,
-            default = "@bazel_tools//tools/zip:zipper",
-        ),
-        "_aapt2": attr.label(
-            allow_single_file = True,
-            cfg = "exec",
-            executable = True,
-            default = "//frameworks/base/tools/aapt2",
         ),
         "_merge_zips": attr.label(
             allow_single_file = True,

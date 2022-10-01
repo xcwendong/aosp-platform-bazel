@@ -35,7 +35,7 @@ def _symlink_aidl_srcs(ctx, srcs, strip_import_prefix):
     for src in srcs:
         src_path = src.short_path
 
-        if not src_path.startswith(workspace_root_strip_import_prefix):
+        if not paths.normalize(src_path).startswith(paths.normalize(workspace_root_strip_import_prefix)):
             fail(".aidl file '%s' is not under the specified strip prefix '%s'" %
                  (src_path, workspace_root_strip_import_prefix))
 

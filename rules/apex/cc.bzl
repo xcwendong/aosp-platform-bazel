@@ -35,7 +35,16 @@ ApexCcInfo = provider(
 # provided from another APEX or the platform.  By omitting them from APEXes, we
 # ensure that there are no multiple copies of such libraries on a device.
 def has_cc_stubs(target, ctx):
-    return (ctx.rule.kind == "_cc_library_shared_proxy" and target[CcStubLibrariesInfo].has_stubs) or ctx.rule.kind == "_cc_stub_library_shared"
+    if CcStubLibrarySharedInfo in target:
+        # This is a stub lib (direct or transitive).
+        return True
+
+    if CcStubLibrariesInfo in target and target[CcStubLibrariesInfo].has_stubs:
+        # Direct deps of the apex. The apex would depend on the source lib, not stub lib,
+        # so check for CcStubLibrariesInfo.has_stubs.
+        return True
+
+    return False
 
 # Check if this target is specified as a direct dependency of the APEX,
 # as opposed to a transitive dependency, as the transitivity impacts
@@ -74,6 +83,14 @@ def _apex_cc_aspect_impl(target, ctx):
     provides = []
     requires = []
 
+    # The APEX manifest records the stub-providing libs (ABI-stable) in its
+    # direct and transitive deps.
+    #
+    # If a stub-providing lib is in the direct deps of an apex, then the apex
+    # provides the symbols.
+    #
+    # If a stub-providing lib is in the transitive deps of an apex, then the
+    # apex requires the symbols from the platform or other apexes.
     if has_cc_stubs(target, ctx):
         if is_direct_dep:
             # Mark this target as "stub-providing" exports of this APEX,

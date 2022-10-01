@@ -60,5 +60,5 @@ diff_test(
     name = "com.android.adbd.apex_manifest_diff_test",
     file1 = "com.android.adbd.apex_manifest.json",
     file2 = "com.android.adbd.apex_manifest.json.golden",
-    target_compatible_with = ["//build/bazel/platforms/os:android"],
+    target_compatible_with = ["//build/bazel/platforms/os:linux"],
 )

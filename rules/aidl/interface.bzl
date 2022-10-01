@@ -231,7 +231,10 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
                     "//system/core/libutils:libutils",
                 ])
             elif lang == NDK:
-                dynamic_deps.append("//frameworks/native/libs/binder/ndk:libbinder_ndk")
+                dynamic_deps = dynamic_deps + select({
+                    "//build/bazel/rules/apex:android-in_apex": ["//frameworks/native/libs/binder/ndk:libbinder_ndk_stub_libs_current"],
+                    "//conditions:default": ["//frameworks/native/libs/binder/ndk:libbinder_ndk"],
+                })
 
             _cc_aidl_libraries(
                 name = "{}-{}".format(aidl_library_name, lang),

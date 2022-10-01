@@ -45,7 +45,7 @@ def _prebuilt_file_rule_impl(ctx):
     elif ctx.attr.filename != "":
         filename = ctx.attr.filename
     elif ctx.attr.filename_from_src:
-        filename = srcs[0]
+        filename = srcs[0].basename
     else:
         filename = ctx.attr.name
 
