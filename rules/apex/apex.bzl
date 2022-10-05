@@ -19,7 +19,7 @@ load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 load("//build/bazel/rules:sh_binary.bzl", "ShBinaryInfo")
 load("//build/bazel/rules/cc:stripped_cc_common.bzl", "StrippedCcBinaryInfo")
-load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
+load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo", "android_app_certificate_with_default_cert")
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition", "shared_lib_transition_32", "shared_lib_transition_64")
 load("//build/bazel/platforms:transitions.bzl", "default_android_transition")
 load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "apex_cc_aspect")
@@ -441,7 +441,10 @@ _apex = rule(
         "logging_parent": attr.string(),
         "file_contexts": attr.label(allow_single_file = True, mandatory = True),
         "key": attr.label(providers = [ApexKeyInfo], mandatory = True),
-        "certificate": attr.label(providers = [AndroidAppCertificateInfo], mandatory = True),
+        "certificate": attr.label(
+            providers = [AndroidAppCertificateInfo],
+            mandatory = True,
+        ),
         "min_sdk_version": attr.string(default = "current"),
         "updatable": attr.bool(default = True),
         "installable": attr.bool(default = True),
@@ -504,6 +507,7 @@ def apex(
         file_contexts = None,
         key = None,
         certificate = None,
+        certificate_name = None,
         min_sdk_version = None,
         updatable = True,
         installable = True,
@@ -527,13 +531,27 @@ def apex(
     if compressible:
         capex_output = name + ".capex"
 
+    if certificate and certificate_name:
+        fail("Cannot use both certificate_name and certificate attributes together. Use only one of them.")
+    app_cert_name = name + "_app_certificate"
+    if certificate_name:
+        # use the name key in the default cert dir
+        android_app_certificate_with_default_cert(app_cert_name, certificate_name)
+        certificate_label = ":" + app_cert_name
+    elif certificate:
+        certificate_label = certificate
+    else:
+        # use the default testkey
+        android_app_certificate_with_default_cert(app_cert_name)
+        certificate_label = ":" + app_cert_name
+
     _apex(
         name = name,
         manifest = manifest,
         android_manifest = android_manifest,
         file_contexts = file_contexts,
         key = key,
-        certificate = certificate,
+        certificate = certificate_label,
         min_sdk_version = min_sdk_version,
         updatable = updatable,
         installable = installable,

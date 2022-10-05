@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@soong_injection//product_config:product_variables.bzl", "product_vars")
+
 AndroidAppCertificateInfo = provider(
     "Info needed for Android app certificates",
     fields = {
@@ -46,4 +49,48 @@ def android_app_certificate(
         pem = certificate + ".x509.pem",
         pk8 = certificate + ".pk8",
         **kwargs
+    )
+
+_default_cert_package = "//build/make/target/product/security"
+
+# Set up the android_app_certificate dependency pointing to the .pk8 and
+# .x509.pem files in the source tree.
+#
+# Every caller who use this function will have their own android_app_certificate
+# target, even if the underlying certs are shared by many.
+#
+# If cert_name is used, then it will be looked up from the app certificate
+# package as determined by the DefaultAppCertificate variable, or the hardcoded
+# directory.
+#
+# Otherwise, if the DefaultAppCertificate variable is used, then an
+# android_app_certificate target will be created to point to the path value, and
+# the .pk8 and .x509.pem suffixes are added automatically.
+#
+# Finally (cert_name not used AND DefaultAppCertificate not specified), use the
+# testkey.
+def android_app_certificate_with_default_cert(name, cert_name = None):
+    default_cert = product_vars.get("DefaultAppCertificate")
+
+    if cert_name and default_cert:
+        certificate = "".join(["//", paths.dirname(default_cert), ":", cert_name])
+    elif cert_name:
+        # if a specific certificate name is given, check the default directory
+        # for that certificate.
+        certificate = _default_cert_package + ":" + cert_name
+    elif default_cert:
+        # This assumes that there is a BUILD file marking the directory of
+        # the default cert as a package.
+        certificate = "".join([
+            "//",
+            paths.dirname(default_cert),
+            ":",
+            paths.basename(default_cert),
+        ])
+    else:
+        certificate = _default_cert_package + ":testkey"
+
+    android_app_certificate(
+        name = name,
+        certificate = certificate,
     )

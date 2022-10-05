@@ -17,67 +17,65 @@ load(":apex_key.bzl", "apex_key")
 load(":apex.bzl", "ApexInfo", "apex")
 
 # Set up test-local dependencies required for every apex.
-def setup_apex_required_deps():
-    file_contexts_name = "test_file_contexts"
-    manifest_name = "test_manifest"
-    key_name = "test_key"
-    certificate_name = "test_certificate"
-
+def setup_apex_required_deps(
+        file_contexts,
+        key,
+        manifest,
+        certificate):
     # Use the same shared common deps for all test apexes.
-    if not native.existing_rule(file_contexts_name):
+    if file_contexts and not native.existing_rule(file_contexts):
         native.genrule(
-            name = file_contexts_name,
-            outs = [file_contexts_name + ".out"],
+            name = file_contexts,
+            outs = [file_contexts + ".out"],
             cmd = "echo unused && exit 1",
             tags = ["manual"],
         )
 
-    if not native.existing_rule(manifest_name):
+    if manifest and not native.existing_rule(manifest):
         native.genrule(
-            name = manifest_name,
-            outs = [manifest_name + ".json"],
+            name = manifest,
+            outs = [manifest + ".json"],
             cmd = "echo unused && exit 1",
             tags = ["manual"],
         )
 
     # Required for ApexKeyInfo provider
-    if not native.existing_rule(key_name):
+    if key and not native.existing_rule(key):
         apex_key(
-            name = key_name,
-            private_key = key_name + ".pem",
-            public_key = key_name + ".avbpubkey",
+            name = key,
+            private_key = key + ".pem",
+            public_key = key + ".avbpubkey",
             tags = ["manual"],
         )
 
     # Required for AndroidAppCertificate provider
-    if not native.existing_rule(certificate_name):
+    if certificate and not native.existing_rule(certificate):
         android_app_certificate(
-            name = certificate_name,
-            certificate = certificate_name + ".cert",
+            name = certificate,
+            certificate = certificate + ".cert",
             tags = ["manual"],
         )
 
-    return struct(
-        file_contexts_name = file_contexts_name,
-        manifest_name = manifest_name,
-        key_name = key_name,
-        certificate_name = certificate_name,
-    )
-
 def test_apex(
         name,
-        file_contexts = None,
-        key = None,
-        manifest = None,
-        certificate = None,
+        file_contexts = "test_file_contexts",
+        key = "test_key",
+        manifest = "test_manifest",
+        certificate = "test_certificate",
         **kwargs):
-    names = setup_apex_required_deps()
+    setup_apex_required_deps(
+        file_contexts = file_contexts,
+        key = key,
+        manifest = manifest,
+        certificate = certificate,
+    )
+
     apex(
         name = name,
-        file_contexts = file_contexts or names.file_contexts_name,
-        key = key or names.key_name,
-        manifest = manifest or names.manifest_name,
-        certificate = certificate or names.certificate_name,
+        file_contexts = file_contexts,
+        key = key,
+        manifest = manifest,
+        certificate = certificate,
         tags = ["manual"],
         **kwargs
     )
