@@ -99,6 +99,7 @@ function verify_soong_outputs_exist() {
 
     local bazel_configs=(
         "bp2build"
+        "api_bp2build"
         "queryview"
     )
     local valid_bazel_config=0
