@@ -78,10 +78,7 @@ def cc_binary(
         toolchain_features += ["-use_libcrt"]
 
     if min_sdk_version:
-        toolchain_features += [
-            "sdk_version_" + parse_sdk_version(min_sdk_version),
-            "-sdk_version_default",
-        ]
+        toolchain_features += parse_sdk_version(min_sdk_version) + ["-sdk_version_default"]
 
     system_dynamic_deps = []
     system_static_deps = []
@@ -135,10 +132,21 @@ def cc_binary(
         stl.shared,
     )
 
+    toolchain_features += select({
+        "//build/bazel/rules/cc:android_coverage_lib_flag": ["android_coverage_lib"],
+        "//conditions:default": [],
+    })
+
+    # TODO(b/233660582): deal with the cases where the default lib shouldn't be used
+    extra_implementation_deps = select({
+        "//build/bazel/rules/cc:android_coverage_lib_flag": ["//system/extras/toolchain-extras:libprofile-clang-extras"],
+        "//conditions:default": [],
+    })
+
     if generate_cc_test:
         native.cc_test(
             name = name,
-            deps = [root_name] + deps + system_static_deps + stl.static,
+            deps = [root_name] + deps + system_static_deps + stl.static + extra_implementation_deps,
             dynamic_deps = binary_dynamic_deps,
             features = toolchain_features,
             linkopts = linkopts,
@@ -149,7 +157,7 @@ def cc_binary(
     else:
         native.cc_binary(
             name = unstripped_name,
-            deps = [root_name] + deps + system_static_deps + stl.static,
+            deps = [root_name] + deps + system_static_deps + stl.static + extra_implementation_deps,
             dynamic_deps = binary_dynamic_deps,
             features = toolchain_features,
             linkopts = linkopts,

@@ -1,8 +1,10 @@
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load("//build/bazel/rules/apex:toolchain.bzl", "apex_toolchain")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting", "string_list_setting", "string_setting")
+load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 load(":apex_test.bzl", "apex_test_suite")
 load(":apex_aab_test.bzl", "apex_aab_test_suite")
+load(":apex_key_test.bzl", "apex_key_test_suite")
 
 string_setting(
     name = "apex_name",
@@ -75,6 +77,22 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+string_setting(
+    name = "min_sdk_version",
+    build_setting_default = "",
+    visibility = ["//visibility:public"],
+)
+
+[
+    config_setting(
+        name = "min_sdk_version_" + str(api),
+        flag_values = {
+            ":min_sdk_version": str(api),
+        },
+    )
+    for api in api_levels.values()
+]
+
 toolchain_type(name = "apex_toolchain_type")
 
 apex_toolchain(
@@ -112,4 +130,8 @@ apex_test_suite(
 
 apex_aab_test_suite(
     name = "apex_aab_tests",
+)
+
+apex_key_test_suite(
+    name = "apex_key_tests",
 )

@@ -105,6 +105,9 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, export_includes, so
         tags = ["manual"],
     )
 
+    # Disable coverage for stub libraries.
+    features = features + ["-coverage"]
+
     # The static library at the root of the stub shared library.
     cc_library_static(
         name = name + "_root",
@@ -153,17 +156,23 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, export_includes, so
         name = name,
         stub_target = name + "_files",
         library_target = name + "_so",
-        root_target = name + "_root",
+        deps = [name + "_root"],
         source_library = source_library,
         tags = tags,
     )
 
 def _cc_stub_library_shared_impl(ctx):
+    # Using a "deps" label_list instead of a single mandatory label attribute
+    # is a hack to support aspect propagation of graph_aspect of the native
+    # cc_shared_library. The aspect will only be applied and propagated along
+    # a label_list attribute named "deps".
+    if len(ctx.attr.deps) != 1:
+        fail("Exactly one 'deps' must be specified for cc_stub_library_shared")
     return [
         ctx.attr.library_target[DefaultInfo],
         ctx.attr.library_target[CcSharedLibraryInfo],
         ctx.attr.stub_target[CcStubInfo],
-        ctx.attr.root_target[CcInfo],
+        ctx.attr.deps[0][CcInfo],
         CcStubLibrariesInfo(has_stubs = True),
         OutputGroupInfo(rule_impl_debug_files = depset()),
         CcStubLibrarySharedInfo(source_library = ctx.attr.source_library),
@@ -175,7 +184,9 @@ _cc_stub_library_shared = rule(
     attrs = {
         "stub_target": attr.label(mandatory = True),
         "library_target": attr.label(mandatory = True),
-        "root_target": attr.label(mandatory = True),
+        # "deps" should be a single element: the root target of the stub library.
+        # See _cc_stub_library_shared_impl comment for explanation.
+        "deps": attr.label_list(mandatory = True),
         "source_library": attr.label(mandatory = True),
     },
 )

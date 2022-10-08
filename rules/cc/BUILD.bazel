@@ -24,6 +24,20 @@ load(":cc_sysprop_library_test.bzl", "cc_gen_sysprop_test_suite")
 load(":flex_test.bzl", "flex_test_suite")
 load(":stl_test.bzl", "stl_test_suite")
 load(":yasm_test.bzl", "yasm_test_suite")
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
+config_setting(
+    name = "coverage_lib_flag",
+    values = {"collect_code_coverage": "True"},
+)
+
+selects.config_setting_group(
+    name = "android_coverage_lib_flag",
+    match_all = [
+        ":coverage_lib_flag",
+        "//build/bazel/platforms/os:android_config_setting",
+    ],
+)
 
 cc_aidl_library_test_suite(name = "cc_aidl_library_tests")
 

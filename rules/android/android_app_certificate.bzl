@@ -51,7 +51,8 @@ def android_app_certificate(
         **kwargs
     )
 
-_default_cert_package = "//build/make/target/product/security"
+default_cert_directory = "build/make/target/product/security"
+_default_cert_package = "//" + default_cert_directory
 
 # Set up the android_app_certificate dependency pointing to the .pk8 and
 # .x509.pem files in the source tree.

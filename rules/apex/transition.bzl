@@ -31,11 +31,15 @@ limitations under the License.
 # https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/apex.go;l=948-962;drc=539d41b686758eeb86236c0e0dcf75478acb77f3
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
 
 def _create_apex_configuration(attr, additional = {}):
+    min_sdk_version = parse_apex_sdk_version(attr.min_sdk_version)
+
     return dicts.add({
         "//build/bazel/rules/apex:apex_name": attr.name,  # Name of the APEX
         "//build/bazel/rules/apex:in_apex": True,  # Building a APEX
+        "//build/bazel/rules/apex:min_sdk_version": min_sdk_version,
     }, additional)
 
 def _impl(settings, attr):
@@ -46,6 +50,7 @@ def _impl(settings, attr):
 APEX_TRANSITION_BUILD_SETTINGS = [
     "//build/bazel/rules/apex:apex_name",
     "//build/bazel/rules/apex:in_apex",
+    "//build/bazel/rules/apex:min_sdk_version",
 ]
 
 apex_transition = transition(

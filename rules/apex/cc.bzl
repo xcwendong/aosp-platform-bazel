@@ -59,16 +59,11 @@ def _validate_min_sdk_version(ctx):
         # min_sdk_version in cc targets are represented as features
         if f.startswith("sdk_version_"):
             # e.g. sdk_version_29 or sdk_version_10000
-            # TODO(b/244744629): handle apex_inherit version
             version = f.split("_")[-1]
-
-            # The APEX's min_sdk_version is propagated as an attribute of this
-            # parameterized aspect, which is accessed through "ctx.attr". This
-            # is opposed to accessing the attrs of the target being visited
-            # using "ctx.rule.attr".
-            if ctx.attr.min_sdk_version < version:
+            min_sdk_version = ctx.attr._min_sdk_version[BuildSettingInfo].value
+            if min_sdk_version < version:
                 fail("The apex %s's min_sdk_version %s cannot be lower than the dep's min_sdk_version %s" %
-                     (ctx.attr._apex_name[BuildSettingInfo].value, ctx.attr.min_sdk_version, version))
+                     (ctx.attr._apex_name[BuildSettingInfo].value, min_sdk_version, version))
             return
 
 def _apex_cc_aspect_impl(target, ctx):
@@ -176,10 +171,7 @@ apex_cc_aspect = aspect(
     attrs = {
         "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
         "_apex_direct_deps": attr.label(default = "//build/bazel/rules/apex:apex_direct_deps"),
-        # This will be set to the min_sdk_version of the apex that runs this aspect.
-        # A values list must be provided, but we want to allow all sdk versions so just generate
-        # a bunch of ints here.
-        "min_sdk_version": attr.string(values = ["current"] + [str(i) for i in range(50)]),
+        "_min_sdk_version": attr.label(default = "//build/bazel/rules/apex:min_sdk_version"),
     },
     attr_aspects = ["dynamic_deps", "deps", "shared", "src", "runtime_deps"],
     # TODO: Have this aspect also propagate along attributes of native_shared_libs?

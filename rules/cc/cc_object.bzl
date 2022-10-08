@@ -80,7 +80,14 @@ def _cc_object_impl(ctx):
 
     if ctx.attr.min_sdk_version:
         extra_disabled_features.append("sdk_version_default")
-        extra_features.append("sdk_version_" + parse_sdk_version(ctx.attr.min_sdk_version))
+        extra_features += parse_sdk_version(ctx.attr.min_sdk_version)
+
+    # Disable coverage for cc object because we link cc objects below and
+    # clang will link extra lib behind the scene to support profiling if coverage
+    # is enabled, so the symbols of the extra lib will be loaded into the generated
+    # object file. When later we link a shared library that depends on more than
+    # one such cc objects it will fail due to the duplicated symbols problem.
+    extra_disabled_features.append("coverage")
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,

@@ -46,6 +46,18 @@ system_static_deps_defaults = select({
     "//conditions:default": [],
 })
 
+future_version = "10000"
+
+def _create_sdk_version_features_map():
+    version_feature_map = {}
+    for api in api_levels.values():
+        version_feature_map["//build/bazel/rules/apex:min_sdk_version_" + str(api)] = ["sdk_version_" + str(api)]
+    version_feature_map["//conditions:default"] = ["sdk_version_" + future_version]
+
+    return version_feature_map
+
+sdk_version_features = select(_create_sdk_version_features_map())
+
 def add_lists_defaulting_to_none(*args):
     """Adds multiple lists, but is well behaved with a `None` default."""
     combined = None
@@ -134,18 +146,19 @@ def is_external_directory(package_name):
 # TODO: Move this to a common rule dir, instead of a cc rule dir. Nothing here
 # should be cc specific, except that the current callers are (only) cc rules.
 def parse_sdk_version(version):
-    future_version = "10000"
+    if version == "apex_inherit":
+        # use the version determined by the transition value.
+        return sdk_version_features
 
+    return ["sdk_version_" + parse_apex_sdk_version(version)]
+
+def parse_apex_sdk_version(version):
     if version == "" or version == "current":
         return future_version
     elif version.isdigit() and int(version) in api_levels.values():
         return version
     elif version in api_levels.keys():
         return str(api_levels[version])
-        # We need to handle this case properly later
-
-    elif version == "apex_inherit":
-        return future_version
     elif version.isdigit() and int(version) == product_vars["Platform_sdk_version"]:
         # For internal branch states, support parsing a finalized version number
         # that's also still in
