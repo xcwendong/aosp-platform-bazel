@@ -97,18 +97,25 @@ def _api_library_headers_test():
         hdrs = [],
         export_includes = ["include1", "include2"],
         export_system_includes = ["system_include1"],
-        deps = [":otherlib"],
+        deps = [":other_api_library_headers", "other_api_headers"],
+        tags = ["manual"],
+    )
+    cc_api_library_headers(
+        name = "other_api_library_headers",
+        hdrs = [],
+        export_includes = ["otherinclude1"],
         tags = ["manual"],
     )
     cc_api_headers(
-        name = "otherlib",
+        name = "other_api_headers",
         hdrs = [],
-        include_dir = "otherinclude",
+        include_dir = "otherinclude2",
+        tags = ["manual"],
     )
     api_library_headers_test(
         name = test_name,
         target_under_test = subject_name,
-        expected_includes = ["build/bazel/rules/apis/include1", "build/bazel/rules/apis/include2", "build/bazel/rules/apis/otherinclude"],
+        expected_includes = ["build/bazel/rules/apis/include1", "build/bazel/rules/apis/include2", "build/bazel/rules/apis/otherinclude1", "build/bazel/rules/apis/otherinclude2"],
         expected_system_includes = ["build/bazel/rules/apis/system_include1"],
     )
     return test_name

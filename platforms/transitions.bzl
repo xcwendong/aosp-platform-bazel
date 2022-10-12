@@ -31,7 +31,7 @@ def _default_android_transition_impl(settings, attr):
     # for their target platform.  If we don't do this, an apex can be
     # accidentally requested for a non-android target platform, resulting in
     # toolchain resolution failures.
-    if not str(target_platform).startswith("//build/bazel/platforms:android_"):
+    if not str(target_platform).startswith("@//build/bazel/platforms:android_"):
         target_platform = Label("//build/bazel/platforms:android_target")  # default platform
 
     return {

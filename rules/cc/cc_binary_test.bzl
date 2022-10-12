@@ -17,10 +17,23 @@ limitations under the License.
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":cc_binary.bzl", "cc_binary")
 
+def strip_test_assert_flags(env, strip_action, strip_flags):
+    # Extract these flags from strip_action (for example):
+    # build/soong/scripts/strip.sh --keep-symbols --add-gnu-debuglink -i <in> -o <out> -d <out>.d
+    #                              ^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^
+    flag_start_idx = 1  # starts after the strip.sh executable
+    flag_end_idx = strip_action.argv.index("-i")  # end of the flags
+    asserts.equals(
+        env,
+        strip_action.argv[flag_start_idx:flag_end_idx],
+        strip_flags,
+    )
+
 def _cc_binary_strip_test(ctx):
     env = analysistest.begin(ctx)
     actions = analysistest.target_actions(env)
     filtered_actions = [a for a in actions if a.mnemonic == "CcStrip"]
+
     if not ctx.attr.strip_flags:
         asserts.true(
             env,
@@ -35,20 +48,7 @@ def _cc_binary_strip_test(ctx):
             len(filtered_actions) == 1,
             "expected to find an action with CcStrip mnemonic in %s" % actions,
         )
-
-        strip_action = filtered_actions[0]
-
-        # Extract these flags from strip_action (for example):
-        # build/soong/scripts/strip.sh --keep-symbols --add-gnu-debuglink -i <in> -o <out> -d <out>.d
-        #                              ^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^
-        flag_start_idx = 1  # starts after the strip.sh executable
-        flag_end_idx = strip_action.argv.index("-i")  # end of the flags
-        asserts.equals(
-            env,
-            strip_action.argv[flag_start_idx:flag_end_idx],
-            ctx.attr.strip_flags,
-        )
-
+        strip_test_assert_flags(env, filtered_actions[0], ctx.attr.strip_flags)
         return analysistest.end(env)
 
 cc_binary_strip_test = analysistest.make(

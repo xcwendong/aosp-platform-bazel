@@ -17,6 +17,7 @@ limitations under the License.
 """Bazel rules for exporting API contributions of CC libraries"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:sets.bzl", "sets")
 load("//build/bazel/rules/cc:cc_constants.bzl", "constants")
 
 """A Bazel provider that encapsulates the headers presented to an API surface"""
@@ -95,10 +96,14 @@ CcApiHeaderInfoList = provider(
 )
 
 def _cc_api_library_headers_impl(ctx):
-    hdrs_list = [dep[CcApiHeaderInfo] for dep in ctx.attr.hdrs]
+    hdrs_info = []
+    for hdr in ctx.attr.hdrs:
+        for hdr_info in hdr[CcApiHeaderInfoList].headers_list:
+            hdrs_info.append(hdr_info)
+
     return [
         CcApiHeaderInfoList(
-            headers_list = hdrs_list,
+            headers_list = hdrs_info,
         ),
     ]
 
@@ -107,10 +112,15 @@ _cc_api_library_headers = rule(
     attrs = {
         "hdrs": attr.label_list(
             mandatory = True,
-            providers = [CcApiHeaderInfo],
+            providers = [CcApiHeaderInfoList],
         ),
     },
 )
+
+# Internal header library targets created by cc_api_library_headers macro
+# Bazel does not allow target name to end with `/`
+def _header_target_name(name, include_dir):
+    return name + "_" + paths.normalize(include_dir)
 
 def cc_api_library_headers(
         name,
@@ -122,18 +132,25 @@ def cc_api_library_headers(
         **kwargs):
     header_deps = []
     for include in export_includes:
-        _name = name + "_" + include
+        _name = _header_target_name(name, include)
+
+        # export_include = "." causes the following error in glob
+        # Error in glob: segment '.' not permitted
+        # Normalize path before globbing
+        fragments = [include, "**/*.h"]
+        normpath = paths.normalize(paths.join(*fragments))
+
         cc_api_headers(
             name = _name,
             include_dir = include,
-            hdrs = native.glob([paths.join(include, "**/*.h")]),
+            hdrs = native.glob([normpath]),
             system = False,
             arch = arch,
         )
         header_deps.append(_name)
 
     for system_include in export_system_includes:
-        _name = name + "_" + system_include
+        _name = _header_target_name(name, system_include)
         cc_api_headers(
             name = _name,
             include_dir = system_include,
@@ -177,10 +194,10 @@ def _cc_api_contribution_impl(ctx):
     """Implemenation for the cc_api_contribution rule
     This rule does not have any build actions, but returns a `CcApiContributionInfo` provider object"""
     api_filepath = ctx.file.api.path
-    hdrs_info = []
+    hdrs_info = sets.make()
     for hdr in ctx.attr.hdrs:
         for hdr_info in hdr[CcApiHeaderInfoList].headers_list:
-            hdrs_info.append(hdr_info)
+            sets.insert(hdrs_info, hdr_info)
 
     name = ctx.attr.library_name or ctx.label.name
     _validate_api_surfaces(ctx.attr.api_surfaces)
@@ -189,7 +206,7 @@ def _cc_api_contribution_impl(ctx):
         CcApiContributionInfo(
             name = name,
             api = api_filepath,
-            headers = hdrs_info,
+            headers = sets.to_list(hdrs_info),
             api_surfaces = ctx.attr.api_surfaces,
         ),
     ]
@@ -203,7 +220,7 @@ cc_api_contribution = rule(
         ),
         "api": attr.label(
             mandatory = True,
-            allow_single_file = [".map.txt"],
+            allow_single_file = [".map.txt", ".map"],
             doc = ".map.txt file of the library",
         ),
         "hdrs": attr.label_list(
