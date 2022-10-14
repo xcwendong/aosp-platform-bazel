@@ -33,27 +33,33 @@ def _cc_binary_strip_test(ctx):
     env = analysistest.begin(ctx)
     actions = analysistest.target_actions(env)
     filtered_actions = [a for a in actions if a.mnemonic == "CcStrip"]
-
-    if not ctx.attr.strip_flags:
-        asserts.true(
-            env,
-            len(filtered_actions) == 0,
-            "expected to not find an action with CcStrip mnemonic in %s" % actions,
-        )
-        return analysistest.end(env)
-    else:
+    on_target = ctx.target_platform_has_constraint(
+        ctx.attr._android_constraint[platform_common.ConstraintValueInfo],
+    )
+    if ctx.attr.strip_flags or on_target:
         # expected to find strip flags, so look for a CcStrip action.
         asserts.true(
             env,
             len(filtered_actions) == 1,
             "expected to find an action with CcStrip mnemonic in %s" % actions,
         )
-        strip_test_assert_flags(env, filtered_actions[0], ctx.attr.strip_flags)
+        if ctx.attr.strip_flags or not on_target:
+            strip_test_assert_flags(env, filtered_actions[0], ctx.attr.strip_flags)
+        return analysistest.end(env)
+    else:
+        asserts.true(
+            env,
+            len(filtered_actions) == 0,
+            "expected to not find an action with CcStrip mnemonic in %s" % actions,
+        )
         return analysistest.end(env)
 
 cc_binary_strip_test = analysistest.make(
     _cc_binary_strip_test,
-    attrs = {"strip_flags": attr.string_list()},
+    attrs = {
+        "strip_flags": attr.string_list(),
+        "_android_constraint": attr.label(default = Label("//build/bazel/platforms/os:android")),
+    },
 )
 
 def _cc_binary_strip_default():

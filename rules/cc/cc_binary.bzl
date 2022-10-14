@@ -182,5 +182,6 @@ def cc_binary(
             runtime_deps = runtime_deps,
             target_compatible_with = target_compatible_with,
             tags = tags,
+            unstripped = unstripped_name,
             **strip
         )

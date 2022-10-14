@@ -24,7 +24,7 @@ load(
 load(":cc_library_static.bzl", "cc_library_static")
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
 load(":stl.bzl", "stl_deps")
-load(":stripped_cc_common.bzl", "stripped_shared_library")
+load(":stripped_cc_common.bzl", "CcUnstrippedInfo", "stripped_shared_library")
 load(":versioned_cc_common.bzl", "versioned_shared_library")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
@@ -227,6 +227,7 @@ def cc_library_shared(
     _cc_library_shared_proxy(
         name = name,
         shared = stripped_name,
+        shared_debuginfo = unstripped_name,
         root = shared_root_name,
         table_of_contents = toc_name,
         output_file = soname,
@@ -287,9 +288,9 @@ CcSharedLibraryOutputInfo = provider(
 def _cc_library_shared_proxy_impl(ctx):
     root_files = ctx.attr.root[DefaultInfo].files.to_list()
     shared_files = ctx.attr.shared[DefaultInfo].files.to_list()
-
-    if len(shared_files) != 1:
-        fail("Expected only one shared library file")
+    shared_debuginfo = ctx.attr.shared_debuginfo[DefaultInfo].files.to_list()
+    if len(shared_files) != 1 or len(shared_debuginfo) != 1:
+        fail("Expected only one shared library file and one debuginfo file for it")
 
     shared_lib = shared_files[0]
 
@@ -322,12 +323,14 @@ def _cc_library_shared_proxy_impl(ctx):
         CcStubLibrariesInfo(has_stubs = ctx.attr.has_stubs),
         ctx.attr.shared[OutputGroupInfo],
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
+        CcUnstrippedInfo(unstripped = shared_debuginfo[0]),
     ]
 
 _cc_library_shared_proxy = rule(
     implementation = _cc_library_shared_proxy_impl,
     attrs = {
         "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo]),
+        "shared_debuginfo": attr.label(mandatory = True),
         "root": attr.label(mandatory = True, providers = [CcInfo]),
         "output_file": attr.output(mandatory = True),
         "table_of_contents": attr.label(
