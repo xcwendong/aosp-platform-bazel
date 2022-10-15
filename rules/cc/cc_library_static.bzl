@@ -21,7 +21,7 @@ load(
     "parse_sdk_version",
     "system_dynamic_deps_defaults",
 )
-load(":stl.bzl", "stl_deps")
+load(":stl.bzl", "stl_info")
 load("@bazel_skylib//lib:collections.bzl", "collections")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//build/bazel/product_variables:constants.bzl", "constants")
@@ -62,6 +62,7 @@ def cc_library_static(
         srcs_as = [],
         asflags = [],
         features = [],
+        linkopts = [],
         alwayslink = None,
         target_compatible_with = [],
         # TODO(b/202299295): Handle data attribute.
@@ -117,13 +118,22 @@ def cc_library_static(
         tags = ["manual"],
     )
 
-    stl = stl_deps(stl, False)
+    stl = stl_info(stl, False)
+    linkopts = linkopts + stl.linkopts
+    copts = copts + stl.cppflags
 
     _cc_includes(
         name = locals_name,
         includes = local_includes,
         absolute_includes = absolute_includes,
-        deps = implementation_deps + implementation_dynamic_deps + system_dynamic_deps + stl.static + stl.shared + implementation_whole_archive_deps,
+        deps = (
+            implementation_deps +
+            implementation_dynamic_deps +
+            system_dynamic_deps +
+            stl.static_deps +
+            stl.shared_deps +
+            implementation_whole_archive_deps
+        ),
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
     )
@@ -143,6 +153,7 @@ def cc_library_static(
             ("toolchains", ["//build/bazel/platforms:android_target_product_vars"]),
             ("alwayslink", alwayslink),
             ("target_compatible_with", target_compatible_with),
+            ("linkopts", linkopts),
         ],
     )
 

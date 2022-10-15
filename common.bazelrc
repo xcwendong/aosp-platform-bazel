@@ -76,18 +76,6 @@ common --show_progress_rate_limit=0.05
 common --color=yes
 common --curses=yes
 
-# Run bazel query from the workspace, without cd'ing into out/soong/queryview
-# Note that this hardcodes the output dir. It will not work if $OUT_DIR != out.
-common:queryview --package_path=%workspace%/out/soong/queryview
-
-# Run bazel build from the workspace, without cd'ing into out/soong/api_bp2build
-# Note that this hardcodes the output dir. It will not work if $OUT_DIR != out.
-common:api_bp2build --package_path=%workspace%/out/soong/api_bp2build
-
-# Run bazel query from the workspace, without cd'ing into out/soong/workspace
-# Note that this hardcodes the output dir. It will not work if $OUT_DIR != out.
-common:bp2build --package_path=%workspace%/out/soong/workspace
-
 # Configurations specific to CI builds, generally to improve signal-to-noise ratio in server logs.
 common:ci --color=no
 common:ci --curses=no

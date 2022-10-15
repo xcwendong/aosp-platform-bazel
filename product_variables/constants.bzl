@@ -37,6 +37,7 @@ _arch_variant_to_constraints = {
     "linux": "//build/bazel/platforms/os:linux",
     "linux_bionic": "//build/bazel/platforms/os:linux_bionic",
     "windows": "//build/bazel/platforms/os:windows",
+    "bionic": "//build/bazel/platforms/os:bionic",
 }
 
 constants = struct(

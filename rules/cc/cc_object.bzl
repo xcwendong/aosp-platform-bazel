@@ -22,7 +22,7 @@ load(
     "system_dynamic_deps_defaults",
 )
 load(":cc_constants.bzl", "constants")
-load(":stl.bzl", "stl_deps")
+load(":stl.bzl", "stl_info")
 
 # "cc_object" module copts, taken from build/soong/cc/object.go
 _CC_OBJECT_COPTS = ["-fno-addrsig"]
@@ -144,7 +144,7 @@ def _cc_object_impl(ctx):
 
     objects_to_link = cc_common.merge_compilation_outputs(compilation_outputs = deps_objects + [compilation_outputs_c, compilation_outputs_as])
 
-    user_link_flags = []
+    user_link_flags = [] + ctx.attr.linkopts
     user_link_flags.extend(_CC_OBJECT_LINKOPTS)
     additional_inputs = []
 
@@ -183,6 +183,7 @@ _cc_object = rule(
         "local_includes": attr.string_list(),
         "copts": attr.string_list(),
         "asflags": attr.string_list(),
+        "linkopts": attr.string_list(),
         "deps": attr.label_list(providers = [CcInfo, CcObjectInfo]),
         "includes_deps": attr.label_list(providers = [CcInfo]),
         "linker_script": attr.label(allow_single_file = True),
@@ -202,6 +203,7 @@ def cc_object(
         copts = [],
         hdrs = [],
         asflags = [],
+        linkopts = [],
         srcs = [],
         srcs_as = [],
         deps = [],
@@ -216,16 +218,19 @@ def cc_object(
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
 
-    stl = stl_deps(stl, False)
+    stl = stl_info(stl, False)
+    linkopts = linkopts + stl.linkopts
+    copts = copts + stl.cppflags
 
     _cc_object(
         name = name,
         hdrs = hdrs,
         asflags = asflags,
         copts = _CC_OBJECT_COPTS + copts,
+        linkopts = linkopts,
         srcs = srcs + srcs_as,
         deps = deps,
-        includes_deps = stl.static + stl.shared + system_dynamic_deps,
+        includes_deps = stl.static_deps + stl.shared_deps + system_dynamic_deps,
         sdk_version = sdk_version,
         min_sdk_version = min_sdk_version,
         **kwargs
