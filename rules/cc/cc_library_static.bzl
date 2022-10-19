@@ -21,7 +21,7 @@ load(
     "parse_sdk_version",
     "system_dynamic_deps_defaults",
 )
-load(":stl.bzl", "stl_info")
+load(":stl.bzl", "stl_info_from_attr")
 load("@bazel_skylib//lib:collections.bzl", "collections")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//build/bazel/product_variables:constants.bzl", "constants")
@@ -118,9 +118,9 @@ def cc_library_static(
         tags = ["manual"],
     )
 
-    stl = stl_info(stl, False)
-    linkopts = linkopts + stl.linkopts
-    copts = copts + stl.cppflags
+    stl_info = stl_info_from_attr(stl, False)
+    linkopts = linkopts + stl_info.linkopts
+    copts = copts + stl_info.cppflags
 
     _cc_includes(
         name = locals_name,
@@ -130,8 +130,8 @@ def cc_library_static(
             implementation_deps +
             implementation_dynamic_deps +
             system_dynamic_deps +
-            stl.static_deps +
-            stl.shared_deps +
+            stl_info.static_deps +
+            stl_info.shared_deps +
             implementation_whole_archive_deps
         ),
         target_compatible_with = target_compatible_with,

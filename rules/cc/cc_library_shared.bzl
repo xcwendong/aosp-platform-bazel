@@ -23,7 +23,7 @@ load(
 )
 load(":cc_library_static.bzl", "cc_library_static")
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
-load(":stl.bzl", "stl_info")
+load(":stl.bzl", "stl_info_from_attr")
 load(":stripped_cc_common.bzl", "CcUnstrippedInfo", "stripped_shared_library")
 load(":versioned_cc_common.bzl", "versioned_shared_library")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
@@ -100,9 +100,9 @@ def cc_library_shared(
     if min_sdk_version:
         features = features + parse_sdk_version(min_sdk_version) + ["-sdk_version_default"]
 
-    stl = stl_info(stl, True)
-    linkopts = linkopts + stl.linkopts
-    copts = copts + stl.cppflags
+    stl_info = stl_info_from_attr(stl, True)
+    linkopts = linkopts + stl_info.linkopts
+    copts = copts + stl_info.cppflags
 
     features = features + select({
         "//build/bazel/rules/cc:android_coverage_lib_flag": ["android_coverage_lib"],
@@ -138,8 +138,8 @@ def cc_library_shared(
         cpp_std = cpp_std,
         c_std = c_std,
         dynamic_deps = dynamic_deps,
-        implementation_deps = implementation_deps + stl.static_deps,
-        implementation_dynamic_deps = implementation_dynamic_deps + stl.shared_deps,
+        implementation_deps = implementation_deps + stl_info.static_deps,
+        implementation_dynamic_deps = implementation_dynamic_deps + stl_info.shared_deps,
         implementation_whole_archive_deps = implementation_whole_archive_deps,
         system_dynamic_deps = system_dynamic_deps,
         deps = deps + whole_archive_deps,
@@ -160,10 +160,10 @@ def cc_library_shared(
         deps = (
             implementation_deps +
             implementation_whole_archive_deps +
-            stl.static_deps +
+            stl_info.static_deps +
             implementation_dynamic_deps +
             system_dynamic_deps +
-            stl.shared_deps
+            stl_info.shared_deps
         ),
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
@@ -179,7 +179,7 @@ def cc_library_shared(
         dynamic_deps,
         system_dynamic_deps,
         implementation_dynamic_deps,
-        stl.shared_deps,
+        stl_info.shared_deps,
     )
 
     soname = name + suffix + ".so"

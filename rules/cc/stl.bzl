@@ -57,7 +57,7 @@ def _stl_name_resolver(stl_name, is_shared):
             stl_name = "libc++_static"
     return stl_name
 
-def stl_info(stl_name, is_shared, is_binary = False):
+def stl_info_from_attr(stl_name, is_shared, is_binary = False):
     deps = _stl_deps(stl_name, is_shared, is_binary)
     flags = _stl_flags(stl_name, is_shared)
     return struct(

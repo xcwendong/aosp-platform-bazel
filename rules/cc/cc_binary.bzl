@@ -22,7 +22,7 @@ load(
     "system_static_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
-load(":stl.bzl", "stl_info")
+load(":stl.bzl", "stl_info_from_attr")
 load(":stripped_cc_common.bzl", "stripped_binary")
 load(":versioned_cc_common.bzl", "versioned_binary")
 
@@ -93,9 +93,9 @@ def cc_binary(
     else:
         system_static_deps = system_deps
 
-    stl = stl_info(stl, linkshared, is_binary = True)
-    linkopts = linkopts + stl.linkopts
-    copts = copts + stl.cppflags
+    stl_info = stl_info_from_attr(stl, linkshared, is_binary = True)
+    linkopts = linkopts + stl_info.linkopts
+    copts = copts + stl_info.cppflags
 
     # The static library at the root of the cc_binary.
     cc_library_static(
@@ -113,9 +113,9 @@ def cc_binary(
         copts = copts,
         cpp_std = cpp_std,
         cppflags = cppflags,
-        deps = deps + stl.static_deps + system_static_deps,
+        deps = deps + stl_info.static_deps + system_static_deps,
         whole_archive_deps = whole_archive_deps,
-        dynamic_deps = dynamic_deps + stl.shared_deps,
+        dynamic_deps = dynamic_deps + stl_info.shared_deps,
         features = toolchain_features,
         local_includes = local_includes,
         rtti = rtti,
@@ -131,7 +131,7 @@ def cc_binary(
     binary_dynamic_deps = add_lists_defaulting_to_none(
         dynamic_deps,
         system_dynamic_deps,
-        stl.shared_deps,
+        stl_info.shared_deps,
     )
 
     toolchain_features += select({
@@ -148,7 +148,7 @@ def cc_binary(
     if generate_cc_test:
         native.cc_test(
             name = name,
-            deps = [root_name] + deps + system_static_deps + stl.static_deps + extra_implementation_deps,
+            deps = [root_name] + deps + system_static_deps + stl_info.static_deps + extra_implementation_deps,
             dynamic_deps = binary_dynamic_deps,
             features = toolchain_features,
             linkopts = linkopts,
@@ -159,7 +159,7 @@ def cc_binary(
     else:
         native.cc_binary(
             name = unstripped_name,
-            deps = [root_name] + deps + system_static_deps + stl.static_deps + extra_implementation_deps,
+            deps = [root_name] + deps + system_static_deps + stl_info.static_deps + extra_implementation_deps,
             dynamic_deps = binary_dynamic_deps,
             features = toolchain_features,
             linkopts = linkopts,

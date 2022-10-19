@@ -22,7 +22,7 @@ load(
     "system_dynamic_deps_defaults",
 )
 load(":cc_constants.bzl", "constants")
-load(":stl.bzl", "stl_info")
+load(":stl.bzl", "stl_info_from_attr")
 
 # "cc_object" module copts, taken from build/soong/cc/object.go
 _CC_OBJECT_COPTS = ["-fno-addrsig"]
@@ -218,9 +218,9 @@ def cc_object(
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
 
-    stl = stl_info(stl, False)
-    linkopts = linkopts + stl.linkopts
-    copts = copts + stl.cppflags
+    stl_info = stl_info_from_attr(stl, False)
+    linkopts = linkopts + stl_info.linkopts
+    copts = copts + stl_info.cppflags
 
     _cc_object(
         name = name,
@@ -230,7 +230,7 @@ def cc_object(
         linkopts = linkopts,
         srcs = srcs + srcs_as,
         deps = deps,
-        includes_deps = stl.static_deps + stl.shared_deps + system_dynamic_deps,
+        includes_deps = stl_info.static_deps + stl_info.shared_deps + system_dynamic_deps,
         sdk_version = sdk_version,
         min_sdk_version = min_sdk_version,
         **kwargs
