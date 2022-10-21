@@ -26,8 +26,10 @@ else
 fi
 
 # Run a mixed build of "droid"
+# TODO(b/254572169): Remove DISABLE_ARTIFACT_PATH_REQUIREMENT before launching --bazel-mode.
 build/soong/soong_ui.bash --make-mode \
   --mk-metrics \
+  DISABLE_ARTIFACT_PATH_REQUIREMENTS=true \
   ${MIXED_BUILD_FLAG} \
   BP2BUILD_VERBOSE=1 \
   BAZEL_STARTUP_ARGS="--max_idle_secs=5" \

@@ -59,9 +59,11 @@ for ((i = 0; i < ${#MODULES[@]}; i++)); do
   build/soong/soong_ui.bash --make-mode "$MODULE"
   $stub_python "bazel-bin/build/bazel/scripts/difftool/collect.zip" \
     "$NINJA_FILE" "$LEGACY_COLLECTION"
+  # TODO(b/254572169): Remove DISABLE_ARTIFACT_PATH_REQUIREMENT before launching --bazel-mode.
   build/soong/soong_ui.bash \
     --make-mode \
     --bazel-mode-dev \
+    DISABLE_ARTIFACT_PATH_REQUIREMENTS=true \
     BAZEL_STARTUP_ARGS="--max_idle_secs=5" \
     BAZEL_BUILD_ARGS="--color=no --curses=no --noshow_progress" \
     "$MODULE"

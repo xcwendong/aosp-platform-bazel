@@ -44,9 +44,11 @@ if [[ ! $(grep -L "bazel-out" ${OUT_DIR}/soong/build.ninja) ]]; then
 fi
 
 # Regen ninja file with mixed builds flag.
+# TODO(b/254572169): Remove DISABLE_ARTIFACT_PATH_REQUIREMENT before launching --bazel-mode.
 build/soong/soong_ui.bash --make-mode \
   --mk-metrics \
   --bazel-mode-dev \
+  DISABLE_ARTIFACT_PATH_REQUIREMENTS=true \
   BAZEL_STARTUP_ARGS="--max_idle_secs=5" \
   BAZEL_BUILD_ARGS="--color=no --curses=no --show_progress_rate_limit=5" \
   TARGET_PRODUCT=aosp_arm64 \

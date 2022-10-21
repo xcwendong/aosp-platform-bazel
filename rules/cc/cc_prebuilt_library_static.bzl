@@ -14,23 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-def prebuilt_library_shared(
+def cc_prebuilt_library_static(
         name,
-        shared_library,
+        static_library,
         alwayslink = None,
+        export_includes = [],
+        export_system_includes = [],
         **kwargs):
-    "Bazel macro to correspond with the *_prebuilt_library_shared Soong module types"
+    "Bazel macro to correspond with the *_cc_prebuilt_library_static Soong module types"
 
+    # TODO: Handle includes similarly to cc_library_static
+    # e.g. includes = ["clang-r416183b/prebuilt_include/llvm/lib/Fuzzer"],
     native.cc_import(
         name = name,
-        shared_library = shared_library,
+        static_library = static_library,
         alwayslink = alwayslink,
         **kwargs
     )
 
     native.cc_import(
         name = name + "_alwayslink",
-        shared_library = shared_library,
+        static_library = static_library,
         alwayslink = True,
         **kwargs
     )
