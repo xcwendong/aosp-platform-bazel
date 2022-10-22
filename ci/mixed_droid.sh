@@ -20,8 +20,10 @@ if [ "$MIXED_DROID_MODE" == "dev" ]; then
   MIXED_BUILD_FLAG="--bazel-mode-dev"
 elif [ "$MIXED_DROID_MODE" == "prod" ]; then
   MIXED_BUILD_FLAG="--bazel-mode"
+elif [ "$MIXED_DROID_MODE" == "staging" ]; then
+  MIXED_BUILD_FLAG="--bazel-mode-staging"
 else
-  echo "MIXED_DROID_MODE value \"$MIXED_DROID_MODE\" invalid. Must be either 'dev' or 'prod'"
+  echo "MIXED_DROID_MODE value \"$MIXED_DROID_MODE\" invalid. Must be either 'dev', 'prod', or 'staging'"
   exit 1
 fi
 

@@ -34,8 +34,9 @@ def _gensrcs_impl(ctx):
         ),
     )
 
+    in_files = ctx.files.srcs
     out_files = []
-    for in_file in ctx.files.srcs:
+    for in_file in in_files:
         # <path-to-in_file>/out_file
         # where path-to-in_file is relative to the workspace
         out_file_path = paths.join(
@@ -56,7 +57,7 @@ def _gensrcs_impl(ctx):
         ctx.actions.run_shell(
             tools = tools,
             outputs = [out_file],
-            inputs = [in_file],
+            inputs = in_files,
             command = shell_command,
             progress_message = "Generating %s from %s" % (
                 out_file.path,
