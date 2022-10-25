@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Provides useful diff information for build artifacts.
 
 Uses collected build artifacts from two separate build invocations to
@@ -96,10 +95,10 @@ class ArtifactType(enum.Enum):
 
 
 FILE_TYPE_CHOICES = {
-   "auto": ArtifactType.AUTO_INFER_FROM_SUFFIX,
-   "object": ArtifactType.CC_OBJECT,
-   "object_with_debug_symbols": ArtifactType.CC_OBJECT_WITH_DEBUG_SYMBOLS,
-   "shared_library": ArtifactType.CC_SHARED_LIBRARY,
+    "auto": ArtifactType.AUTO_INFER_FROM_SUFFIX,
+    "object": ArtifactType.CC_OBJECT,
+    "object_with_debug_symbols": ArtifactType.CC_OBJECT_WITH_DEBUG_SYMBOLS,
+    "shared_library": ArtifactType.CC_SHARED_LIBRARY,
 }
 
 
@@ -114,19 +113,23 @@ def _artifact_type(file_path):
 
 
 # TODO(usta) use libdiff
-def literal_diff(left_path: pathlib.Path, right_path: pathlib.Path) -> list[
-  str]:
-  return subprocess.run(["diff", str(left_path), str(right_path)],
-                        check=False, capture_output=True,
-                        encoding="utf-8").stdout.splitlines()
+def literal_diff(left_path: pathlib.Path,
+                 right_path: pathlib.Path) -> list[str]:
+  return subprocess.run(
+      ["diff", str(left_path), str(right_path)],
+      check=False,
+      capture_output=True,
+      encoding="utf-8").stdout.splitlines()
 
 
 @functools.cache
-def _diff_fns(artifact_type: ArtifactType, level: DiffLevel) -> list[
-  DiffFunction]:
+def _diff_fns(artifact_type: ArtifactType,
+              level: DiffLevel) -> list[DiffFunction]:
   fns = []
 
-  if artifact_type in [ArtifactType.CC_OBJECT, ArtifactType.CC_OBJECT_WITH_DEBUG_SYMBOLS]:
+  if artifact_type in [
+      ArtifactType.CC_OBJECT, ArtifactType.CC_OBJECT_WITH_DEBUG_SYMBOLS
+  ]:
     fns.append(clangcompile.nm_differences)
     if level >= DiffLevel.WARNING:
       fns.append(clangcompile.elf_differences)
@@ -141,28 +144,34 @@ def _diff_fns(artifact_type: ArtifactType, level: DiffLevel) -> list[
 
 
 def collect_commands(ninja_file_path: pathlib.Path,
-    output_file_path: pathlib.Path) -> list[str]:
+                     output_file_path: pathlib.Path) -> list[str]:
   """Returns a list of all command lines required to build the file at given
+
   output_file_path_string, as described by the ninja file present at
-  ninja_file_path_string."""
+  ninja_file_path_string.
+  """
 
   ninja_tool_path = pathlib.Path(
       "prebuilts/build-tools/linux-x86/bin/ninja").resolve()
   wd = os.getcwd()
   os.chdir(ninja_file_path.parent.absolute())
-  result = subprocess.check_output([str(ninja_tool_path),
-                                    "-f", ninja_file_path.name,
-                                    "-t", "commands",
-                                    str(output_file_path)]).decode("utf-8")
+  result = subprocess.check_output([
+      str(ninja_tool_path), "-f", ninja_file_path.name, "-t", "commands",
+      str(output_file_path)
+  ]).decode("utf-8")
   os.chdir(wd)
   return result.splitlines()
 
 
-def file_differences(left_path: pathlib.Path, right_path: pathlib.Path,
-                     level=DiffLevel.SEVERE,
-                     file_type=ArtifactType.AUTO_INFER_FROM_SUFFIX) -> list[str]:
+def file_differences(
+    left_path: pathlib.Path,
+    right_path: pathlib.Path,
+    level=DiffLevel.SEVERE,
+    file_type=ArtifactType.AUTO_INFER_FROM_SUFFIX) -> list[str]:
   """Returns differences between the two given files.
-  Returns the empty list if these files are deemed "similar enough"."""
+
+  Returns the empty list if these files are deemed "similar enough".
+  """
 
   errors = []
   if not left_path.is_file():
@@ -245,46 +254,60 @@ def rich_command_info(raw_command):
 
 def main():
   parser = argparse.ArgumentParser(description="")
-  parser.add_argument("--level",
-                      action=EnumAction,
-                      default=DiffLevel.SEVERE,
-                      type=DiffLevel,
-                      help="the level of differences to be considered." +
-                           "Diffs below the specified level are ignored.")
-  parser.add_argument("--verbose", "-v",
-                      action=argparse.BooleanOptionalAction,
-                      default=False,
-                      help="log verbosely.")
-  parser.add_argument("left_dir",
-                      help="the 'left' directory to compare build outputs " +
-                           "from. This must be the target of an invocation " +
-                           "of collect.py.")
-  parser.add_argument("--left_file", "-l", dest="left_file", default=None,
-                      help="the output file (relative to execution root) for " +
-                           "the 'left' build invocation.")
-  parser.add_argument("right_dir",
-                      help="the 'right' directory to compare build outputs " +
-                           "from. This must be the target of an invocation " +
-                           "of collect.py.")
-  parser.add_argument("--right_file", "-r", dest="right_file", default=None,
-                      help="the output file (relative to execution root) " +
-                           "for the 'right' build invocation.")
-  parser.add_argument("--file_type", dest="file_type", default="auto",
-                      choices=FILE_TYPE_CHOICES.keys(),
-                      help="the type of file being diffed (overrides automatic " +
-                      "filetype resolution)")
-  parser.add_argument("--allow_missing_file",
-                      action=argparse.BooleanOptionalAction,
-                      default=False,
-                      help="allow a missing output file; this is useful to " +
-                           "compare actions even in the absence of " +
-                           "an output file.")
+  parser.add_argument(
+      "--level",
+      action=EnumAction,
+      default=DiffLevel.SEVERE,
+      type=DiffLevel,
+      help="the level of differences to be considered." +
+      "Diffs below the specified level are ignored.")
+  parser.add_argument(
+      "--verbose",
+      "-v",
+      action=argparse.BooleanOptionalAction,
+      default=False,
+      help="log verbosely.")
+  parser.add_argument(
+      "left_dir",
+      help="the 'left' directory to compare build outputs " +
+      "from. This must be the target of an invocation " + "of collect.py.")
+  parser.add_argument(
+      "--left_file",
+      "-l",
+      dest="left_file",
+      default=None,
+      help="the output file (relative to execution root) for " +
+      "the 'left' build invocation.")
+  parser.add_argument(
+      "right_dir",
+      help="the 'right' directory to compare build outputs " +
+      "from. This must be the target of an invocation " + "of collect.py.")
+  parser.add_argument(
+      "--right_file",
+      "-r",
+      dest="right_file",
+      default=None,
+      help="the output file (relative to execution root) " +
+      "for the 'right' build invocation.")
+  parser.add_argument(
+      "--file_type",
+      dest="file_type",
+      default="auto",
+      choices=FILE_TYPE_CHOICES.keys(),
+      help="the type of file being diffed (overrides automatic " +
+      "filetype resolution)")
+  parser.add_argument(
+      "--allow_missing_file",
+      action=argparse.BooleanOptionalAction,
+      default=False,
+      help="allow a missing output file; this is useful to " +
+      "compare actions even in the absence of " + "an output file.")
   args = parser.parse_args()
 
   level = args.level
   left_diffinfo = pathlib.Path(args.left_dir).joinpath(COLLECTION_INFO_FILENAME)
-  right_diffinfo = pathlib.Path(args.right_dir).joinpath(
-    COLLECTION_INFO_FILENAME)
+  right_diffinfo = pathlib.Path(
+      args.right_dir).joinpath(COLLECTION_INFO_FILENAME)
 
   left_ninja_name, left_file = parse_collection_info(left_diffinfo)
   right_ninja_name, right_file = parse_collection_info(right_diffinfo)
@@ -308,7 +331,8 @@ def main():
     if not right_path.is_file():
       raise RuntimeError("Expected file %s was not found. " % right_path)
 
-  file_diff_errors = file_differences(left_path, right_path, level, FILE_TYPE_CHOICES[args.file_type])
+  file_diff_errors = file_differences(left_path, right_path, level,
+                                      FILE_TYPE_CHOICES[args.file_type])
 
   if file_diff_errors:
     for err in file_diff_errors:
