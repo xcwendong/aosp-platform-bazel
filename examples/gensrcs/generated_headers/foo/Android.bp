@@ -48,10 +48,10 @@ gensrcs {
 cc_library_shared {
     name: "foo-cc_library_shared",
     srcs: [
-        "foo.cpp"
+        "foo.cpp",
     ],
     generated_headers: [
         "foo-protoc-gen-headers",
-        "bar-protoc-gen-headers"
+        "bar-protoc-gen-headers",
     ],
 }

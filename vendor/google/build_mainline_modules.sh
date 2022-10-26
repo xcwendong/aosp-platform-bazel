@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-BAZEL=tools/bazel
+BAZEL=build/bazel/bin/bazel
 
 function main() {
   if [ ! -e "build/make/core/Makefile" ]; then

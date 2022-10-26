@@ -126,7 +126,7 @@ def get_queryview_module_info(modules, banchan_mode=False):
 
   queryview_xml = subprocess.check_output(
       [
-          "tools/bazel",
+          "build/bazel/bin/bazel",
           "query",
           "--config=ci",
           "--config=queryview",

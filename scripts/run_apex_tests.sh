@@ -10,7 +10,7 @@ function gettop
     # Function uses potentially uninitialzied variables
     set +u
 
-    local TOPFILE=build/bazel/bazel.sh
+    local TOPFILE=build/bazel/bin/bazel
     if [ -n "$TOP" -a -f "$TOP/$TOPFILE" ] ; then
         # The following circumlocution ensures we remove symlinks from TOP.
         (cd "$TOP"; PWD= /bin/pwd)
@@ -63,10 +63,10 @@ BUILD_TARGETS_LIST=(
 BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
 
 echo "Building APEXes with Bazel..."
-${AOSP_ROOT}/tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_x86 -k ${BUILD_TARGETS}
-${AOSP_ROOT}/tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_x86_64 -k ${BUILD_TARGETS}
-${AOSP_ROOT}/tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_arm -k ${BUILD_TARGETS}
-${AOSP_ROOT}/tools/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_arm64 -k ${BUILD_TARGETS}
+${AOSP_ROOT}/build/bazel/bin/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_x86 -k ${BUILD_TARGETS}
+${AOSP_ROOT}/build/bazel/bin/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_x86_64 -k ${BUILD_TARGETS}
+${AOSP_ROOT}/build/bazel/bin/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_arm -k ${BUILD_TARGETS}
+${AOSP_ROOT}/build/bazel/bin/bazel --max_idle_secs=5 build ${BUILD_FLAGS} --platforms //build/bazel/platforms:android_arm64 -k ${BUILD_TARGETS}
 
 set +x
 echo

@@ -9,8 +9,8 @@ build/soong/soong_ui.bash \
   --all-modules \
   --dir="$(pwd)" \
   bp2build
-tools/bazel build --config=bp2build //build/bazel/scripts/difftool:collect_zip
-tools/bazel build --config=bp2build //build/bazel/scripts/difftool:difftool_zip
+build/bazel/bin/bazel build --config=bp2build //build/bazel/scripts/difftool:collect_zip
+build/bazel/bin/bazel build --config=bp2build //build/bazel/scripts/difftool:difftool_zip
 
 # the following 2 arrays must be of the same size
 MODULES=(
@@ -31,11 +31,11 @@ readonly LEGACY_OUTPUT_SEARCH_TREE="out/soong/.intermediates/libnativehelper"
 readonly MIXED_OUTPUT_SEARCH_TREE="out/bazel/output/execroot/__main__/bazel-out"
 readonly NINJA_FILE="$AOSP_ROOT/out/combined-$TARGET_PRODUCT.ninja"
 # python is expected in PATH but used only to start a zipped python archive,
-# which bundles its own interpreter. We could also simply use `tools/bazel run`
+# which bundles its own interpreter. We could also simply use `build/bazel/bin/bazel run`
 # instead however that sets the working directly differently and collect.py
 # won't work because it expects paths relative to $OUT_DIR
 # TODO(usta) make collect.py work with absolute paths and maybe consider
-# using `tools/bazel run` on the `py_binary` target directly instead of using
+# using `build/bazel/bin/bazel run` on the `py_binary` target directly instead of using
 # the python_zip_file filegroup's output
 readonly stub_python=python3
 readonly LEGACY_COLLECTION="$AOSP_ROOT/out/diff_metadata/legacy"

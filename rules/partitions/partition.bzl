@@ -259,8 +259,6 @@ def _generate_image_prop_dictionary(ctx, image_types, extra_props = {}):
     #         image_props["avb_system_dlkm_rollback_index_location"] = _p("BOARD_SYSTEM_SYSTEM_DLKM_ROLLBACK_INDEX_LOCATION")
     if _p("BOARD_USES_RECOVERY_AS_BOOT") == "true":
         image_props["recovery_as_boot"] = "true"
-    if _p("BOARD_BUILD_SYSTEM_ROOT_IMAGE") == "true":
-        image_props["system_root_image"] = "true"
     if _p("BOARD_BUILD_GKI_BOOT_IMAGE_WITHOUT_RAMDISK") == "true":
         image_props["gki_boot_image_without_ramdisk"] = "true"
 

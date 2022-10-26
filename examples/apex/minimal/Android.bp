@@ -34,10 +34,10 @@ android_app_certificate {
 }
 
 filegroup {
-  name: "build.bazel.examples.apex.minimal-file_contexts",
-  srcs: [
-    "file_contexts",
-  ],
+    name: "build.bazel.examples.apex.minimal-file_contexts",
+    srcs: [
+        "file_contexts",
+    ],
 }
 
 cc_library {
@@ -115,7 +115,7 @@ cc_binary {
 
     apex_available: [
         "build.bazel.examples.apex.minimal",
-        "build.bazel.examples.apex.minimal_compressed"
+        "build.bazel.examples.apex.minimal_compressed",
     ],
 
     shared_libs: ["build.bazel.examples.apex.minimal_dummy_cc_lib_2"],
@@ -138,13 +138,13 @@ apex_defaults {
     min_sdk_version: "30",
 
     native_shared_libs: [
-       "build.bazel.examples.apex.minimal_dummy_cc_lib",
+        "build.bazel.examples.apex.minimal_dummy_cc_lib",
     ],
 
     prebuilts: [
-       "build.bazel.examples.apex.minimal_dummy_named_prebuilt_etc",
-       "build.bazel.examples.apex.minimal_dummy_unnamed_prebuilt_etc",
-       "build.bazel.examples.apex.minimal_dummy_prebuilt_etc_without_subdir",
+        "build.bazel.examples.apex.minimal_dummy_named_prebuilt_etc",
+        "build.bazel.examples.apex.minimal_dummy_unnamed_prebuilt_etc",
+        "build.bazel.examples.apex.minimal_dummy_prebuilt_etc_without_subdir",
     ],
 
     binaries: [
@@ -158,7 +158,7 @@ apex {
     name: "build.bazel.examples.apex.minimal",
     defaults: [
         "build.bazel.examples.apex.minimal_defaults",
-    ]
+    ],
 }
 
 override_apex {
@@ -173,5 +173,5 @@ apex {
     compressible: true,
     defaults: [
         "build.bazel.examples.apex.minimal_defaults",
-    ]
+    ],
 }

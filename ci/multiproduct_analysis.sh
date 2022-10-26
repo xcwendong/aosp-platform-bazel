@@ -53,10 +53,10 @@ for product in "${PRODUCTS[@]}"; do
     --keep_going
   )
 
-  tools/bazel ${STARTUP_FLAGS[@]} build ${FLAGS[@]} --config=linux_x86_64 -- ${BUILD_TARGETS} || \
+  build/bazel/bin/bazel ${STARTUP_FLAGS[@]} build ${FLAGS[@]} --config=linux_x86_64 -- ${BUILD_TARGETS} || \
     FAILED_PRODUCTS+=("${product} --config=linux_x86_64")
 
-  tools/bazel ${STARTUP_FLAGS[@]} build ${FLAGS[@]} --config=android -- ${BUILD_TARGETS} || \
+  build/bazel/bin/bazel ${STARTUP_FLAGS[@]} build ${FLAGS[@]} --config=android -- ${BUILD_TARGETS} || \
     FAILED_PRODUCTS+=("${product} --config=android")
 
   count=$((count+1))

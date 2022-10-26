@@ -20,7 +20,6 @@ TARGETS=(
   com.android.neuralnetworks
   com.android.runtime
   framework-minus-apex
-  libbacktrace
   libsimpleperf
 )
 

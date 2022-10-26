@@ -24,25 +24,25 @@ import dataclasses
 import datetime
 import enum
 import functools
-import io
 import json
 import logging
 import os
 import re
-import shutil
 import subprocess
 import sys
 import textwrap
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Callable
 from typing import Final
 from typing import Mapping
 from typing import Optional
 from typing import TypeVar
 
-INDICATOR_FILE: Final[str] = 'build/soong/soong_ui.bash'
+from incremental_build_cujs import get_cujgroups
+from incremental_build_cujs import get_out_dir
+from incremental_build_cujs import get_top_dir
+
 SUMMARY_CSV: Final[str] = 'summary.csv'
 
 
@@ -61,48 +61,10 @@ def _get_tip(d: Path) -> str:
   )
 
 
-@functools.cache
-def get_top(d: Path = Path('.').absolute()) -> Path:
-  """Get the path to the root of the Android source tree"""
-  logging.debug('Checking if Android source tree root is %s', d)
-  if d.parent == d:
-    sys.exit('Unable to find ROOT source directory, specifically,'
-             f'{INDICATOR_FILE} not found anywhere. '
-             'Try `m nothing` and `repo sync`')
-  if d.joinpath(INDICATOR_FILE).is_file():
-    logging.info('Android source tree root = %s', d)
-    return d
-  return get_top(d.parent)
-
-
 class BuildResult(Enum):
   SUCCESS = enum.auto()
   FAILED = enum.auto()
   TEST_FAILURE = enum.auto()
-
-
-@dataclasses.dataclass(frozen=True)
-class CujStep:
-  description: str
-  action: Callable[[], None]
-  test: Callable[[], bool] = lambda: True
-
-
-@dataclasses.dataclass(frozen=True)
-class Cuj:
-  """
-  A sequence of steps to be performed all or none.
-  NO attempt is made to achieve atomicity, it's user responsibility.
-  """
-  description: str
-  steps: list[CujStep]
-
-  def __str__(self) -> str:
-    if len(self.steps) < 2:
-      return f'{self.description}: {self.steps[0].description}'
-    steps_list = ' THEN '.join(
-        [f'{i + 1}# {s.description}' for i, s in enumerate(self.steps)])
-    return f'{self.description}: {steps_list}'
 
 
 _SOONG_CMD: Final[str] = ('build/soong/soong_ui.bash '
@@ -119,7 +81,7 @@ class BuildType(Enum):
 @dataclasses.dataclass(frozen=True)
 class UserInput:
   build_type: BuildType
-  chosen_cujs: list[int]
+  chosen_cujgroups: list[int]
   log_dir: Path
   repeat_count: int
   targets: list[str]
@@ -159,7 +121,32 @@ class PerfInfoOrEvent:
       self.real_time = datetime.timedelta(microseconds=self.real_time / 1000)
 
 
-def read_perf_info(
+def read_perf_metrics(log_dir: Path, description: str, run_number: int) -> dict[
+  str, datetime.timedelta]:
+  soong_pb: Final[Path] = get_out_dir().joinpath('soong_metrics')
+  bp2build_pb: Final[Path] = get_out_dir().joinpath('bp2build_metrics.pb')
+  soong_proto: Final[Path] = get_top_dir().joinpath(
+      'build/soong/ui/metrics/metrics_proto/metrics.proto')
+  bp2build_proto: Final[Path] = get_top_dir().joinpath(
+      'build/soong/ui/metrics/bp2build_metrics_proto/bp2build_metrics.proto')
+  soong_msg: Final[str] = 'soong_build_metrics.MetricsBase'
+  bp2build_msg: Final[str] = 'soong_build_bp2build_metrics.Bp2BuildMetrics'
+  events: list[PerfInfoOrEvent] = []
+  if soong_pb.exists():
+    events.extend(read_perf_metrics_pb(soong_pb, soong_proto, soong_msg))
+    soong_pb.rename(
+        _to_file(log_dir, f'soong_metrics_{description}', run_number, 'pb'))
+  if bp2build_pb.exists():
+    events.extend(
+        read_perf_metrics_pb(bp2build_pb, bp2build_proto, bp2build_msg))
+    bp2build_pb.rename(
+        _to_file(log_dir, f'bp2_build_metrics_{description}', run_number, 'pb'))
+
+  events.sort(key=lambda e: e.start_time)
+  return {f'{m.name}/{m.description}': m.real_time for m in events}
+
+
+def read_perf_metrics_pb(
     pb_file: Path,
     proto_file: Path,
     proto_message: str
@@ -168,25 +155,27 @@ def read_perf_info(
   Loads PerfInfo or Event from the file sorted chronologically
   Note we are not using protoc-generated classes for simplicity (e.g. dependency
   on `google.protobuf`)
+  Note dict keeps insertion order in python 3.7+
   """
-  cmd = (f'printproto --proto2  --raw_protocol_buffer '
-         f'--message={proto_message} '
-         f'--proto="{proto_file}" '
-         '--multiline '
-         '--json --json_accuracy_loss_reaction=ignore '
-         f'"{pb_file}" '
-         '| jq ".. | objects | select(.real_time) | select(.name)" '
-         '| jq -s ". | sort_by(.start_time)"')
-  result = subprocess.check_output(cmd, shell=True, cwd=get_top())
+  cmd = (f'''printproto --proto2  --raw_protocol_buffer \
+  --message={proto_message} \
+  --proto="{proto_file}" \
+  --multiline \
+  --json --json_accuracy_loss_reaction=ignore \
+  "{pb_file}" \
+  | jq ".. | objects | select(.real_time) | select(.name)" \
+  | jq -s ". | sort_by(.start_time)"''')
+  result = subprocess.check_output(cmd, shell=True, cwd=get_top_dir(),
+                                   text=True)
+
+  fields: set[str] = {f.name for f in dataclasses.fields(PerfInfoOrEvent)}
 
   def parse(d: dict) -> Optional[PerfInfoOrEvent]:
-    fields: set[str] = {f.name for f in dataclasses.fields(PerfInfoOrEvent)}
     filtered = {k: v for (k, v) in d.items() if k in fields}
     return PerfInfoOrEvent(**filtered)
 
-  metrics: list[PerfInfoOrEvent] = [parse(d) for d in json.loads(result)]
-
-  return metrics
+  events: list[PerfInfoOrEvent] = [parse(d) for d in json.loads(result)]
+  return events
 
 
 def _prepare_env() -> Mapping[str, str]:
@@ -240,48 +229,13 @@ def test_union():
   assert _union([1, 5, 9], [3, 5, 7]) == [1, 5, 9, 3, 7]
 
 
-def _write_summary(summary_csv: Path, start_nanos: int, **row):
-  """
-  Writes the row combined with metrics from `out/soong_metrics`
-  to summary.csv. For `write_summary(time.time_ns(), a = 1, b = 'hi')`, the file
-  content will be:
-    |  a  |  b  | ... | soong/bootstrap | soong_build/soong_build | ...
-    |  1  | hi  | ... | 0:02:07.979398  | 0:01:51.517449          | ...
-  :param row: metadata columns for a row, e.g.
-                 description, target(s) built, etc.
-  """
+def _write_csv_row(summary_csv: Path, row: dict[str, any]):
   headers_for_run: list[str] = [k for k in row]
-
-  pb_file = get_out_dir().joinpath('soong_metrics')
-  if pb_file.exists() and pb_file.stat().st_mtime_ns > start_nanos:
-    for m in read_perf_info(
-        pb_file=pb_file,
-        proto_file=get_top().joinpath(
-            'build/soong/ui/metrics/'
-            'metrics_proto/metrics.proto'),
-        proto_message='soong_build_metrics.MetricsBase'
-    ):
-      key = f'{m.name}/{m.description}'
-      headers_for_run.append(key)
-      row[key] = m.real_time
-
-  pb_file = get_out_dir().joinpath('bp2build_metrics.pb')
-  if pb_file.exists() and pb_file.stat().st_mtime_ns > start_nanos:
-    for m in read_perf_info(
-        pb_file=pb_file,
-        proto_file=get_top().joinpath(
-            'build/soong/ui/metrics/'
-            'bp2build_metrics_proto/bp2build_metrics.proto'),
-        proto_message='soong_build_bp2build_metrics.Bp2BuildMetrics'
-    ):
-      key = f'{m.name}/{m.description}'
-      headers_for_run.append(key)
-      row[key] = m.real_time
-
   append_to_file = summary_csv.exists()
   rows: list[dict[str, any]] = []
   if append_to_file:
     with open(summary_csv, mode='r', newline='') as f:
+      # let's check if the csv headers are compatible
       reader = csv.DictReader(f)
       headers_in_summary_csv: list[str] = reader.fieldnames or []
       if headers_in_summary_csv != headers_for_run:
@@ -294,29 +248,11 @@ def _write_summary(summary_csv: Path, start_nanos: int, **row):
         logging.debug('Merged headers:\n%s', headers_for_run)
         rows = [r for r in reader]  # read current rows to rewrite later
   rows.append(row)
-  with open(summary_csv, mode='a' if append_to_file else 'w',
-            newline='') as f:
+  with open(summary_csv, mode='a' if append_to_file else 'w', newline='') as f:
     writer = csv.DictWriter(f, headers_for_run)
     if not append_to_file:
       writer.writeheader()
     writer.writerows(rows)
-
-
-def _validate_int_in_range(lo: int, hi: int) -> Callable[[str], int]:
-  def validate(i: str) -> int:
-    if lo <= int(i) <= hi:
-      return int(i)
-    raise argparse.ArgumentError(argument=None,
-                                 message=f'Invalid argument: {i},'
-                                         f'expected {min} <= {i} <= {max}')
-
-  return validate
-
-
-@functools.cache
-def get_out_dir() -> Path:
-  out_dir = os.environ.get('OUT_DIR')
-  return Path(out_dir) if out_dir else get_top().joinpath('out')
 
 
 def _to_file(parent: Path, description: str, suffix: int, ext: str) -> Path:
@@ -333,204 +269,40 @@ def _to_file(parent: Path, description: str, suffix: int, ext: str) -> Path:
   return f
 
 
-def mtime(p: Path) -> str:
-  """stat `p` to provide its Modify timestamp in a log-friendly format"""
-  if p.exists():
-    ts = datetime.datetime.fromtimestamp(p.stat().st_mtime)
-    return f'mtime({p.name})= {ts}'
-  else:
-    return f'{p.name} does not exist'
-
-
-def touch_file(p: Path, parents: bool = False):
-  """
-  Used as an approximation for file edits in CUJs.
-  This works because Ninja determines freshness based on Modify timestamp.
-  :param p: file to be `touch`-ed
-  :param parents: if true, create the parent directories as needed
-  """
-
-  if not p.parent.exists():
-    if parents:
-      p.parent.mkdir(parents=True, exist_ok=True)
-    else:
-      raise SystemExit(f'Directory does not exist: {p.parent}')
-  logging.debug('before:' + mtime(p))
-  p.touch()
-  logging.debug(' after:' + mtime(p))
-
-
-@functools.cache
-# add new Android.bp with missing source file and then added
-# add a globbed src bp2build-ed module
-def _get_cujs() -> list[Cuj]:
-  def touch(p: str) -> CujStep:
-    file = get_top().joinpath(p)
-    return CujStep(description=f'touch {p}', action=lambda: touch_file(file))
-
-  def create_and_delete(desc: str, p: str, content: str) -> Cuj:
-    file = Path(p)
-    if file.is_absolute():
-      raise SystemExit(f'expected relative paths: {p}')
-    file = get_top().joinpath(file)
-    missing_dirs = [f for f in file.parents if
-                    not f.exists() and f.relative_to(get_top())]
-    shallowest_missing_dir = missing_dirs[-1] if len(missing_dirs) else None
-
-    def do():
-      if file.exists():
-        raise SystemExit(
-            f'File {p} already exists. Interrupted an earlier run?\n'
-            f'TIP: `repo status` and revert changes!!!')
-      touch_file(file, parents=True)
-      with open(file, mode="w") as f:
-        f.write(content)
-
-    def undo():
-      if shallowest_missing_dir:
-        shutil.rmtree(shallowest_missing_dir)
-      else:
-        file.unlink(missing_ok=False)
-
-    return Cuj(description=desc,
-               steps=[
-                   CujStep(f'create {p}', do),
-                   CujStep(f'delete {p}', undo)
-               ])
-
-  def touch_delete_create(desc: str, p: str) -> Cuj:
-    original = get_top().joinpath(p)
-    copied = get_out_dir().joinpath(f'{original.name}.bak')
-
-    return Cuj(
-        description=desc,
-        steps=[
-            CujStep(f'touch {p}', lambda: touch_file(original)),
-            CujStep(f'delete {p}', lambda: original.rename(copied)),
-            CujStep(f'create {p}', lambda: copied.rename(original))
-        ])
-
-  def build_bazel_merger(file: str) -> Cuj:
-    existing = get_top().joinpath(file)
-    merged = get_out_dir().joinpath('soong/workspace').joinpath(file)
-    bogus: Final[str] = f'//BOGUS this line added by {__file__} ' \
-                        f'for testing on {datetime.datetime.now()}\n'
-
-    def add_line():
-      with open(existing, mode="a") as ef:
-        ef.write(bogus)
-
-    def revert():
-      with open(existing, mode="rb+") as ef:
-        #  assume UTF-8
-        ef.seek(-len(bogus), io.SEEK_END)
-        ef.truncate()
-
-    def verify() -> bool:
-      with open(existing, mode="rb") as ef:
-        with open(merged, mode="rb") as mf:
-          size = os.stat(existing).st_size
-          mf.seek(-size, io.SEEK_END)
-          while ef.tell() != size:
-            l1 = mf.readline()
-            l2 = ef.readline()
-            if l1 != l2:
-              return False
-      return True
-
-    return Cuj(
-        description='generated BUILD.bazel includes manual one',
-        steps=[
-            CujStep(f'modify {file}', add_line, verify),
-            CujStep(f'revert {file}', revert, verify),
-        ])
-
-  package_dir = 'bionic/libc'
-  dir_without_subpackage = 'bionic/libc/bionic'
-  dir_with_subpackage = 'bionic'
-  globbed_dir = 'libcore/benchmarks/src/benchmarks'
-  return [
-      Cuj('initial build', [CujStep('no-op', lambda: logging.info("no op"))]),
-      Cuj('root bp', [touch('Android.bp')]),
-
-      create_and_delete(
-          f'Android.bp in {dir_with_subpackage=}',
-          f'{dir_with_subpackage}/Android.bp',
-          '//safe to delete'),
-      create_and_delete(
-          f'Android.bp in {dir_without_subpackage=}',
-          f'{dir_without_subpackage}/Android.bp',
-          '//safe to delete'),
-
-      create_and_delete(
-          f'BUILD in {dir_with_subpackage=}',
-          f'{dir_with_subpackage}/Android.bp',
-          '//safe to delete'),
-      create_and_delete(
-          f'BUILD in {dir_without_subpackage=}',
-          f'{dir_without_subpackage}/BUILD',
-          '//safe to delete'),
-
-      create_and_delete(
-          f'unreferenced dir in {dir_with_subpackage=}',
-          f'{dir_with_subpackage}/unreferenced/test.txt',
-          'safe to delete'),
-      create_and_delete(
-          f'unreferenced dir in {dir_without_subpackage=}',
-          f'{dir_without_subpackage}/unreferenced/test.txt',
-          'safe to delete'),
-
-      create_and_delete(
-          f'unreferenced file in {package_dir=}',
-          f'{package_dir}/test.txt',
-          'safe to delete'),
-      create_and_delete(
-          f'unreferenced file in {dir_with_subpackage=}',
-          f'{dir_with_subpackage}/test.txt',
-          'safe to delete'),
-      create_and_delete(
-          f'unreferenced file in {dir_without_subpackage=}',
-          f'{dir_without_subpackage}/test.txt',
-          'safe to delete'),
-
-      build_bazel_merger('external/protobuf/BUILD.bazel'),
-
-      touch_delete_create(
-          f'existing BUILD in {package_dir=}',
-          f'{package_dir}/BUILD'),
-      touch_delete_create(
-          f'existing file in {package_dir=}',
-          f'{package_dir}/version_script.txt'),
-      touch_delete_create(
-          'existing Android Manifest',
-          'art/artd/tests/AndroidManifest.xml'),
-      touch_delete_create(
-          f'existing src in {dir_without_subpackage=}',
-          f'{dir_without_subpackage}/icu.cpp'),
-      touch_delete_create(
-          f'existing globbed file in {globbed_dir=}',
-          f'{globbed_dir}/Foo.java'),
-  ]
-
-
 def _handle_user_input() -> UserInput:
+  def validate_cujgroups(input_str: str) -> list[int]:
+    if input_str.isnumeric():
+      i = int(input_str)
+      if 0 <= i < len(get_cujgroups()):
+        return [i]
+    else:
+      matches = [i for i, cujgroup in enumerate(get_cujgroups()) if
+                 input_str in cujgroup.description]
+      if len(matches):
+        return matches
+    raise argparse.ArgumentError(
+        argument=None,
+        message=f'Invalid input, expected {min} <= {input_str} <= {max}')
+
   p = argparse.ArgumentParser(
       formatter_class=argparse.RawTextHelpFormatter,
       description='' +
                   textwrap.dedent(sys.modules[__name__].__doc__) +
                   textwrap.dedent(main.__doc__))
 
-  cujs = _get_cujs()
-  cuj_list = '\n'.join([f'{i:2}: {cuj}' for i, cuj in enumerate(cujs)])
+  cuj_list = '\n'.join(
+      [f'{i:2}: {cujgroup}' for i, cujgroup in enumerate(get_cujgroups())])
   p.add_argument('-c', '--cujs', nargs='*',
-                 type=_validate_int_in_range(0, len(cujs) - 1),
-                 help='Index number(s) for the CUJ(s) from the following list.'
+                 type=validate_cujgroups,
+                 help='Index number(s) for the CUJ(s) from the following list. '
+                      'Or substring matches for the CUJ description.'
                       f'Note the ordering will be respected:\n{cuj_list}')
   p.add_argument('-C', '--exclude-cujs', nargs='*',
-                 type=_validate_int_in_range(0, len(cujs) - 1),
-                 help='The index number(s) for the CUJ(s) to be excluded')
+                 type=validate_cujgroups,
+                 help='Index number(s) or substring match(es) for the CUJ(s) '
+                      'to be excluded')
 
-  p.add_argument('-r', '--repeat', type=_validate_int_in_range(0, 10),
+  p.add_argument('-r', '--repeat', type=int,
                  default=1,
                  help='The number of times to repeat the build invocation. '
                       'If 0, do not repeat (i.e. do exactly once). '
@@ -565,14 +337,19 @@ def _handle_user_input() -> UserInput:
 
   if options.cujs and options.exclude_cujs:
     sys.exit('specify either --cujs or --exclude-cujs not both')
-  chosen_cujs: list[int]
+  chosen_cujgroups: list[int]
   if options.exclude_cujs:
-    chosen_cujs = [i for i in range(0, len(cujs)) if
-                   i not in options.exclude_cujs]
+    exclusions: list[int] = [i for sublist in options.exclude_cujs for i in
+                             sublist]
+    chosen_cujgroups = [i for i in range(0, len(get_cujgroups())) if
+                        i not in exclusions]
   elif options.cujs:
-    chosen_cujs = options.cujs
+    chosen_cujgroups = [i for sublist in options.cujs for i in sublist]
   else:
-    chosen_cujs = [i for i in range(0, len(cujs))]
+    chosen_cujgroups = [i for i in range(0, len(get_cujgroups()))]
+  chosen_cuj_list = '\n'.join(
+      [f'{i:2}: {get_cujgroups()[i]}' for i in chosen_cujgroups])
+  logging.info(f'CUJs chosen:\n{chosen_cuj_list}')
 
   if options.bazel_mode_dev and options.bazel_mode:
     sys.exit('mutually exclusive options --bazel-mode-dev and --bazel-mode')
@@ -601,7 +378,7 @@ def _handle_user_input() -> UserInput:
 
   return UserInput(
       build_type=build_type,
-      chosen_cujs=chosen_cujs,
+      chosen_cujgroups=chosen_cujgroups,
       log_dir=Path(
           options.log_dir) if options.log_dir else get_out_dir().joinpath(
           'timing_logs'),
@@ -617,7 +394,7 @@ def has_uncommitted_changed() -> bool:
   for cmd in ['diff', 'diff --staged']:
     diff = subprocess.run(
         args=f'repo forall -c git {cmd} --quiet --exit-code'.split(),
-        cwd=get_top(), text=True,
+        cwd=get_top_dir(), text=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL)
     if diff.returncode != 0:
@@ -660,48 +437,60 @@ def main():
   def evaluate_result(returncode: int) -> BuildResult:
     if returncode != 0:
       return BuildResult.FAILED
-    elif step.test():
+    elif cujstep.test():
       return BuildResult.SUCCESS
     else:
       return BuildResult.TEST_FAILURE
 
-  def do_run():
-    logfile = _to_file(user_input.log_dir, step.description, run_number, 'log')
+  def build() -> dict[str, any]:
+    logfile = _to_file(user_input.log_dir,
+                       f'{cujgroup.description} {cujstep.description}',
+                       run_number,
+                       'log')
     logging.info('TIP: to see the log:\n  tail -f "%s"', logfile)
     with open(logfile, mode='w') as f:
       f.write(f'Command: {cmd}\n')
       f.write(f'Environment Variables:\n{pretty_printed_env()}\n\n\n')
-      # not time.perf_counter_ns() as we need wall clock time for stat()
-      start_ns = time.time_ns()
+      start_ns = time.perf_counter_ns()
       # TODO(usta): shell=False when `source build/envsetup.sh` not needed
-      p = subprocess.run(cmd, check=False, cwd=get_top(), env=env,
+      p = subprocess.run(cmd, check=False, cwd=get_top_dir(), env=env,
                          shell=True, stdout=f, stderr=f)
-      elapsed_ns = time.time_ns() - start_ns
+      elapsed_ns = time.perf_counter_ns() - start_ns
 
     build_result = evaluate_result(p.returncode)
-
+    build_type = user_input.build_type.name.lower()
     logging.info(
         f'build result: {build_result.name} '
         f'after {datetime.timedelta(microseconds=elapsed_ns / 1000)}')
-    _write_summary(
-        user_input.log_dir.joinpath(SUMMARY_CSV),
-        start_ns,
-        description=step.description,
-        run=run_number,
-        build_type=user_input.build_type.name.lower(),
-        build_result=build_result.name,
-        targets=' '.join(user_input.targets),
-        time=datetime.timedelta(microseconds=elapsed_ns / 1000),
-        ninja_explains=_count_explanations(logfile))
+    return {
+        'description': f'{cujgroup.description} {cujstep.description}',
+        'run': run_number,
+        'build_type': build_type,
+        'targets': ' '.join(user_input.targets),
+        'build_result': build_result.name,
+        'ninja_explains': _count_explanations(logfile),
+        'time': datetime.timedelta(microseconds=elapsed_ns / 1000)
+    }
 
-  for i in user_input.chosen_cujs:
-    cuj = _get_cujs()[i]
-    for step in cuj.steps:
-      logging.info('START %d "%s: %s"', i, cuj.description, step.description)
-      step.action()
+  clean = not get_out_dir().joinpath('soong/bootstrap.ninja').exists()
+  summary_csv_path: Final[Path] = user_input.log_dir.joinpath(SUMMARY_CSV)
+  for i in user_input.chosen_cujgroups:
+    cujgroup = get_cujgroups()[i]
+    for cujstep in cujgroup.steps:
+      logging.info('START %d "%s: %s"', i, cujgroup.description,
+                   cujstep.description)
+      cujstep.action()
       for run_number in range(0, user_input.repeat_count + 1):
-        do_run()
-      logging.info(' DONE %d "%s: %s"\n', i, cuj.description, step.description)
+        row = build() | read_perf_metrics(
+            user_input.log_dir,
+            f'{cujgroup.description} {cujstep.description}',
+            run_number)
+        if clean:
+          row['build_type'] = 'CLEAN ' + row['build_type']
+          clean = False  # we don't clean subsequently
+        _write_csv_row(summary_csv_path, row)
+      logging.info(' DONE %d "%s: %s"\n', i, cujgroup.description,
+                   cujstep.description)
 
   logging.info(_get_tip(user_input.log_dir))
 

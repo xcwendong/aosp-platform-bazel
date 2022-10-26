@@ -63,11 +63,11 @@ for arch in arm arm64 x86 x86_64; do
   # the Bazel analysis cache.
   #
   # 1. Build every target in $BUILD_TARGETS
-  tools/bazel ${STARTUP_FLAGS[@]} build ${FLAGS} --config=android -k -- ${BUILD_TARGETS}
+  build/bazel/bin/bazel ${STARTUP_FLAGS[@]} build ${FLAGS} --config=android -k -- ${BUILD_TARGETS}
   # 2. Test every target that is compatible with an android target platform (e.g. analysis_tests, sh_tests, diff_tests).
-  tools/bazel ${STARTUP_FLAGS[@]} test ${FLAGS} --build_tests_only --config=android -k -- ${TEST_TARGETS}
+  build/bazel/bin/bazel ${STARTUP_FLAGS[@]} test ${FLAGS} --build_tests_only --config=android -k -- ${TEST_TARGETS}
   # 3. Dist mainline modules.
-  tools/bazel ${STARTUP_FLAGS[@]} run //build/bazel/ci/dist:mainline_modules ${FLAGS} --config=android -- --dist_dir="${DIST_DIR}/mainline_modules_${arch}"
+  build/bazel/bin/bazel ${STARTUP_FLAGS[@]} run //build/bazel/ci/dist:mainline_modules ${FLAGS} --config=android -- --dist_dir="${DIST_DIR}/mainline_modules_${arch}"
 done
 
 #########
@@ -76,7 +76,7 @@ done
 
 # We can safely build and test all targets on the host linux config, and rely on
 # incompatible target skipping for tests that cannot run on the host.
-tools/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only=false -k \
+build/bazel/bin/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only=false -k \
   -- ${BUILD_TARGETS} ${TEST_TARGETS} "${HOST_INCOMPATIBLE_TARGETS[@]}"
 
 ###################
@@ -84,7 +84,7 @@ tools/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only=false -k \
 ###################
 
 function get_soong_names_from_queryview() {
-  names=$( tools/bazel query --config=ci --config=queryview --output=xml "${@}" \
+  names=$( build/bazel/bin/bazel query --config=ci --config=queryview --output=xml "${@}" \
     | awk -F'"' '$2 ~ /soong_module_name/ { print $4 }' \
     | sort -u )
   echo "${names[@]}"
@@ -121,11 +121,11 @@ report_args=""
 for m in "${BP2BUILD_PROGRESS_MODULES[@]}"; do
   report_args="$report_args -m ""${m}"
   if [[ "${m}" =~ (media.swcodec|neuralnetworks)$ ]]; then
-    tools/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- graph  -m "${m}" > "${bp2build_progress_output_dir}/${m}_graph.dot"
+    build/bazel/bin/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- graph  -m "${m}" > "${bp2build_progress_output_dir}/${m}_graph.dot"
   fi
 done
 
-tools/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- \
+build/bazel/bin/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- \
   report ${report_args} \
   --proto-file=$( realpath "${bp2build_progress_output_dir}" )"/bp2build-progress.pb" \
   > "${bp2build_progress_output_dir}/progress_report.txt"

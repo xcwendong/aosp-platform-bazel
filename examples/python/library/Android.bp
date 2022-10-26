@@ -20,7 +20,10 @@ package {
 
 python_binary_host {
     name: "build_bazel_examples_python_library_main",
-    srcs: ["main.py", "main2.py"],
+    srcs: [
+        "main.py",
+        "main2.py",
+    ],
     libs: ["build_bazel_examples_python_library_lib"],
     main: "main.py",
 }
