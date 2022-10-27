@@ -29,6 +29,7 @@ ApexToolchainInfo = provider(
         "apex_compression_tool",
         "soong_zip",
         "jsonmodify",
+        "manifest_fixer",
     ],
 )
 
@@ -47,6 +48,7 @@ def _apex_toolchain_impl(ctx):
             apex_compression_tool = ctx.attr.apex_compression_tool,
             soong_zip = ctx.file.soong_zip,
             jsonmodify = ctx.attr.jsonmodify,
+            manifest_fixer = ctx.attr.manifest_fixer,
         ),
     )
     return [toolchain_info]
@@ -69,5 +71,6 @@ apex_toolchain = rule(
         # soong_zip to compress APEX files. avbtool is also used in apex_compression tool
         # and has been added to apex toolchain previously.
         "soong_zip": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
+        "manifest_fixer": attr.label(cfg = "exec", executable = True, mandatory = True),
     },
 )

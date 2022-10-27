@@ -1259,6 +1259,116 @@ def _test_min_sdk_version_apex_inherit():
 
     return test_name
 
+def _apex_testonly_with_manifest_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "Apexer"]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "No apexer action found: %s" % actions,
+    )
+    argv = actions[0].argv
+
+    asserts.false(
+        env,
+        "--test_only" in argv,
+        "Calling apexer with --test_only when manifest file is specified: %s" % argv,
+    )
+
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "MarkAndroidManifestTestOnly"]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "No MarkAndroidManifestTestOnly action found: %s" % actions,
+    )
+    argv = actions[0].argv
+
+    asserts.true(
+        env,
+        "--test-only" in argv,
+        "Calling manifest_fixer without --test-only: %s" % argv,
+    )
+
+    return analysistest.end(env)
+
+apex_testonly_with_manifest_test = analysistest.make(
+    _apex_testonly_with_manifest_test_impl,
+)
+
+def _test_apex_testonly_with_manifest():
+    name = "apex_testonly_with_manifest"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_lib_cc",
+        srcs = [name + "_lib.cc"],
+        tags = ["manual"],
+        min_sdk_version = "32",
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_lib_cc"],
+        # This will not cause the validation failure because it is testonly.
+        min_sdk_version = "30",
+        testonly = True,
+        tests = [name + "_cc_test"],
+        android_manifest = "AndroidManifest.xml",
+    )
+
+    # It shouldn't complain about the min_sdk_version of the dep is too low.
+    apex_testonly_with_manifest_test(
+        name = test_name,
+        target_under_test = name,
+    )
+
+    return test_name
+
+def _apex_testonly_without_manifest_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "Apexer"]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "No apexer action found: %s" % actions,
+    )
+    argv = actions[0].argv
+
+    asserts.true(
+        env,
+        "--test_only" in argv,
+        "Calling apexer without --test_only when manifest file is not specified: %s" % argv,
+    )
+
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "MarkAndroidManifestTestOnly"]
+    asserts.true(
+        env,
+        len(actions) == 0,
+        "MarkAndroidManifestTestOnly shouldn't be called when manifest file is not specified: %s" % actions,
+    )
+
+    return analysistest.end(env)
+
+apex_testonly_without_manifest_test = analysistest.make(
+    _apex_testonly_without_manifest_test_impl,
+)
+
+def _test_apex_testonly_without_manifest():
+    name = "apex_testonly_without_manifest"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+        testonly = True,
+    )
+
+    apex_testonly_without_manifest_test(
+        name = test_name,
+        target_under_test = name,
+    )
+
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -1289,5 +1399,7 @@ def apex_test_suite(name):
             _test_apex_certificate_name(),
             _test_apex_certificate_label(),
             _test_min_sdk_version_apex_inherit(),
+            _test_apex_testonly_with_manifest(),
+            _test_apex_testonly_without_manifest(),
         ],
     )

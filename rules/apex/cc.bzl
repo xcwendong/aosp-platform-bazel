@@ -68,7 +68,8 @@ def _validate_min_sdk_version(ctx):
 
 def _apex_cc_aspect_impl(target, ctx):
     # Ensure that dependencies are compatible with this apex's min_sdk_level
-    _validate_min_sdk_version(ctx)
+    if not ctx.attr.testonly:
+        _validate_min_sdk_version(ctx)
 
     # Whether this dep is a direct dep of an APEX or makes a difference in dependency
     # traversal, and aggregation of libs that are required from the platform/other APEXes,
@@ -172,6 +173,8 @@ apex_cc_aspect = aspect(
         "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
         "_apex_direct_deps": attr.label(default = "//build/bazel/rules/apex:apex_direct_deps"),
         "_min_sdk_version": attr.label(default = "//build/bazel/rules/apex:min_sdk_version"),
+        # This is propagated from the apex
+        "testonly": attr.bool(default = False),
     },
     attr_aspects = ["dynamic_deps", "deps", "shared", "src", "runtime_deps"],
     # TODO: Have this aspect also propagate along attributes of native_shared_libs?

@@ -180,7 +180,7 @@ def get_cujgroups() -> list[CujGroup]:
       CujGroup('globbed bionic/libc/tzcode/asctime.c',
                [touch('bionic/libc/tzcode/asctime.c')]),
       CujGroup('stdio.cpp', [touch('bionic/libc/stdio/stdio.cpp')]),
-      CujGroup('adbd', [touch('packages/modules/adb/daemon/main.cpp')]),
+      CujGroup('adbd main.cpp', [touch('packages/modules/adb/daemon/main.cpp')]),
       CujGroup('View.java',
                [touch('frameworks/base/core/java/android/view/View.java')]),
 
@@ -199,7 +199,7 @@ def get_cujgroups() -> list[CujGroup]:
           f'{package_dir}/version_script.txt',
           'art/artd/tests/AndroidManifest.xml']],
 
-      CujGroup('root bp', [touch('Android.bp')]),
+      CujGroup('root Android.bp', [touch('Android.bp')]),
 
       *[create_and_delete(
           f'{d}/Android.bp',

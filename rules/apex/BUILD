@@ -105,6 +105,7 @@ apex_toolchain(
     conv_apex_manifest = "//system/apex/apexer:conv_apex_manifest",
     e2fsdroid = "//external/e2fsprogs/contrib/android:e2fsdroid",
     jsonmodify = "//build/soong/scripts:jsonmodify",
+    manifest_fixer = "//build/soong/scripts:manifest_fixer",
     mke2fs = "//external/e2fsprogs/misc:mke2fs",
     resize2fs = "//external/e2fsprogs/resize:resize2fs",
     sefcontext_compile = "//external/selinux/libselinux:sefcontext_compile",
