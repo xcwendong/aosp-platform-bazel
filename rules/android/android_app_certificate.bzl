@@ -22,12 +22,13 @@ AndroidAppCertificateInfo = provider(
     fields = {
         "pem": "Certificate .pem file",
         "pk8": "Certificate .pk8 file",
+        "key_name": "Key name",
     },
 )
 
 def _android_app_certificate_rule_impl(ctx):
     return [
-        AndroidAppCertificateInfo(pem = ctx.file.pem, pk8 = ctx.file.pk8),
+        AndroidAppCertificateInfo(pem = ctx.file.pem, pk8 = ctx.file.pk8, key_name = ctx.attr.certificate),
     ]
 
 _android_app_certificate = rule(
@@ -35,6 +36,7 @@ _android_app_certificate = rule(
     attrs = {
         "pem": attr.label(mandatory = True, allow_single_file = [".pem"]),
         "pk8": attr.label(mandatory = True, allow_single_file = [".pk8"]),
+        "certificate": attr.string(mandatory = True),
     },
 )
 
@@ -48,6 +50,7 @@ def android_app_certificate(
         name = name,
         pem = certificate + ".x509.pem",
         pk8 = certificate + ".pk8",
+        certificate = certificate,
         **kwargs
     )
 

@@ -14,8 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/bazel/platforms:transitions.bzl", "default_android_transition")
+load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load(":apex.bzl", "ApexInfo")
+load(":apex_key.bzl", "ApexKeyInfo")
+load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
 
 def _arch_transition_impl(settings, attr):
     """Implementation of arch_transition.
@@ -196,17 +200,151 @@ def _apex_bundle(ctx, module_name, merged_base_file, bundle_config_file):
     )
     return bundle_file
 
+def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
+    """ Run dev_sign_bundle to sign the bundle_file."""
+
+    # Python3 interpreter for dev_sign_bundle to run other python scripts.
+    python_interpreter = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"].py3_runtime.interpreter
+    if python_interpreter.basename != "python3":
+        python3 = ctx.actions.declare_file("python3")
+        ctx.actions.symlink(
+            output = python3,
+            target_file = python_interpreter,
+            is_executable = True,
+        )
+        python_interpreter = python3
+
+    # Input directory for dev_sign_bundle.
+    input_bundle_file = ctx.actions.declare_file(module_name + "/sign_bundle/input_dir/" + bundle_file.basename)
+    ctx.actions.symlink(
+        output = input_bundle_file,
+        target_file = bundle_file,
+    )
+
+    # Output directory  for dev_sign_bundle
+    output_dir = ctx.actions.declare_directory(module_name + "/sign_bundle/output_dir")
+
+    # Temporary directory for dev_sign_bundle
+    tmp_dir = ctx.actions.declare_directory(module_name + "/sign_bundle/tmp_dir")
+
+    # Jar file of prebuilts/bundletool
+    bundletool_jarfile = ctx.attr._bundletool_lib.files.to_list()[0]
+
+    # Keystore file
+    keystore_file = ctx.attr.dev_keystore.files.to_list()[0]
+
+    # ANDROID_HOST_OUT environment
+    debugfs_static = ctx.actions.declare_file(module_name + "/sign_bundle/android_host_out/bin/debugfs_static")
+    ctx.actions.symlink(
+        output = debugfs_static,
+        target_file = ctx.executable._debugfs,
+        is_executable = True,
+    )
+    fsck_erofs = ctx.actions.declare_file(module_name + "/sign_bundle/android_host_out/bin/fsck.erofs")
+    ctx.actions.symlink(
+        output = fsck_erofs,
+        target_file = ctx.executable._fsck_erofs,
+        is_executable = True,
+    )
+    signapk_jar = ctx.actions.declare_file(module_name + "/sign_bundle/android_host_out/framework/signapk.jar")
+    ctx.actions.symlink(
+        output = signapk_jar,
+        target_file = ctx.attr._signapk_jar.files.to_list()[0],
+        is_executable = False,
+    )
+    libconscrypt_openjdk_jni_so = ctx.actions.declare_file(module_name + "/sign_bundle/android_host_out/lib64/libconscrypt_openjdk_jni.so")
+    ctx.actions.symlink(
+        output = libconscrypt_openjdk_jni_so,
+        target_file = ctx.attr._libconscrypt_openjdk_jni.files.to_list()[1],
+        is_executable = False,
+    )
+
+    # Tools
+    tools = [
+        ctx.executable.dev_sign_bundle,
+        ctx.executable._deapexer,
+        ctx.executable._java,
+        ctx.executable._sign_apex,
+        ctx.executable._openssl,
+        aapt2,
+        avbtool.files_to_run.executable,
+        python_interpreter,
+        debugfs_static,
+        fsck_erofs,
+        bundletool_jarfile,
+        signapk_jar,
+        libconscrypt_openjdk_jni_so,
+    ]
+
+    # Inputs
+    inputs = [
+        input_bundle_file,
+        keystore_file,
+        apex_info.bundle_key_info.private_key,
+        apex_info.container_key_info.pem,
+        apex_info.container_key_info.pk8,
+    ]
+
+    # Outputs
+    outputs = [output_dir, tmp_dir]
+
+    # Arguments
+    args = ctx.actions.args()
+    args.add_all(["--input_dir", input_bundle_file.dirname])
+    args.add_all(["--output_dir", output_dir.path])
+    args.add_all(["--temp_dir", tmp_dir.path])
+    args.add_all(["--aapt2_path", aapt2.path])
+    args.add_all(["--bundletool_path", bundletool_jarfile.path])
+    args.add_all(["--deapexer_path", ctx.executable._deapexer.path])
+    args.add_all(["--debugfs_path", ctx.executable._debugfs.path])
+    args.add_all(["--java_binary_path", ctx.executable._java.path])
+    args.add_all(["--apex_signer_path", ctx.executable._sign_apex])
+
+    ctx.actions.run(
+        inputs = inputs,
+        outputs = outputs,
+        executable = ctx.executable.dev_sign_bundle,
+        arguments = [args],
+        tools = tools,
+        env = {
+            "PATH": ":".join(
+                [
+                    python_interpreter.dirname,
+                    ctx.executable._deapexer.dirname,
+                    avbtool.files_to_run.executable.dirname,
+                    ctx.executable._openssl.dirname,
+                    ctx.executable._java.dirname,
+                    "/usr/sbin",  # deapexer calls 'blkid' directly and assumes it is in PATH.
+                ],
+            ),
+            "BAZEL_ANDROID_HOST_OUT": paths.dirname(debugfs_static.dirname),
+        },
+        mnemonic = "ApexSignBundleFile",
+    )
+
+    apks_file = ctx.actions.declare_file(module_name + "/" + module_name + ".apks")
+    cert_info_file = ctx.actions.declare_file(module_name + "/" + module_name + ".cert_info.txt")
+    ctx.actions.run_shell(
+        inputs = [output_dir],
+        outputs = [apks_file, cert_info_file],
+        command = " ".join(["cp", output_dir.path + "/" + module_name + "/*", apks_file.dirname]),
+    )
+
+    return [apks_file, cert_info_file]
+
 def _apex_aab_impl(ctx):
     """Implementation of apex_aab rule, which drives the process of creating aab
     file from apex files created for each arch."""
     apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
 
+    signed_apex_files = {}
     prefixed_signed_apex_files = []
     apex_base_files = []
     bundle_config_file = None
     module_name = ctx.attr.mainline_module[0].label.name
     for arch in ctx.split_attr.mainline_module:
         signed_apex = ctx.split_attr.mainline_module[arch][ApexInfo].signed_output
+        signed_apex_files[arch] = signed_apex
 
         # Forward the individual files for all variants in an additional output group,
         # so dependents can easily access the multi-arch base APEX files by building
@@ -227,9 +365,20 @@ def _apex_aab_impl(ctx):
         base_file = _apex_base_file(ctx, arch, module_name, proto_convert_file)
         apex_base_files.append(base_file)
 
+    # Create .aab file
     bundle_config_file = _build_bundle_config(ctx, module_name)
     merged_base_file = _merge_base_files(ctx, module_name, apex_base_files)
     bundle_file = _apex_bundle(ctx, module_name, merged_base_file, bundle_config_file)
+
+    # Create .apks file
+    apex_info = ctx.attr.mainline_module[0][ApexInfo]
+
+    if ctx.attr.dev_sign_bundle and ctx.attr.dev_keystore:
+        signed_files = _sign_bundle(ctx, apex_toolchain.aapt2, apex_toolchain.avbtool, module_name, bundle_file, apex_info)
+        return [
+            DefaultInfo(files = depset([bundle_file] + signed_files)),
+            OutputGroupInfo(apex_files = depset(prefixed_signed_apex_files), signed_files = signed_files),
+        ]
 
     return [
         DefaultInfo(files = depset([bundle_file])),
@@ -240,16 +389,27 @@ def _apex_aab_impl(ctx):
 # Android Apk Bundle (.aab) file of the APEX specified in mainline_module.
 # There is no equivalent Soong module, and it is currently done in shell script
 # by invoking Soong multiple times.
-apex_aab = rule(
+_apex_aab = rule(
     implementation = _apex_aab_impl,
     cfg = default_android_transition,
-    toolchains = ["//build/bazel/rules/apex:apex_toolchain_type"],
+    toolchains = [
+        "//build/bazel/rules/apex:apex_toolchain_type",
+        "@bazel_tools//tools/python:toolchain_type",
+    ],
     attrs = {
         "mainline_module": attr.label(
             mandatory = True,
             cfg = arch_transition,
             providers = [ApexInfo],
             doc = "The label of a mainline module target",
+        ),
+        "dev_sign_bundle": attr.label(
+            cfg = "exec",
+            executable = True,
+        ),
+        "dev_keystore": attr.label(
+            cfg = "exec",
+            executable = False,
         ),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
@@ -272,5 +432,70 @@ apex_aab = rule(
             executable = True,
             default = "//prebuilts/bundletool",
         ),
+        "_bundletool_lib": attr.label(
+            cfg = "exec",
+            executable = False,
+            default = "//prebuilts/bundletool:bundletool-lib",
+        ),
+        "_deapexer": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = "//system/apex/tools:deapexer",
+        ),
+        "_debugfs": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = "//external/e2fsprogs/debugfs:debugfs_static",
+        ),
+        "_sign_apex": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = "//build/make/tools/releasetools:sign_apex",
+        ),
+        "_signapk_jar": attr.label(
+            cfg = "exec",
+            executable = False,
+            default = "//build/bazel/rules/apex:signapk_deploy_jar",
+        ),
+        "_libconscrypt_openjdk_jni": attr.label(
+            cfg = "exec",
+            executable = False,
+            default = "//external/conscrypt:libconscrypt_openjdk_jni",
+        ),
+        "_java": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = "@local_jdk//:java",
+        ),
+        "_jdk_bin": attr.label(
+            cfg = "exec",
+            executable = False,
+            default = "@local_jdk//:jdk-bin",
+        ),
+        "_openssl": attr.label(
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
+            default = "//prebuilts/build-tools:linux-x86/bin/openssl",
+        ),
+        "_fsck_erofs": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = "//external/erofs-utils:fsck.erofs",
+        ),
+        "_zipper": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = "@bazel_tools//tools/zip:zipper",
+        ),
     },
 )
+
+def apex_aab(name, mainline_module, dev_sign_bundle = None, dev_keystore = None, **kwargs):
+    _apex_aab(
+        name = name,
+        mainline_module = mainline_module,
+        dev_sign_bundle = dev_sign_bundle,
+        dev_keystore = dev_keystore,
+        **kwargs
+    )

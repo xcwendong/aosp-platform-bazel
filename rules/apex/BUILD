@@ -136,3 +136,9 @@ apex_aab_test_suite(
 apex_key_test_suite(
     name = "apex_key_tests",
 )
+
+filegroup(
+    name = "signapk_deploy_jar",
+    srcs = ["//build/make/tools/signapk:signapk_deploy.jar"],
+    visibility = ["//visibility:public"],
+)

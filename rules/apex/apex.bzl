@@ -35,8 +35,9 @@ ApexInfo = provider(
         "requires_native_libs": "Labels of native shared libs that this apex requires.",
         "unsigned_output": "Unsigned .apex file.",
         "signed_output": "Signed .apex file.",
-        "bundle_key_pair": "APEX bundle signing public/private key pair (the value of the key: attribute).",
-        "container_key_pair": "APEX zip signing public/private key pair (the value of the certificate: attribute).",
+        "bundle_key_info": "APEX bundle signing public/private key pair (the value of the key: attribute).",
+        "container_key_info": "Info of the container key provided as AndroidAppCertificateInfo.",
+        "package_name": "APEX package name.",
     },
 )
 
@@ -456,8 +457,9 @@ def _apex_rule_impl(ctx):
             unsigned_output = unsigned_apex,
             requires_native_libs = requires_native_libs,
             provides_native_libs = provides_native_libs,
-            bundle_key_pair = [apex_key_info.public_key, apex_key_info.private_key],
-            container_key_pair = [public_key, private_key],
+            bundle_key_info = apex_key_info,
+            container_key_info = apex_cert_info,
+            package_name = ctx.attr.package_name,
         ),
     ]
 

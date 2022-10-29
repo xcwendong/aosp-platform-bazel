@@ -1088,10 +1088,10 @@ def _test_min_sdk_version_failure_transitive():
 def _apex_certificate_test(ctx):
     env = analysistest.begin(ctx)
     target_under_test = analysistest.target_under_test(env)
-    cert = target_under_test[ApexInfo].container_key_pair
+    container_key_info = target_under_test[ApexInfo].container_key_info
 
-    asserts.equals(env, ctx.attr.expected_pem_path, cert[0].path)
-    asserts.equals(env, ctx.attr.expected_pk8_path, cert[1].path)
+    asserts.equals(env, ctx.attr.expected_pem_path, container_key_info.pem.path)
+    asserts.equals(env, ctx.attr.expected_pk8_path, container_key_info.pk8.path)
 
     return analysistest.end(env)
 

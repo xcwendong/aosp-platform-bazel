@@ -21,19 +21,20 @@ def _apex_aab_test(ctx):
     target_under_test = analysistest.target_under_test(env)
     asserts.true(
         env,
-        len(target_under_test.files.to_list()) == 1,
+        len(target_under_test.files.to_list()) == len(ctx.attr.expected_paths),
     )
-    asserts.equals(
-        env,
-        target_under_test.files.to_list()[0].short_path,
-        ctx.attr.expected_path,
-    )
+    for i in range(0, len(ctx.attr.expected_paths)):
+        asserts.equals(
+            env,
+            target_under_test.files.to_list()[i].short_path,
+            ctx.attr.expected_paths[i],
+        )
     return analysistest.end(env)
 
 apex_aab_test = analysistest.make(
     _apex_aab_test,
     attrs = {
-        "expected_path": attr.string(mandatory = True),
+        "expected_paths": attr.string_list(mandatory = True),
     },
 )
 
@@ -53,7 +54,7 @@ def _test_apex_aab_generates_aab():
     apex_aab_test(
         name = test_name,
         target_under_test = name,
-        expected_path = "/".join([native.package_name(), apex_name, apex_name + ".aab"]),
+        expected_paths = ["/".join([native.package_name(), apex_name, apex_name + ".aab"])],
     )
 
     return test_name
@@ -109,11 +110,39 @@ def _test_apex_aab_apex_files_output_group():
 
     return test_name
 
+def _test_apex_aab_generates_aab_and_apks():
+    name = "apex_aab_apks"
+    test_name = name + "_test"
+    apex_name = name + "_apex"
+
+    test_apex(name = apex_name)
+
+    apex_aab(
+        name = name,
+        mainline_module = apex_name,
+        dev_sign_bundle = "//build/make/tools/releasetools:sign_apex",
+        dev_keystore = "//build/bazel/rules/apex/testdata:dev-keystore",
+        tags = ["manual"],
+    )
+
+    apex_aab_test(
+        name = test_name,
+        target_under_test = name,
+        expected_paths = [
+            "/".join([native.package_name(), apex_name, apex_name + ".aab"]),
+            "/".join([native.package_name(), apex_name, apex_name + ".apks"]),
+            "/".join([native.package_name(), apex_name, apex_name + ".cert_info.txt"]),
+        ],
+    )
+
+    return test_name
+
 def apex_aab_test_suite(name):
     native.test_suite(
         name = name,
         tests = [
             _test_apex_aab_generates_aab(),
             _test_apex_aab_apex_files_output_group(),
+            _test_apex_aab_generates_aab_and_apks(),
         ],
     )
