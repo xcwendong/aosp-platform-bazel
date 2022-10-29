@@ -13,7 +13,7 @@ from typing import Final
 
 @dataclasses.dataclass(frozen=True)
 class CujStep:
-  description: str
+  verb: str
   action: Callable[[], None]
   test: Callable[[], bool] = lambda: True
 
@@ -29,11 +29,11 @@ class CujGroup:
 
   def __str__(self) -> str:
     if len(self.steps) < 2:
-      return f'{self.description}: {self.steps[0].description}'
+      return f'{self.steps[0].verb} {self.description}'
     steps_str = ' '.join(
-        [f'({chr(ord("a") + i)}) {step.description}' for i, step in
+        [f'({chr(ord("a") + i)}) {step.verb}' for i, step in
          enumerate(self.steps)])
-    return f'{self.description}:  {steps_str}'
+    return f'{steps_str} {self.description}'
 
 
 INDICATOR_FILE: Final[str] = 'build/soong/soong_ui.bash'
@@ -175,7 +175,7 @@ def get_cujgroups() -> list[CujGroup]:
   package_dir = 'bionic/libc'
   dir_without_subpackage = 'bionic/libc/bionic'
   return [
-      CujGroup('initial build', [CujStep('no-op', lambda: None)]),
+      CujGroup('', [CujStep('no change', lambda: None)]),
 
       CujGroup('globbed bionic/libc/tzcode/asctime.c',
                [touch('bionic/libc/tzcode/asctime.c')]),

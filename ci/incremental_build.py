@@ -39,6 +39,7 @@ from typing import Mapping
 from typing import Optional
 from typing import TypeVar
 
+from incremental_build_cujs import CujGroup
 from incremental_build_cujs import get_cujgroups
 from incremental_build_cujs import get_out_dir
 from incremental_build_cujs import get_top_dir
@@ -153,11 +154,12 @@ def read_perf_metrics(log_dir: Path, description: str, run_number: int) -> dict[
 
   def unwrap(desc: str) -> str:
     """
-    soong_build events have a "mixed_build" event wrapper, remove it for
-    ease of comparison with legacy soong builds.
-    Also drop the "soong_build" root event.
+    soong_build events may have a "mixed_build" event. To normalize the naming
+    between mixed builds and soong legacy build, convert
+    `soong_build/soong_build.xyz` and `soong_build/soong_build.mixed_build.xyz`
+    both to simply `soong_build/_.xyz`
     """
-    return desc.replace('soong_build/soong_build.', 'soong_build/').replace(
+    return desc.replace('soong_build/soong_build', 'soong_build/_').replace(
         '.mixed_build.', '.')
 
   return {unwrap(f'{m.name}/{m.description}'): m.real_time for m in events}
@@ -293,13 +295,21 @@ def _handle_user_input() -> UserInput:
       if 0 <= i < len(get_cujgroups()):
         return [i]
     else:
-      matches = [i for i, cujgroup in enumerate(get_cujgroups()) if
-                 input_str in cujgroup.description]
-      if len(matches):
-        return matches
+      def matches_any(cujgroup: CujGroup) -> bool:
+        for cujstep in cujgroup.steps:
+          if input_str in f'{cujstep.verb} {cujgroup.description}':
+            return True
+        return False
+
+      matching_cuj_groups = [i for i, cujgroup in enumerate(get_cujgroups()) if
+                             matches_any(cujgroup)]
+      if len(matching_cuj_groups):
+        return matching_cuj_groups
     raise argparse.ArgumentError(
         argument=None,
-        message=f'Invalid input, expected {min} <= {input_str} <= {max}')
+        message=f'Invalid input: {input_str} '
+                f'expected an index <= {len(get_cujgroups())} '
+                'or a substring that matches a CUJ')
 
   p = argparse.ArgumentParser(
       formatter_class=argparse.RawTextHelpFormatter,
@@ -326,7 +336,7 @@ def _handle_user_input() -> UserInput:
                       'Defaults to %(default)d\n'
                       'TIP: Repetitions should ideally be null builds.')
   p.add_argument('--all-metrics', default=False, action='store_true',
-                 help=f'gather all metrics in {SUMMARY_CSV} instead of just'
+                 help=f'gather all metrics in {SUMMARY_CSV} instead of just: '
                       f'{", ".join(IMPORTANT_METRICS)}')
   log_levels = dict(getattr(logging, '_levelToName')).values()
   p.add_argument('-v', '--verbosity', choices=log_levels, default='INFO',
@@ -346,8 +356,7 @@ def _handle_user_input() -> UserInput:
   p.add_argument('--repo-diff-ignore', default=False, action='store_true',
                  help='Skip "repo status" check')
 
-  p.add_argument('targets', nargs='*', default=['droid', 'dist'],
-                 help='Targets to run, defaults to %(default)s.')
+  p.add_argument('targets', nargs='+', help='Targets to run')
 
   options = p.parse_args()
   if options.verbosity:
@@ -471,7 +480,7 @@ def main():
 
   def build() -> dict[str, any]:
     logfile = _to_file(user_input.log_dir,
-                       f'{cujgroup.description} {cujstep.description}',
+                       f'{cujstep.verb} {cujgroup.description}',
                        run_number,
                        'log')
     logging.info('TIP: to see the log:\n  tail -f "%s"', logfile)
@@ -490,7 +499,7 @@ def main():
         f'build result: {build_result.name} '
         f'after {datetime.timedelta(microseconds=elapsed_ns / 1000)}')
     return {
-        'description': f'{cujgroup.description} {cujstep.description}',
+        'description': f'{cujstep.verb} {cujgroup.description}',
         'run': run_number,
         'build_type': build_type,
         'targets': ' '.join(user_input.targets),
@@ -504,23 +513,21 @@ def main():
   for i in user_input.chosen_cujgroups:
     cujgroup = get_cujgroups()[i]
     for cujstep in cujgroup.steps:
-      logging.info('START %d "%s: %s"', i, cujgroup.description,
-                   cujstep.description)
+      logging.info('START %d %s %s', i, cujstep.verb, cujgroup.description)
       cujstep.action()
       for run_number in range(0, user_input.repeat_count + 1):
         info = build()
         perf = read_perf_metrics(
             user_input.log_dir,
-            f'{cujgroup.description} {cujstep.description}',
+            f'{cujstep.verb} {cujgroup.description}',
             run_number)
         if not user_input.all_metrics:
-          perf = {k: v for k, v in perf if k in IMPORTANT_METRICS}
+          perf = {k: v for k, v in perf.items() if k in IMPORTANT_METRICS}
         if clean:
           info['build_type'] = 'CLEAN ' + info['build_type']
           clean = False  # we don't clean subsequently
         _write_csv_row(summary_csv_path, info | perf)
-      logging.info(' DONE %d "%s: %s"\n', i, cujgroup.description,
-                   cujstep.description)
+      logging.info(' DONE %d %s %s\n', i, cujstep.verb, cujgroup.description)
 
   logging.info(_get_tip(user_input.log_dir))
 
