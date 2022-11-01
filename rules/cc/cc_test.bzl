@@ -44,6 +44,10 @@ def cc_test(
         dynamic_deps = [],
         gtest = True,
         isolated = True,  # TODO(b/244432609): currently no-op.
+        tidy = None,
+        tidy_checks = None,
+        tidy_checks_as_errors = None,
+        tidy_flags = None,
         **kwargs):
     # NOTE: Keep this in sync with cc/test.go#linkerDeps
     if gtest:
@@ -60,5 +64,9 @@ def cc_test(
         deps = deps,
         dynamic_deps = dynamic_deps,
         generate_cc_test = True,
+        tidy = tidy,
+        tidy_checks = tidy_checks,
+        tidy_checks_as_errors = tidy_checks_as_errors,
+        tidy_flags = tidy_flags,
         **kwargs
     )

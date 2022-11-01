@@ -177,3 +177,22 @@ def parse_apex_sdk_version(version):
         fail("Unknown sdk version: %s, could not be parsed as " % version +
              "an integer and/or is not a recognized codename. Valid api levels are:" +
              str(api_levels))
+
+_HEADER_EXTENSIONS = ["h", "hh", "hpp", "hxx", "h++", "inl", "inc", "ipp", "h.generic"]
+
+def get_non_header_srcs(srcs):
+    """get_non_header_srcs returns a list of srcs that do not have header extensions and aren't in the exclude srcs list
+
+    Args:
+        srcs (list[File]): list of file to filter
+    Returns:
+        list[File]: files that have non-header extension and are not excluded
+    """
+    srcs = []
+    hdrs = []
+    for s in srcs:
+        if s.extension not in _HEADER_EXTENSIONS:
+            srcs.append(s)
+        else:
+            hdrs.append(s)
+    return srcs, hdrs

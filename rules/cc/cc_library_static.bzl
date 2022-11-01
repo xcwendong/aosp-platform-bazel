@@ -17,11 +17,13 @@ limitations under the License.
 load(
     ":cc_library_common.bzl",
     "create_ccinfo_for_includes",
+    "get_non_header_srcs",
     "is_external_directory",
     "parse_sdk_version",
     "system_dynamic_deps_defaults",
 )
 load(":stl.bzl", "stl_info_from_attr")
+load(":clang_tidy.bzl", "generate_clang_tidy_actions")
 load("@bazel_skylib//lib:collections.bzl", "collections")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//build/bazel/product_variables:constants.bzl", "constants")
@@ -69,7 +71,11 @@ def cc_library_static(
         data = [],
         sdk_version = "",
         min_sdk_version = "",
-        tags = []):
+        tags = [],
+        tidy = None,
+        tidy_checks = None,
+        tidy_checks_as_errors = None,
+        tidy_flags = None):
     "Bazel macro to correspond with the cc_library_static Soong module."
 
     exports_name = "%s_exports" % name
@@ -198,6 +204,17 @@ def cc_library_static(
         target_compatible_with = target_compatible_with,
         alwayslink = alwayslink,
         tags = tags,
+        features = toolchain_features,
+        tidy = tidy,
+        srcs_cpp = srcs,
+        srcs_c = srcs_c,
+        copts_cpp = copts + cppflags,
+        copts_c = copts + conlyflags,
+        hdrs = hdrs,
+        includes = [locals_name, exports_name],
+        tidy_flags = tidy_flags,
+        tidy_checks = tidy_checks,
+        tidy_checks_as_errors = tidy_checks_as_errors,
     )
 
 # Returns a CcInfo object which combines one or more CcInfo objects, except that all
@@ -290,11 +307,44 @@ def _cc_library_combiner_impl(ctx):
         ),
         outputs = [output_file],
     )
-    return [
+
+    providers = [
         DefaultInfo(files = depset(direct = [output_file]), data_runfiles = ctx.runfiles(files = [output_file])),
         CcInfo(compilation_context = combined_info.compilation_context, linking_context = linking_context),
         CcStaticLibraryInfo(root_static_archive = output_file, objects = objects_to_link),
     ]
+
+    if ctx.attr.tidy:
+        cpp_srcs, cpp_hdrs = get_non_header_srcs(ctx.files.srcs_cpp)
+        c_srcs, c_hdrs = get_non_header_srcs(ctx.files.srcs_c)
+        hdrs = ctx.attr.hdrs + cpp_hdrs + c_hdrs
+        cpp_tidy_outs = generate_clang_tidy_actions(
+            ctx,
+            ctx.attr.copts_cpp,
+            ctx.attr.deps + ctx.attr.includes,
+            cpp_srcs,
+            hdrs,
+            "c++",
+            ctx.attr.tidy_flags,
+            ctx.attr.tidy_checks,
+            ctx.attr.tidy_checks_as_errors,
+        )
+        c_tidy_outs = generate_clang_tidy_actions(
+            ctx,
+            ctx.attr.copts_c,
+            ctx.attr.deps + ctx.attr.includes,
+            c_srcs,
+            hdrs,
+            "c",
+            ctx.attr.tidy_flags,
+            ctx.attr.tidy_checks,
+            ctx.attr.tidy_checks_as_errors,
+        )
+        providers.append(OutputGroupInfo(
+            _validation = depset(cpp_tidy_outs + c_tidy_outs),
+        ))
+
+    return providers
 
 # A rule which combines objects of oen or more cc_library targets into a single
 # static linker input. This outputs a single archive file combining the objects
@@ -324,6 +374,38 @@ _cc_library_combiner = rule(
             archive to be unconditionally linked, regardless of whether the
             symbols in these object files are being searched by the linker.""",
             default = False,
+        ),
+
+        # Clang-tidy attributes
+        "tidy": attr.bool(),
+        "srcs_cpp": attr.label_list(allow_files = True),
+        "srcs_c": attr.label_list(allow_files = True),
+        "copts_cpp": attr.string_list(),
+        "copts_c": attr.string_list(),
+        "hdrs": attr.label_list(allow_files = True),
+        "includes": attr.label_list(),
+        "tidy_checks": attr.string_list(),
+        "tidy_checks_as_errors": attr.string_list(),
+        "tidy_flags": attr.string_list(),
+        "_clang_tidy_sh": attr.label(
+            default = Label("@//prebuilts/clang/host/linux-x86:clang-tidy.sh"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+            doc = "The clang tidy shell wrapper",
+        ),
+        "_clang_tidy": attr.label(
+            default = Label("@//prebuilts/clang/host/linux-x86:clang-tidy"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+            doc = "The clang tidy executable",
+        ),
+        "_clang_tidy_real": attr.label(
+            default = Label("@//prebuilts/clang/host/linux-x86:clang-tidy.real"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
         ),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
