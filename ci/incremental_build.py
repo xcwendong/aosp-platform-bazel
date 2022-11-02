@@ -129,7 +129,8 @@ class PerfInfoOrEvent:
       self.real_time = datetime.timedelta(microseconds=self.real_time / 1000)
 
 
-def read_perf_metrics(log_dir: Path, description: str, run_number: int) -> dict[
+def read_perf_metrics(log_dir: Path, build_type_name: str, description: str,
+                      run_number: int) -> dict[
   str, datetime.timedelta]:
   soong_pb: Final[Path] = get_out_dir().joinpath('soong_metrics')
   bp2build_pb: Final[Path] = get_out_dir().joinpath('bp2build_metrics.pb')
@@ -143,12 +144,14 @@ def read_perf_metrics(log_dir: Path, description: str, run_number: int) -> dict[
   if soong_pb.exists():
     events.extend(read_perf_metrics_pb(soong_pb, soong_proto, soong_msg))
     soong_pb.rename(
-        _to_file(log_dir, f'soong_metrics_{description}', run_number, 'pb'))
+        _to_file(log_dir, build_type_name, f'soong_metrics_{description}',
+                 run_number, 'pb'))
   if bp2build_pb.exists():
     events.extend(
         read_perf_metrics_pb(bp2build_pb, bp2build_proto, bp2build_msg))
     bp2build_pb.rename(
-        _to_file(log_dir, f'bp2_build_metrics_{description}', run_number, 'pb'))
+        _to_file(log_dir, build_type_name, f'bp2_build_metrics_{description}',
+                 run_number, 'pb'))
 
   events.sort(key=lambda e: e.start_time)
 
@@ -274,16 +277,19 @@ def _write_csv_row(summary_csv: Path, row: dict[str, any]):
     writer.writerows(rows)
 
 
-def _to_file(parent: Path, description: str, suffix: int, ext: str) -> Path:
+def _to_file(parent: Path, build_type_name: str, descr: str, suffix: int,
+             ext: str) -> Path:
   """
-  Basically a safer f'{description}-{suffix}.{extension}'.
+  Basically a safer f'{descr}-{suffix}.{extension}'.
   If such a file already exists the suffix is incremented as needed.
   """
-  f = parent.joinpath(
-      f'{description.replace("/", "__")}-{suffix}.{ext}')
+  f = parent.joinpath("-".join((build_type_name,
+                                descr.replace("/", "__").replace(" ", "_"),
+                                str(suffix)))
+                      + "." + ext)
   f.parent.mkdir(parents=True, exist_ok=True)
   if f.exists():
-    return _to_file(parent, description, suffix + 1, ext)
+    return _to_file(parent, build_type_name, descr, suffix + 1, ext)
   f.touch(exist_ok=False)
   return f
 
@@ -462,7 +468,9 @@ def main():
        `m clean && rm -rf out`'''))
 
   env = _prepare_env()
+  build_type_name = user_input.build_type.name.lower()
   cmd = f'{user_input.build_type.value} {" ".join(user_input.targets)}'
+  logging.info(f'Command: {cmd}')
 
   @functools.cache
   def pretty_printed_env() -> str:
@@ -479,7 +487,7 @@ def main():
       return BuildResult.TEST_FAILURE
 
   def build() -> dict[str, any]:
-    logfile = _to_file(user_input.log_dir,
+    logfile = _to_file(user_input.log_dir, build_type_name,
                        f'{cujstep.verb} {cujgroup.description}',
                        run_number,
                        'log')
@@ -494,14 +502,13 @@ def main():
       elapsed_ns = time.perf_counter_ns() - start_ns
 
     build_result = evaluate_result(p.returncode)
-    build_type = user_input.build_type.name.lower()
     logging.info(
         f'build result: {build_result.name} '
         f'after {datetime.timedelta(microseconds=elapsed_ns / 1000)}')
     return {
         'description': f'{cujstep.verb} {cujgroup.description}',
         'run': run_number,
-        'build_type': build_type,
+        'build_type_name': build_type_name,
         'targets': ' '.join(user_input.targets),
         'build_result': build_result.name,
         'ninja_explains': _count_explanations(logfile),
@@ -518,13 +525,13 @@ def main():
       for run_number in range(0, user_input.repeat_count + 1):
         info = build()
         perf = read_perf_metrics(
-            user_input.log_dir,
+            user_input.log_dir, build_type_name,
             f'{cujstep.verb} {cujgroup.description}',
             run_number)
         if not user_input.all_metrics:
           perf = {k: v for k, v in perf.items() if k in IMPORTANT_METRICS}
         if clean:
-          info['build_type'] = 'CLEAN ' + info['build_type']
+          info['build_type_name'] = 'CLEAN ' + info['build_type_name']
           clean = False  # we don't clean subsequently
         _write_csv_row(summary_csv_path, info | perf)
       logging.info(' DONE %d %s %s\n', i, cujstep.verb, cujgroup.description)
