@@ -76,3 +76,40 @@ if [[ ! $(grep -L "bazel-out" ${OUT_DIR}/soong/build.ninja) ]]; then
   echo "Expected second legacy build to not reference bazel-out"
   exit 1
 fi
+
+# Regenerate the ninja file with mixed builds prod mode flag.
+# TODO(cparsons): Enable this test when the prod allowlist is non-empty.
+#build/soong/soong_ui.bash --make-mode \
+#  --mk-metrics \
+#  --bazel-mode \
+#  DISABLE_ARTIFACT_PATH_REQUIREMENTS=true \
+#  BAZEL_STARTUP_ARGS="--max_idle_secs=5" \
+#  BAZEL_BUILD_ARGS="--color=no --curses=no --show_progress_rate_limit=5" \
+#  TARGET_PRODUCT=aosp_arm64 \
+#  TARGET_BUILD_VARIANT=userdebug \
+#  nothing \
+#  dist DIST_DIR=$DIST_DIR
+#
+#if [[ $(grep -L "bazel-out" ${OUT_DIR}/soong/build.ninja) ]]; then
+#  echo "Expected prod mode ninja file to reference bazel-out"
+#  exit 1
+#fi
+
+# Regenerate the ninja file with mixed builds flag but BUILD_BROKEN
+# override. This should have mixed builds disabled.
+build/soong/soong_ui.bash --make-mode \
+  --mk-metrics \
+  --bazel-mode \
+  DISABLE_ARTIFACT_PATH_REQUIREMENTS=true \
+  BUILD_BROKEN_DISABLE_BAZEL=true \
+  BAZEL_STARTUP_ARGS="--max_idle_secs=5" \
+  BAZEL_BUILD_ARGS="--color=no --curses=no --show_progress_rate_limit=5" \
+  TARGET_PRODUCT=aosp_arm64 \
+  TARGET_BUILD_VARIANT=userdebug \
+  nothing \
+  dist DIST_DIR=$DIST_DIR
+
+if [[ ! $(grep -L "bazel-out" ${OUT_DIR}/soong/build.ninja) ]]; then
+  echo "Expected BUILD_BROKEN override to not reference bazel-out"
+  exit 1
+fi

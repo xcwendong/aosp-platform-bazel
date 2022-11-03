@@ -372,8 +372,9 @@ def _apex_aab_impl(ctx):
 
     # Create .apks file
     apex_info = ctx.attr.mainline_module[0][ApexInfo]
+    package_name = apex_info.package_name
 
-    if ctx.attr.dev_sign_bundle and ctx.attr.dev_keystore:
+    if ctx.attr.dev_sign_bundle and ctx.attr.dev_keystore and (package_name.startswith("com.google.android") or package_name.startswith("com.google.mainline")):
         signed_files = _sign_bundle(ctx, apex_toolchain.aapt2, apex_toolchain.avbtool, module_name, bundle_file, apex_info)
         return [
             DefaultInfo(files = depset([bundle_file] + signed_files)),

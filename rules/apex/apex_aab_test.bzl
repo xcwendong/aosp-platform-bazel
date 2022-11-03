@@ -115,7 +115,7 @@ def _test_apex_aab_generates_aab_and_apks():
     test_name = name + "_test"
     apex_name = name + "_apex"
 
-    test_apex(name = apex_name)
+    test_apex(name = apex_name, package_name = "com.google.android." + apex_name)
 
     apex_aab(
         name = name,

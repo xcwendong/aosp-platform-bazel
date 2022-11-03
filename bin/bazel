@@ -208,11 +208,6 @@ if  is_standalone_bazel; then
     >&2 echo "for Android Platform builds. Use this mode at your own risk."
     >&2 echo
 else
-    # STANDALONE_BAZEL is not set.
-    >&2 echo "WARNING: Bazel support for the Android Platform is experimental and is undergoing development."
-    >&2 echo "WARNING: Currently, build stability is not guaranteed. Thank you."
-    >&2 echo
-
     # Generate a bazelrc with dynamic content, like the absolute path to PATH variable values.
     create_bazelrc
     # Check that the Bazel synthetic workspace and other required inputs exist before handing over control to Bazel.
