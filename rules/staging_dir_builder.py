@@ -25,10 +25,10 @@ def main(argv):
     '''Build a staging directory, and then call a custom command.
 
     The first argument to this script must be the path to a file containing a json
-    dictionary mapping input files to their path in the staging directory. The rest
-    of the arguments will be run as a separate command. At least one other argument
-    must be "STAGING_DIR_PLACEHOLDER", which will be replaced with the path to the
-    staging directory.
+    dictionary mapping paths in the staging directory to paths to files that should
+    be copied there. The rest of the arguments will be run as a separate command.
+    At least one other argument must be "STAGING_DIR_PLACEHOLDER", which will be
+    replaced with the path to the staging directory.
 
     Example:
     staging_dir_builder file_mapping.json path/to/apexer --various-apexer-flags STAGING_DIR_PLACEHOLDER path/to/out.apex.unsigned
@@ -41,14 +41,35 @@ def main(argv):
     try:
         with open(argv[0], 'r') as f:
             file_mapping = json.load(f)
-    except (IOError, OSError) as e:
+    except OSError as e:
         sys.exit(str(e))
+    except json.JSONDecodeError as e:
+        sys.exit(argv[0] + ": JSON decode error: " + str(e))
+
+    # Validate and clean the file_mapping. This consists of:
+    #   - Making sure it's a dict[str, str]
+    #   - Normalizing the paths in the staging dir and stripping leading /s
+    #   - Making sure there are no duplicate paths in the staging dir
+    #   - Making sure no paths use .. to break out of the staging dir
+    cleaned_file_mapping = {}
+    if not isinstance(file_mapping, dict):
+        sys.exit(argv[0] + ": expected a JSON dict[str, str]")
+    for path_in_staging_dir, path_in_bazel in file_mapping.items():
+        if not isinstance(path_in_staging_dir, str) or not isinstance(path_in_bazel, str):
+            sys.exit(argv[0] + ": expected a JSON dict[str, str]")
+        path_in_staging_dir = os.path.normpath(path_in_staging_dir).lstrip('/')
+        if path_in_staging_dir in cleaned_file_mapping:
+            sys.exit("Staging dir path repeated twice: " + path_in_staging_dir)
+        if path_in_staging_dir.startswith('../'):
+            sys.exit("Path attempts to break out of staging dir: " + path_in_staging_dir)
+        cleaned_file_mapping[path_in_staging_dir] = path_in_bazel
+    file_mapping = cleaned_file_mapping
 
     argv = argv[1:]
 
     with tempfile.TemporaryDirectory() as staging_dir:
-        for path_in_bazel, path_in_staging_dir in file_mapping.items():
-            path_in_staging_dir = os.path.join(staging_dir, path_in_staging_dir.lstrip('/'))
+        for path_in_staging_dir, path_in_bazel in file_mapping.items():
+            path_in_staging_dir = os.path.join(staging_dir, path_in_staging_dir)
 
             # Because Bazel execution root is a symlink forest, all the input files are symlinks, these
             # include the dependency files declared in the BUILD files as well as the files declared

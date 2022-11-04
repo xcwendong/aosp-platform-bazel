@@ -303,14 +303,14 @@ def _partition_impl(ctx):
     for dep in ctx.attr.deps:
         files.update(dep[InstallableInfo].files)
 
-    for v in files.values():
+    for v in files.keys():
         if not v.startswith("/system"):
             fail("Files outside of /system are not currently supported: %s", v)
 
     file_mapping_file = ctx.actions.declare_file(ctx.attr.name + "/partition_file_mapping.json")
 
     # It seems build_image will prepend /system to the paths when building_system_image=true
-    ctx.actions.write(file_mapping_file, json.encode({k.path: v.removeprefix("/system") for k, v in files.items()}))
+    ctx.actions.write(file_mapping_file, json.encode({k.removeprefix("/system"): v.path for k, v in files.items()}))
 
     ctx.actions.run(
         inputs = [

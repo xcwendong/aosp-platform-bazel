@@ -76,12 +76,12 @@ output_file="${output_dir}/test.apex"
 # Create the wrapper manifest file
 staging_dir_builder_manifest_file=$(mktemp)
 echo "{
-\"${input_dir}/file1\": \"dir1/file1\",
-\"${input_dir}/file2\": \"dir2/dir3/file2\",
-\"${input_dir}/one_level_sym\": \"dir4/one_level_sym\",
-\"${input_dir}/two_level_sym_in_execroot\": \"dir5/two_level_sym_in_execroot\",
-\"${input_dir}/two_level_sym_not_in_execroot\": \"dir6/two_level_sym_not_in_execroot\",
-\"${input_dir}/three_level_sym_in_execroot\": \"dir7/three_level_sym_in_execroot\"
+\"dir1/file1\": \"${input_dir}/file1\",
+\"dir2/dir3/file2\": \"${input_dir}/file2\",
+\"dir4/one_level_sym\": \"${input_dir}/one_level_sym\",
+\"dir5/two_level_sym_in_execroot\": \"${input_dir}/two_level_sym_in_execroot\",
+\"dir6/two_level_sym_not_in_execroot\": \"${input_dir}/two_level_sym_not_in_execroot\",
+\"dir7/three_level_sym_in_execroot\": \"${input_dir}/three_level_sym_in_execroot\"
 }" > ${staging_dir_builder_manifest_file}
 
 canned_fs_config=$(mktemp)

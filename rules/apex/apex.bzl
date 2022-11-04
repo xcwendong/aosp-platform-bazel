@@ -45,16 +45,23 @@ def _create_file_mapping(ctx):
     """Create a file mapping for the APEX filesystem image.
 
     This returns a Dict[File, str] where the dictionary keys
-    are the input files, and the values are the paths that these
-    files should have in the apex staging dir / filesystem image.
+    are paths in the apex staging dir / filesystem image, and
+    the values are the files that should be installed there.
     """
 
-    # Dictionary mapping from the path of each dependency to its path in the apex
+    # Dictionary mapping from paths in the apex to the files to be put there
     file_mapping = {}
     requires = {}
     provides = {}
 
-    def _add_lib_files(dir, libs):
+    def add_file_mapping(installed_path, bazel_file):
+        if installed_path in file_mapping and file_mapping[installed_path] != bazel_file:
+            # TODO: we should figure this out and make it a failure
+            print("Warning: %s in this apex is already installed to %s, overwriting it with %s" %
+                  (file_mapping[installed_path].path, installed_path, bazel_file.path))
+        file_mapping[installed_path] = bazel_file
+
+    def _add_lib_files(directory, libs):
         for dep in libs:
             apex_cc_info = dep[ApexCcInfo]
             for lib in apex_cc_info.requires_native_libs.to_list():
@@ -62,7 +69,7 @@ def _create_file_mapping(ctx):
             for lib in apex_cc_info.provides_native_libs.to_list():
                 provides[lib] = True
             for lib_file in apex_cc_info.transitive_shared_libs.to_list():
-                file_mapping[lib_file] = paths.join(dir, lib_file.basename)
+                add_file_mapping(paths.join(directory, lib_file.basename), lib_file)
 
     # Ensure the split attribute dicts are non-empty
     native_shared_libs_32 = dicts.add({"x86": [], "arm": []}, ctx.split_attr.native_shared_libs_32)
@@ -86,7 +93,7 @@ def _create_file_mapping(ctx):
             filename = prebuilt_file_info.filename
         else:
             filename = dep.label.name
-        file_mapping[prebuilt_file_info.src] = paths.join(prebuilt_file_info.dir, filename)
+        add_file_mapping(paths.join(prebuilt_file_info.dir, filename), prebuilt_file_info.src)
 
     # Handle binaries
     for dep in ctx.attr.binaries:
@@ -102,10 +109,10 @@ def _create_file_mapping(ctx):
                 if sh_binary_info.filename:
                     filename = sh_binary_info.filename
 
-                file_mapping[dep[DefaultInfo].files_to_run.executable] = paths.join(directory, filename)
+                add_file_mapping(paths.join(directory, filename), dep[DefaultInfo].files_to_run.executable)
         elif ApexCcInfo in dep:
             # cc_binary just takes the final executable from the runfiles.
-            file_mapping[dep[DefaultInfo].files_to_run.executable] = paths.join("bin", dep.label.name)
+            add_file_mapping(paths.join("bin", dep.label.name), dep[DefaultInfo].files_to_run.executable)
 
             if platforms.get_target_bitness(ctx.attr._platform_utils) == 64:
                 _add_lib_files("lib64", [dep])
@@ -264,13 +271,13 @@ def _run_apexer(ctx, apex_toolchain):
     android_jar = apex_toolchain.android_jar
 
     file_mapping, requires_native_libs, provides_native_libs = _create_file_mapping(ctx)
-    canned_fs_config = _generate_canned_fs_config(ctx, file_mapping.values())
+    canned_fs_config = _generate_canned_fs_config(ctx, file_mapping.keys())
     file_contexts = _generate_file_contexts(ctx)
     full_apex_manifest_json = _add_apex_manifest_information(ctx, apex_toolchain, requires_native_libs, provides_native_libs)
     apex_manifest_pb = _convert_apex_manifest_json_to_pb(ctx, apex_toolchain, full_apex_manifest_json)
 
     file_mapping_file = ctx.actions.declare_file(ctx.attr.name + "_apex_file_mapping.json")
-    ctx.actions.write(file_mapping_file, json.encode({k.path: v for k, v in file_mapping.items()}))
+    ctx.actions.write(file_mapping_file, json.encode({k: v.path for k, v in file_mapping.items()}))
 
     # Outputs
     apex_output_file = ctx.actions.declare_file(ctx.attr.name + ".apex.unsigned")
@@ -347,7 +354,7 @@ def _run_apexer(ctx, apex_toolchain):
         privkey,
         pubkey,
         android_jar,
-    ] + file_mapping.keys()
+    ] + file_mapping.values()
 
     if android_manifest != None:
         inputs.append(android_manifest)
