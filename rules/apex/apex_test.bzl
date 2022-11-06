@@ -1369,6 +1369,49 @@ def _test_apex_testonly_without_manifest():
 
     return test_name
 
+def _apex_backing_file_test(ctx):
+    env = analysistest.begin(ctx)
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "FileWrite" and a.outputs.to_list()[0].basename.endswith("_backing.txt")]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "No FileWrite action found for creating <apex>_backing.txt file: %s" % actions,
+    )
+
+    asserts.equals(env, ctx.attr.expected_content, actions[0].content)
+    return analysistest.end(env)
+
+apex_backing_file_test = analysistest.make(
+    _apex_backing_file_test,
+    attrs = {
+        "expected_content": attr.string(),
+    },
+)
+
+def _test_apex_backing_file():
+    name = "apex_backing_file"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_lib_cc",
+        srcs = [name + "_lib.cc"],
+        tags = ["manual"],
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_lib_cc"],
+        android_manifest = "AndroidManifest.xml",
+    )
+
+    apex_backing_file_test(
+        name = test_name,
+        target_under_test = name,
+        expected_content = "apex_backing_file_lib_cc.so libc++.so",
+    )
+
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -1401,5 +1444,6 @@ def apex_test_suite(name):
             _test_min_sdk_version_apex_inherit(),
             _test_apex_testonly_with_manifest(),
             _test_apex_testonly_without_manifest(),
+            _test_apex_backing_file(),
         ],
     )
