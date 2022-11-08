@@ -71,6 +71,8 @@ def cc_binary(
     unstripped_name = name + "_unstripped"
 
     toolchain_features = []
+    toolchain_features += features
+
     if linkshared:
         toolchain_features.extend(["dynamic_executable", "dynamic_linker"])
     else:
@@ -81,7 +83,6 @@ def cc_binary(
 
     if min_sdk_version:
         toolchain_features += parse_sdk_version(min_sdk_version) + ["-sdk_version_default"]
-    toolchain_features += features
 
     system_dynamic_deps = []
     system_static_deps = []

@@ -38,7 +38,6 @@ ApexInfo = provider(
         "bundle_key_info": "APEX bundle signing public/private key pair (the value of the key: attribute).",
         "container_key_info": "Info of the container key provided as AndroidAppCertificateInfo.",
         "package_name": "APEX package name.",
-        "backing_libs": "File containing libraries used by the APEX.",
     },
 )
 
@@ -87,11 +86,6 @@ def _create_file_mapping(ctx):
         _add_lib_files("lib", native_shared_libs_32["arm"])
         _add_lib_files("lib64", native_shared_libs_64["arm64"])
 
-    backing_libs = []
-    for lib in file_mapping.values():
-        backing_libs.append(lib.basename)
-    backing_libs = sorted(backing_libs)
-
     # Handle prebuilts
     for dep in ctx.attr.prebuilts:
         prebuilt_file_info = dep[PrebuiltFileInfo]
@@ -125,7 +119,7 @@ def _create_file_mapping(ctx):
             else:
                 _add_lib_files("lib", [dep])
 
-    return file_mapping, requires.keys(), provides.keys(), backing_libs
+    return file_mapping, requires.keys(), provides.keys()
 
 def _add_so(label):
     return label.name + ".so"
@@ -268,15 +262,6 @@ def _mark_manifest_as_test_only(ctx, apex_toolchain):
 
     return android_manifest_fixed
 
-# Generate <APEX>_backing.txt file which lists all libraries used by the APEX.
-def _generate_apex_backing_file(ctx, backing_libs):
-    backing_file = ctx.actions.declare_file(ctx.attr.name + "_backing.txt")
-    ctx.actions.write(
-        output = backing_file,
-        content = " ".join(backing_libs),
-    )
-    return backing_file
-
 # apexer - generate the APEX file.
 def _run_apexer(ctx, apex_toolchain):
     # Inputs
@@ -285,7 +270,7 @@ def _run_apexer(ctx, apex_toolchain):
     pubkey = apex_key_info.public_key
     android_jar = apex_toolchain.android_jar
 
-    file_mapping, requires_native_libs, provides_native_libs, backing_libs = _create_file_mapping(ctx)
+    file_mapping, requires_native_libs, provides_native_libs = _create_file_mapping(ctx)
     canned_fs_config = _generate_canned_fs_config(ctx, file_mapping.keys())
     file_contexts = _generate_file_contexts(ctx)
     full_apex_manifest_json = _add_apex_manifest_information(ctx, apex_toolchain, requires_native_libs, provides_native_libs)
@@ -397,7 +382,6 @@ def _run_apexer(ctx, apex_toolchain):
         apex_output_file,
         requires_native_libs,
         provides_native_libs,
-        _generate_apex_backing_file(ctx, backing_libs),
     )
 
 # Sign a file with signapk.
@@ -458,7 +442,7 @@ def _run_apex_compression_tool(ctx, apex_toolchain, input_file, output_file_name
 def _apex_rule_impl(ctx):
     apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
 
-    unsigned_apex, requires_native_libs, provides_native_libs, backing_file = _run_apexer(ctx, apex_toolchain)
+    unsigned_apex, requires_native_libs, provides_native_libs = _run_apexer(ctx, apex_toolchain)
 
     apex_cert_info = ctx.attr.certificate[AndroidAppCertificateInfo]
     private_key = apex_cert_info.pk8
@@ -483,7 +467,6 @@ def _apex_rule_impl(ctx):
             bundle_key_info = apex_key_info,
             container_key_info = apex_cert_info,
             package_name = ctx.attr.package_name,
-            backing_libs = backing_file,
         ),
     ]
 
