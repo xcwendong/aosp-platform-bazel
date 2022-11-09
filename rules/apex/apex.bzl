@@ -40,6 +40,7 @@ ApexInfo = provider(
         "package_name": "APEX package name.",
         "backing_libs": "File containing libraries used by the APEX.",
         "symbols_used_by_apex": "Symbol list used by this APEX.",
+        "installed_files": "File containing all files installed by the APEX",
     },
 )
 
@@ -90,7 +91,8 @@ def _create_file_mapping(ctx):
 
     backing_libs = []
     for lib in file_mapping.values():
-        backing_libs.append(lib.basename)
+        if lib.basename not in backing_libs:
+            backing_libs.append(lib.basename)
     backing_libs = sorted(backing_libs)
 
     # Handle prebuilts
@@ -274,9 +276,23 @@ def _generate_apex_backing_file(ctx, backing_libs):
     backing_file = ctx.actions.declare_file(ctx.attr.name + "_backing.txt")
     ctx.actions.write(
         output = backing_file,
-        content = " ".join(backing_libs),
+        content = " ".join(backing_libs) + "\n",
     )
     return backing_file
+
+# Generate installed-files.txt which lists all installed files by the APEX.
+def _generate_installed_files_list(ctx, file_mapping):
+    installed_files = ctx.actions.declare_file(ctx.attr.name + "-installed-files.txt")
+    command = []
+    for device_path, bazel_file in file_mapping.items():
+        command.append("echo $(stat -L -c %%s %s) ./%s" % (bazel_file.path, device_path))
+    ctx.actions.run_shell(
+        inputs = file_mapping.values(),
+        outputs = [installed_files],
+        mnemonic = "GenerateApexInstalledFileList",
+        command = "(" + "; ".join(command) + ") | sort -nr > " + installed_files.path,
+    )
+    return installed_files
 
 # apexer - generate the APEX file.
 def _run_apexer(ctx, apex_toolchain):
@@ -409,6 +425,7 @@ def _run_apexer(ctx, apex_toolchain):
         provides_native_libs = provides_native_libs,
         backing_libs = _generate_apex_backing_file(ctx, backing_libs),
         symbols_used_by_apex = _generate_symbols_used_by_apex(ctx, apex_toolchain, staging_dir),
+        installed_files = _generate_installed_files_list(ctx, file_mapping),
     )
 
 # Sign a file with signapk.
@@ -521,9 +538,12 @@ def _apex_rule_impl(ctx):
             package_name = ctx.attr.package_name,
             backing_libs = apexer_outputs.backing_libs,
             symbols_used_by_apex = apexer_outputs.symbols_used_by_apex,
+            installed_files = apexer_outputs.installed_files,
         ),
         OutputGroupInfo(
             coverage_files = [apexer_outputs.symbols_used_by_apex],
+            backing_libs = depset([apexer_outputs.backing_libs]),
+            installed_files = depset([apexer_outputs.installed_files]),
         ),
     ]
 

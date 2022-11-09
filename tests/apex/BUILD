@@ -85,3 +85,29 @@ diff_test(
         "//build/bazel/platforms/arch:arm64",
     ],
 )
+
+filegroup(
+    name = "com.android.adbd_backing_libs",
+    srcs = ["//packages/modules/adb/apex:com.android.adbd"],
+    output_group = "backing_libs",
+)
+
+diff_test(
+    name = "com.android.adbd_backing_libs_diff_test",
+    file1 = ":com.android.adbd_backing_libs",
+    file2 = "com.android.adbd_backing.txt.golden",
+    target_compatible_with = ["//build/bazel/platforms/os:linux"],
+)
+
+filegroup(
+    name = "com.android.adbd_installed_files",
+    srcs = ["//packages/modules/adb/apex:com.android.adbd"],
+    output_group = "installed_files",
+)
+
+diff_test(
+    name = "com.android.adbd_installed_files_diff_test",
+    file1 = ":com.android.adbd_installed_files",
+    file2 = "com.android.adbd_installed-files.txt.golden",
+    target_compatible_with = ["//build/bazel/platforms/arch:arm"],
+)

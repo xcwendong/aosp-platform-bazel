@@ -1407,7 +1407,64 @@ def _test_apex_backing_file():
     apex_backing_file_test(
         name = test_name,
         target_under_test = name,
-        expected_content = "apex_backing_file_lib_cc.so libc++.so",
+        expected_content = "apex_backing_file_lib_cc.so libc++.so\n",
+    )
+
+    return test_name
+
+def _apex_installed_files_test(ctx):
+    env = analysistest.begin(ctx)
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "GenerateApexInstalledFileList"]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "No GenerateApexInstalledFileList action found for creating <apex>-installed-files.txt file: %s" % actions,
+    )
+
+    asserts.equals(
+        env,
+        len(ctx.attr.expected_inputs),
+        len(actions[0].inputs.to_list()),
+        "Expected inputs length: %d, actual inputs length: %d" % (len(ctx.attr.expected_inputs), len(actions[0].inputs.to_list())),
+    )
+    for file in actions[0].inputs.to_list():
+        asserts.true(
+            env,
+            file.basename in ctx.attr.expected_inputs,
+            "Unexpected input: %s" % file.basename,
+        )
+    asserts.equals(env, ctx.attr.expected_output, actions[0].outputs.to_list()[0].basename)
+    return analysistest.end(env)
+
+apex_installed_files_test = analysistest.make(
+    _apex_installed_files_test,
+    attrs = {
+        "expected_inputs": attr.string_list(),
+        "expected_output": attr.string(),
+    },
+)
+
+def _test_apex_installed_files():
+    name = "apex_installed_files"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_lib_cc",
+        srcs = [name + "_lib.cc"],
+        tags = ["manual"],
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_lib_cc"],
+        android_manifest = "AndroidManifest.xml",
+    )
+
+    apex_installed_files_test(
+        name = test_name,
+        target_under_test = name,
+        expected_inputs = ["libc++.so", "apex_installed_files_lib_cc.so"],
+        expected_output = "apex_installed_files-installed-files.txt",
     )
 
     return test_name
@@ -1478,5 +1535,6 @@ def apex_test_suite(name):
             _test_apex_testonly_without_manifest(),
             _test_apex_backing_file(),
             _test_apex_symbols_used_by_apex(),
+            _test_apex_installed_files(),
         ],
     )
