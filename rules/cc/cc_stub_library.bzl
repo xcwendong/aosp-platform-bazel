@@ -69,6 +69,9 @@ def _cc_stub_gen_impl(ctx):
             abi_symbol_list = out_abi_symbol_list,
             version = ctx.attr.version,
         ),
+        OutputGroupInfo(
+            stub_map = [out_stub_map],
+        ),
     ]
 
 cc_stub_gen = rule(
@@ -142,9 +145,18 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, export_includes, so
     if len(soname) == 0:
         fail("For stub libraries 'soname' is mandatory and must be same as the soname of its source library.")
     soname_flag = "-Wl,-soname," + soname
+    stub_map = name + "_stub_map"
+    native.filegroup(
+        name = stub_map,
+        srcs = [name + "_files"],
+        output_group = "stub_map",
+        tags = ["manual"],
+    )
+    version_script_flag = "-Wl,--version-script,$(location %s)" % stub_map
     native.cc_shared_library(
         name = name + "_so",
-        user_link_flags = [soname_flag],
+        additional_linker_inputs = [stub_map],
+        user_link_flags = [soname_flag, version_script_flag],
         roots = [name + "_root"],
         features = disable_crt_link(features),
         target_compatible_with = target_compatible_with,

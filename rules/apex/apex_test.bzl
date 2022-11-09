@@ -1369,6 +1369,81 @@ def _test_apex_testonly_without_manifest():
 
     return test_name
 
+def _apex_backing_file_test(ctx):
+    env = analysistest.begin(ctx)
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "FileWrite" and a.outputs.to_list()[0].basename.endswith("_backing.txt")]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "No FileWrite action found for creating <apex>_backing.txt file: %s" % actions,
+    )
+
+    asserts.equals(env, ctx.attr.expected_content, actions[0].content)
+    return analysistest.end(env)
+
+apex_backing_file_test = analysistest.make(
+    _apex_backing_file_test,
+    attrs = {
+        "expected_content": attr.string(),
+    },
+)
+
+def _test_apex_backing_file():
+    name = "apex_backing_file"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_lib_cc",
+        srcs = [name + "_lib.cc"],
+        tags = ["manual"],
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_lib_cc"],
+        android_manifest = "AndroidManifest.xml",
+    )
+
+    apex_backing_file_test(
+        name = test_name,
+        target_under_test = name,
+        expected_content = "apex_backing_file_lib_cc.so libc++.so",
+    )
+
+    return test_name
+
+def _apex_symbols_used_by_apex_test(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    actual = target_under_test[ApexInfo].symbols_used_by_apex
+
+    asserts.equals(env, ctx.attr.expected_path, actual.short_path)
+
+    return analysistest.end(env)
+
+apex_symbols_used_by_apex_test = analysistest.make(
+    _apex_symbols_used_by_apex_test,
+    attrs = {
+        "expected_path": attr.string(),
+    },
+)
+
+def _test_apex_symbols_used_by_apex():
+    name = "apex_with_symbols_used_by_apex"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+    )
+
+    apex_symbols_used_by_apex_test(
+        name = test_name,
+        target_under_test = name,
+        expected_path = "build/bazel/rules/apex/apex_with_symbols_used_by_apex_using.txt",
+    )
+
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -1401,5 +1476,7 @@ def apex_test_suite(name):
             _test_min_sdk_version_apex_inherit(),
             _test_apex_testonly_with_manifest(),
             _test_apex_testonly_without_manifest(),
+            _test_apex_backing_file(),
+            _test_apex_symbols_used_by_apex(),
         ],
     )

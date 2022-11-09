@@ -62,3 +62,26 @@ diff_test(
     file2 = "com.android.adbd.apex_manifest.json.golden",
     target_compatible_with = ["//build/bazel/platforms/os:linux"],
 )
+
+filegroup(
+    name = "minimal_apex_coverage_files",
+    srcs = ["//build/bazel/examples/apex/minimal:build.bazel.examples.apex.minimal"],
+    output_group = "coverage_files",
+)
+
+genrule(
+    name = "minimal_apex_using_txt",
+    srcs = [":minimal_apex_coverage_files"],
+    outs = ["minimal_apex_using.txt"],
+    cmd = "cat $(location :minimal_apex_coverage_files) | sort > $@",
+)
+
+diff_test(
+    name = "minimal_apex_symbols_used_by_apex_diff_test",
+    file1 = ":minimal_apex_using.txt",
+    file2 = ":minimal_apex_using.txt.golden",
+    target_compatible_with = [
+        "//build/bazel/platforms/os:android",
+        "//build/bazel/platforms/arch:arm64",
+    ],
+)

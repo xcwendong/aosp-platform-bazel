@@ -30,6 +30,8 @@ ApexToolchainInfo = provider(
         "soong_zip",
         "jsonmodify",
         "manifest_fixer",
+        "gen_ndk_usedby_apex",
+        "readelf",
     ],
 )
 
@@ -49,6 +51,8 @@ def _apex_toolchain_impl(ctx):
             soong_zip = ctx.file.soong_zip,
             jsonmodify = ctx.attr.jsonmodify,
             manifest_fixer = ctx.attr.manifest_fixer,
+            gen_ndk_usedby_apex = ctx.attr.gen_ndk_usedby_apex,
+            readelf = ctx.attr.readelf,
         ),
     )
     return [toolchain_info]
@@ -72,5 +76,7 @@ apex_toolchain = rule(
         # and has been added to apex toolchain previously.
         "soong_zip": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
         "manifest_fixer": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "gen_ndk_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
+        "readelf": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = True),
     },
 )

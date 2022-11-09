@@ -104,11 +104,15 @@ echo "/ 0 2000 0755
 
 apexer_tool_paths=${avb_tool_path}:${avb_tool_path}:${e2fsdroid_path}:${mke2fs_path}:${resize2fs_path}:${debugfs_path}:${soong_zip_path}:${aapt2_path}:${sefcontext_compile_path}
 
+staging_dir=$(mktemp -d /tmp/temporary-dir.XXXXXXXX)
+trap 'rm -rf -- "${staging_dir}"' EXIT
+
 #############################################
 # run staging_dir_builder
 #############################################
 "${RUNFILES_DIR}/__main__/build/bazel/rules/staging_dir_builder" \
   ${staging_dir_builder_manifest_file} \
+  ${staging_dir} \
   ${apexer_tool_path} \
   --manifest ${manifest_file} \
   --file_contexts ${file_contexts_file} \
@@ -116,7 +120,7 @@ apexer_tool_paths=${avb_tool_path}:${avb_tool_path}:${e2fsdroid_path}:${mke2fs_p
   --apexer_tool_path "${apexer_tool_paths}" \
   --android_jar_path ${android_jar} \
   --canned_fs_config ${canned_fs_config} \
-  STAGING_DIR_PLACEHOLDER \
+  ${staging_dir} \
   ${output_file}
 
 #############################################
