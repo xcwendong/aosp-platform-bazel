@@ -1259,6 +1259,48 @@ def _test_min_sdk_version_apex_inherit():
 
     return test_name
 
+def _apex_provides_base_zip_files_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+
+    # The particular name of the file isn't important as it just gets zipped with the other apex files for other architectures
+    asserts.true(
+        env,
+        target_under_test[ApexInfo].base_file != None,
+        "Expected base_file to exist, but found None %s" % target_under_test[ApexInfo].base_file,
+    )
+
+    asserts.equals(
+        env,
+        target_under_test[ApexInfo].base_with_config_zip.basename,
+        # name is important here because the file gets disted and then referenced by name
+        ctx.attr.apex_name + ".apex-base.zip",
+        "Expected base file with config zip to have name ending with , but found %s" % target_under_test[ApexInfo].base_with_config_zip.basename,
+    )
+
+    return analysistest.end(env)
+
+apex_provides_base_zip_files_test = analysistest.make(
+    _apex_provides_base_zip_files_test_impl,
+    attrs = {
+        "apex_name": attr.string(),
+    },
+)
+
+def _test_apex_provides_base_zip_files():
+    name = "apex_provides_base_zip_files"
+    test_name = name + "_test"
+
+    test_apex(name = name)
+
+    apex_provides_base_zip_files_test(
+        name = test_name,
+        target_under_test = name,
+        apex_name = name,
+    )
+
+    return test_name
+
 def _apex_testonly_with_manifest_test_impl(ctx):
     env = analysistest.begin(ctx)
     actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "Apexer"]
@@ -1501,6 +1543,38 @@ def _test_apex_symbols_used_by_apex():
 
     return test_name
 
+def _apex_java_symbols_used_by_apex_test(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    actual = target_under_test[ApexInfo].java_symbols_used_by_apex
+
+    asserts.equals(env, ctx.attr.expected_path, actual.short_path)
+
+    return analysistest.end(env)
+
+apex_java_symbols_used_by_apex_test = analysistest.make(
+    _apex_java_symbols_used_by_apex_test,
+    attrs = {
+        "expected_path": attr.string(),
+    },
+)
+
+def _test_apex_java_symbols_used_by_apex():
+    name = "apex_with_java_symbols_used_by_apex"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+    )
+
+    apex_java_symbols_used_by_apex_test(
+        name = test_name,
+        target_under_test = name,
+        expected_path = "build/bazel/rules/apex/apex_with_java_symbols_used_by_apex_using.xml",
+    )
+
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -1532,9 +1606,11 @@ def apex_test_suite(name):
             _test_apex_certificate_label(),
             _test_min_sdk_version_apex_inherit(),
             _test_apex_testonly_with_manifest(),
+            _test_apex_provides_base_zip_files(),
             _test_apex_testonly_without_manifest(),
             _test_apex_backing_file(),
             _test_apex_symbols_used_by_apex(),
             _test_apex_installed_files(),
+            _test_apex_java_symbols_used_by_apex(),
         ],
     )

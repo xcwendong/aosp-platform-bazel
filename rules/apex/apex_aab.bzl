@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/bazel/platforms:transitions.bzl", "default_android_transition")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
+load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
 load(":apex.bzl", "ApexInfo")
 load(":apex_key.bzl", "ApexKeyInfo")
-load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
+load(":bundle.bzl", "build_bundle_config")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 
 def _arch_transition_impl(settings, attr):
     """Implementation of arch_transition.
@@ -48,102 +49,6 @@ arch_transition = transition(
         "//command_line_option:platforms",
     ],
 )
-
-# Arch to ABI map
-_arch_abi_map = {
-    "arm64": "arm64-v8a",
-    "arm": "armeabi-v7a",
-    "x86_64": "x86_64",
-    "x86": "x86",
-}
-
-def _apex_proto_convert(ctx, aapt2, arch, module_name, apex_file):
-    """Run 'aapt2 convert' to convert resource files to protobuf format."""
-
-    # Inputs
-    inputs = [
-        apex_file,
-        aapt2,
-    ]
-
-    # Outputs
-    filename = apex_file.basename
-    pos_dot = filename.rindex(".")
-    proto_convert_file = ctx.actions.declare_file("/".join([
-        module_name,
-        arch,
-        filename[:pos_dot] + ".pb" + filename[pos_dot:],
-    ]))
-    outputs = [proto_convert_file]
-
-    # Arguments
-    args = ctx.actions.args()
-    args.add_all(["convert"])
-    args.add_all(["--output-format", "proto"])
-    args.add_all([apex_file])
-    args.add_all(["-o", proto_convert_file.path])
-
-    ctx.actions.run(
-        inputs = inputs,
-        outputs = outputs,
-        executable = aapt2,
-        arguments = [args],
-        mnemonic = "ApexProtoConvert",
-    )
-    return proto_convert_file
-
-def _apex_base_file(ctx, arch, module_name, apex_proto_file):
-    """Run zip2zip to transform the apex file the expected directory structure
-    with all files that will be included in the base module of aab file."""
-
-    # Inputs
-    inputs = [
-        apex_proto_file,
-        ctx.executable._zip2zip,
-    ]
-
-    # Outputs
-    base_file = ctx.actions.declare_file("/".join([module_name, arch, module_name + ".base"]))
-    outputs = [base_file]
-
-    # Arguments
-    args = ctx.actions.args()
-    args.add_all(["-i", apex_proto_file])
-    args.add_all(["-o", base_file])
-    abi = _arch_abi_map[arch]
-    args.add_all([
-        "apex_payload.img:apex/%s.img" % abi,
-        "apex_build_info.pb:apex/%s.build_info.pb" % abi,
-        "apex_manifest.json:root/apex_manifest.json",
-        "apex_manifest.pb:root/apex_manifest.pb",
-        "AndroidManifest.xml:manifest/AndroidManifest.xml",
-        "assets/NOTICE.html.gz:assets/NOTICE.html.gz",
-    ])
-
-    ctx.actions.run(
-        inputs = inputs,
-        outputs = outputs,
-        executable = ctx.executable._zip2zip,
-        arguments = [args],
-        mnemonic = "ApexBaseFile",
-    )
-    return base_file
-
-def _build_bundle_config(ctx, module_name):
-    """Create bundle_config.json as configuration for running bundletool."""
-    file_content = {
-        "compression": {
-            "uncompressed_glob": [
-                "apex_payload.img",
-                "apex_manifest.*",
-            ],
-        },
-        "apex_config": {},
-    }
-    bundle_config_file = ctx.actions.declare_file("/".join([module_name, "bundle_config.json"]))
-    ctx.actions.write(bundle_config_file, json.encode(file_content))
-
-    return bundle_config_file
 
 def _merge_base_files(ctx, module_name, base_files):
     """Run merge_zips to merge all files created for each arch by _apex_base_file."""
@@ -361,12 +266,11 @@ def _apex_aab_impl(ctx):
         )
         prefixed_signed_apex_files.append(prefixed_signed_apex_file)
 
-        proto_convert_file = _apex_proto_convert(ctx, apex_toolchain.aapt2, arch, module_name, signed_apex)
-        base_file = _apex_base_file(ctx, arch, module_name, proto_convert_file)
+        base_file = ctx.split_attr.mainline_module[arch][ApexInfo].base_file
         apex_base_files.append(base_file)
 
     # Create .aab file
-    bundle_config_file = _build_bundle_config(ctx, module_name)
+    bundle_config_file = build_bundle_config(ctx.actions, ctx.label.name)
     merged_base_file = _merge_base_files(ctx, module_name, apex_base_files)
     bundle_file = _apex_bundle(ctx, module_name, merged_base_file, bundle_config_file)
 

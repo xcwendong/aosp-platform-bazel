@@ -103,7 +103,9 @@ apex_toolchain(
     apexer = "//system/apex/apexer",
     avbtool = "//external/avb:avbtool",
     conv_apex_manifest = "//system/apex/apexer:conv_apex_manifest",
+    dexdeps = "//dalvik/tools/dexdeps",  # tool input for gen_java_usedby_apex
     e2fsdroid = "//external/e2fsprogs/contrib/android:e2fsdroid",
+    gen_java_usedby_apex = "//build/soong/scripts:gen_java_usedby_apex.sh",
     gen_ndk_usedby_apex = "//build/soong/scripts:gen_ndk_usedby_apex.sh",
     jsonmodify = "//build/soong/scripts:jsonmodify",
     manifest_fixer = "//build/soong/scripts:manifest_fixer",

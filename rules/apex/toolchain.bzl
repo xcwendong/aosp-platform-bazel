@@ -32,6 +32,8 @@ ApexToolchainInfo = provider(
         "manifest_fixer",
         "gen_ndk_usedby_apex",
         "readelf",
+        "gen_java_usedby_apex",
+        "dexdeps",
     ],
 )
 
@@ -53,6 +55,8 @@ def _apex_toolchain_impl(ctx):
             manifest_fixer = ctx.attr.manifest_fixer,
             gen_ndk_usedby_apex = ctx.attr.gen_ndk_usedby_apex,
             readelf = ctx.attr.readelf,
+            gen_java_usedby_apex = ctx.attr.gen_java_usedby_apex,
+            dexdeps = ctx.attr.dexdeps,
         ),
     )
     return [toolchain_info]
@@ -78,5 +82,7 @@ apex_toolchain = rule(
         "manifest_fixer": attr.label(cfg = "exec", executable = True, mandatory = True),
         "gen_ndk_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
         "readelf": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = True),
+        "gen_java_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
+        "dexdeps": attr.label(cfg = "exec", executable = True, mandatory = True),
     },
 )
