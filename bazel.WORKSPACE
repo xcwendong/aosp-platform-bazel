@@ -42,6 +42,12 @@ product_config(
 )
 # ! WARNING ! WARNING ! WARNING !
 
+load("//build/bazel/rules:env.bzl", "env_repository")
+
+env_repository(
+    name = "env",
+)
+
 load("//build/bazel_common_rules/workspace:external.bzl", "import_external_repositories")
 
 import_external_repositories(

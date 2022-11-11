@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load(
@@ -24,8 +25,18 @@ load(
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("@soong_injection//cc_toolchain:constants.bzl", "constants")
 
-TIDY_GLOBAL_NO_CHECKS = constants.TidyGlobalNoChecks.split(",")
-TIDY_GLOBAL_NO_ERROR_CHECKS = constants.TidyGlobalNoErrorChecks.split(",")
+ClangTidyInfo = provider(
+    "Info provided from clang-tidy actions",
+    fields = {
+        "tidy_files": "Outputs from the clang-tidy tool",
+    },
+)
+
+_PRODUCT_VARIABLE_TIDY_CHECKS = product_vars["TidyChecks"].split(",") if "TidyChecks" in product_vars else []
+_TIDY_GLOBAL_NO_CHECKS = constants.TidyGlobalNoChecks.split(",")
+_TIDY_GLOBAL_NO_ERROR_CHECKS = constants.TidyGlobalNoErrorChecks.split(",")
+_TIDY_DEFAULT_GLOBAL_CHECKS = constants.TidyDefaultGlobalChecks.split(",")
+_TIDY_EXTERNAL_VENDOR_CHECKS = constants.TidyExternalVendorChecks.split(",")
 
 def _get_compilation_args(toolchain, feature_config, flags, compilation_ctx, action_name):
     compilation_vars = cc_common.create_compile_variables(
@@ -71,6 +82,12 @@ def _check_bad_tidy_checks(tidy_checks):
         if "," in check:
             fail("Check `%s` invalid, cannot contain commas. Split each entry into it's own string instead" % check)
 
+def _add_with_tidy_flags(ctx, tidy_flags):
+    with_tidy_flags = ctx.attr._with_tidy_flags[BuildSettingInfo].value
+    if with_tidy_flags:
+        return tidy_flags + with_tidy_flags
+    return tidy_flags
+
 def _add_header_filter(ctx, tidy_flags):
     """If TidyFlags does not contain -header-filter, add default header filter.
     """
@@ -85,8 +102,11 @@ def _add_header_filter(ctx, tidy_flags):
     # Otherwise, there will be too many warnings from generated files in out/...
     # If a module wants to see warnings in the generated source files,
     # it should specify its own -header-filter flag.
-    #TODO(b/255744059) support DEFAULT_TIDY_HEADER_DIRS
-    header_filter = "-header-filter=^" + ctx.label.package + "/"
+    default_dirs = ctx.attr._default_tidy_header_dirs[BuildSettingInfo].value
+    if default_dirs == "":
+        header_filter = "-header-filter=^" + ctx.label.package + "/"
+    else:
+        header_filter = "-header-filter=\"(^%s/|%s)\"" % (ctx.label.package, default_dirs)
     return tidy_flags + [header_filter]
 
 def _add_extra_arg_flags(tidy_flags):
@@ -111,7 +131,7 @@ def _add_extra_arg_flags(tidy_flags):
     return tidy_flags + ["-extra-arg-before=" + f for f in extra_arg_flags]
 
 def _add_quiet_if_not_global_tidy(tidy_flags):
-    if not product_vars["ClangTidy"]:
+    if len(_PRODUCT_VARIABLE_TIDY_CHECKS) == 0:
         return tidy_flags + [
             "-quiet",
             "-extra-arg-before=-fno-caret-diagnostics",
@@ -135,27 +155,56 @@ def _clang_rewrite_tidy_checks(tidy_checks):
     # remove the enabling argument from the list.
     return [t for t in tidy_checks if t not in clang_tidy_disable_checks]
 
-def _add_global_tidy_checks(local_checks):
-    global_tidy_checks = ""
+def _add_checks_for_dir(directory):
+    """should be kept up to date with
+    https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/config/tidy.go;l=170;drc=b45a2ea782074944f79fc388df20b06e01f265f7
+    """
+
+    # This is a map of local path prefixes to the set of default clang-tidy checks
+    # to be used.  This is like android.IsThirdPartyPath, but with more patterns.
+    # The last matched local_path_prefix should be the most specific to be used.
+    directory_checks = [
+        ("external/", _TIDY_EXTERNAL_VENDOR_CHECKS),
+        ("frameworks/compile/mclinker/", _TIDY_EXTERNAL_VENDOR_CHECKS),
+        ("hardware/", _TIDY_EXTERNAL_VENDOR_CHECKS),
+        ("hardware/google/", _TIDY_DEFAULT_GLOBAL_CHECKS),
+        ("hardware/interfaces/", _TIDY_DEFAULT_GLOBAL_CHECKS),
+        ("hardware/ril/", _TIDY_DEFAULT_GLOBAL_CHECKS),
+        ("hardware/libhardware", _TIDY_DEFAULT_GLOBAL_CHECKS),  # all 'hardware/libhardware*'
+        ("vendor/", _TIDY_EXTERNAL_VENDOR_CHECKS),
+        ("vendor/google", _TIDY_DEFAULT_GLOBAL_CHECKS),  # all 'vendor/google*'
+        ("vendor/google/external/", _TIDY_EXTERNAL_VENDOR_CHECKS),
+        ("vendor/google_arc/libs/org.chromium.arc.mojom", _TIDY_EXTERNAL_VENDOR_CHECKS),
+        ("vendor/google_devices/", _TIDY_EXTERNAL_VENDOR_CHECKS),  # many have vendor code
+    ]
+
+    for d, checks in reversed(directory_checks):
+        if directory.startswith(d):
+            return checks
+
+    return _TIDY_DEFAULT_GLOBAL_CHECKS
+
+def _add_global_tidy_checks(ctx, local_checks):
+    global_tidy_checks = []
     if product_vars["TidyChecks"]:
-        global_tidy_checks = product_vars.TidyChecks
+        global_tidy_checks = _PRODUCT_VARIABLE_TIDY_CHECKS
     else:
-        pass  #TODO(b/255747495) TidyChecksForDir
+        global_tidy_checks = _add_checks_for_dir(ctx.label.package)
 
     # If Tidy_checks contains "-*", ignore all checks before "-*".
     for i, check in enumerate(local_checks):
         if check == "-*":
-            global_tidy_checks = ""
+            global_tidy_checks = []
             local_checks = local_checks[i:]
 
-    tidy_checks = [global_tidy_checks] + _clang_rewrite_tidy_checks(local_checks)
-    tidy_checks.extend(TIDY_GLOBAL_NO_CHECKS)
+    tidy_checks = global_tidy_checks + _clang_rewrite_tidy_checks(local_checks)
+    tidy_checks.extend(_TIDY_GLOBAL_NO_CHECKS)
 
     #TODO(b/255747672) disable cert check on windows only
     return tidy_checks
 
 def _add_global_tidy_checks_as_errors(tidy_checks_as_errors):
-    return tidy_checks_as_errors + TIDY_GLOBAL_NO_ERROR_CHECKS
+    return tidy_checks_as_errors + _TIDY_GLOBAL_NO_ERROR_CHECKS
 
 def _create_clang_tidy_action(
         ctx,
@@ -165,11 +214,13 @@ def _create_clang_tidy_action(
         tidy_checks_as_errors,
         tidy_flags,
         clang_flags,
-        headers):
+        headers,
+        tidy_timeout):
+    tidy_flags = _add_with_tidy_flags(ctx, tidy_flags)
     tidy_flags = _add_header_filter(ctx, tidy_flags)
     tidy_flags = _add_extra_arg_flags(tidy_flags)
     tidy_flags = _add_quiet_if_not_global_tidy(tidy_flags)
-    tidy_checks = _add_global_tidy_checks(tidy_checks)
+    tidy_checks = _add_global_tidy_checks(ctx, tidy_checks)
     tidy_checks_as_errors = _add_global_tidy_checks_as_errors(tidy_checks_as_errors)
 
     _check_bad_tidy_checks(tidy_checks)
@@ -187,14 +238,18 @@ def _create_clang_tidy_action(
     args.add_all(clang_flags)
 
     tidy_file = ctx.actions.declare_file(paths.join(ctx.label.name, input_file.short_path + ".tidy"))
+    env = {
+        "CLANG_CMD": clang_tool,
+        "TIDY_FILE": tidy_file.path,
+    }
+    if tidy_timeout:
+        env["TIDY_TIMEOUT"] = tidy_timeout
+
     ctx.actions.run(
         inputs = [input_file] + headers,
         outputs = [tidy_file],
         arguments = [args],
-        env = {
-            "CLANG_CMD": clang_tool,
-            "TIDY_FILE": tidy_file.path,
-        },
+        env = env,
         progress_message = "Running clang-tidy on {}".format(input_file.short_path),
         tools = [
             ctx.executable._clang_tidy,
@@ -217,7 +272,8 @@ def generate_clang_tidy_actions(
         language,
         tidy_flags,
         tidy_checks,
-        tidy_checks_as_errors):
+        tidy_checks_as_errors,
+        tidy_timeout):
     """Generates actions for clang tidy
 
     Args:
@@ -225,6 +281,7 @@ def generate_clang_tidy_actions(
             - ctx.executable._clang_tidy
             - ctx.executable._clang_tidy_sh
             - ctx.executable._clang_tidy_real
+            - ctx.label._with_tidy_flags
         flags (list[str]): list of target-specific (non-toolchain) flags passed to clang compile action
         deps (list[Target]): list of Targets which provide headers to compilation context
         srcs (list[File]): list of srcs to which clang-tidy will be applied
@@ -233,6 +290,7 @@ def generate_clang_tidy_actions(
         tidy_flags (list[str]): additional flags to pass to the clang-tidy tool
         tidy_checks (list[str]): list of checks for clang-tidy to perform
         tidy_checks_as_errors (list[str]): list of checks to pass as "-warnings-as-errors" to clang-tidy
+        tidy_checks_as_errors (str): timeout to pass to clang-tidy tool
     Returns:
         tidy_file_outputs: (list[File]): list of .tidy files output by the clang-tidy.sh tool
     """
@@ -289,6 +347,7 @@ def generate_clang_tidy_actions(
             tidy_checks_as_errors = tidy_checks_as_errors,
             tidy_flags = tidy_flags,
             clang_flags = args,
+            tidy_timeout = tidy_timeout,
         )
         tidy_file_outputs.append(tidy_file)
 

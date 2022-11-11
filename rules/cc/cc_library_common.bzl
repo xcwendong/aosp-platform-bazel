@@ -180,19 +180,20 @@ def parse_apex_sdk_version(version):
 
 _HEADER_EXTENSIONS = ["h", "hh", "hpp", "hxx", "h++", "inl", "inc", "ipp", "h.generic"]
 
-def get_non_header_srcs(srcs):
+def get_non_header_srcs(input_srcs, exclude_srcs):
     """get_non_header_srcs returns a list of srcs that do not have header extensions and aren't in the exclude srcs list
 
     Args:
         srcs (list[File]): list of file to filter
+        exclude_srcs (list[File]): list of files that should be excluded from the returned list
     Returns:
         list[File]: files that have non-header extension and are not excluded
     """
     srcs = []
     hdrs = []
-    for s in srcs:
-        if s.extension not in _HEADER_EXTENSIONS:
-            srcs.append(s)
-        else:
+    for s in input_srcs:
+        if s.extension in _HEADER_EXTENSIONS:
             hdrs.append(s)
+        elif s not in exclude_srcs:
+            srcs.append(s)
     return srcs, hdrs

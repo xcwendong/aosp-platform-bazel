@@ -23,7 +23,8 @@ load(
     "system_dynamic_deps_defaults",
 )
 load(":stl.bzl", "stl_info_from_attr")
-load(":clang_tidy.bzl", "generate_clang_tidy_actions")
+load(":clang_tidy.bzl", "ClangTidyInfo", "generate_clang_tidy_actions")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//lib:collections.bzl", "collections")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//build/bazel/product_variables:constants.bzl", "constants")
@@ -75,7 +76,9 @@ def cc_library_static(
         tidy = None,
         tidy_checks = None,
         tidy_checks_as_errors = None,
-        tidy_flags = None):
+        tidy_flags = None,
+        tidy_disabled_srcs = None,
+        tidy_timeout_srcs = None):
     "Bazel macro to correspond with the cc_library_static Soong module."
 
     exports_name = "%s_exports" % name
@@ -215,7 +218,58 @@ def cc_library_static(
         tidy_flags = tidy_flags,
         tidy_checks = tidy_checks,
         tidy_checks_as_errors = tidy_checks_as_errors,
+        tidy_disabled_srcs = tidy_disabled_srcs,
+        tidy_timeout_srcs = tidy_timeout_srcs,
     )
+
+def _generate_tidy_actions(ctx):
+    with_tidy = ctx.attr._with_tidy[BuildSettingInfo].value
+    allow_local_tidy_true = ctx.attr._allow_local_tidy_true[BuildSettingInfo].value
+    if not with_tidy and not (allow_local_tidy_true and ctx.attr.tidy):
+        return []
+
+    disabled_srcs = [] + ctx.files.tidy_disabled_srcs
+    tidy_timeout = ctx.attr._tidy_timeout[BuildSettingInfo].value
+    if tidy_timeout != "":
+        disabled_srcs.extend(ctx.attr.tidy_timeout_srcs)
+
+    cpp_srcs, cpp_hdrs = get_non_header_srcs(ctx.files.srcs_cpp, disabled_srcs)
+    c_srcs, c_hdrs = get_non_header_srcs(ctx.files.srcs_c, disabled_srcs)
+    hdrs = ctx.attr.hdrs + cpp_hdrs + c_hdrs
+    cpp_tidy_outs = generate_clang_tidy_actions(
+        ctx,
+        ctx.attr.copts_cpp,
+        ctx.attr.deps + ctx.attr.includes,
+        cpp_srcs,
+        hdrs,
+        "c++",
+        ctx.attr.tidy_flags,
+        ctx.attr.tidy_checks,
+        ctx.attr.tidy_checks_as_errors,
+        tidy_timeout,
+    )
+    c_tidy_outs = generate_clang_tidy_actions(
+        ctx,
+        ctx.attr.copts_c,
+        ctx.attr.deps + ctx.attr.includes,
+        c_srcs,
+        hdrs,
+        "c",
+        ctx.attr.tidy_flags,
+        ctx.attr.tidy_checks,
+        ctx.attr.tidy_checks_as_errors,
+        tidy_timeout,
+    )
+
+    tidy_files = depset(cpp_tidy_outs + c_tidy_outs)
+    return [
+        OutputGroupInfo(
+            _validation = tidy_files,
+        ),
+        ClangTidyInfo(
+            tidy_files = tidy_files,
+        ),
+    ]
 
 # Returns a CcInfo object which combines one or more CcInfo objects, except that all
 # linker inputs owned by  owners in `old_owner_labels` are relinked and owned by the current target.
@@ -313,36 +367,7 @@ def _cc_library_combiner_impl(ctx):
         CcInfo(compilation_context = combined_info.compilation_context, linking_context = linking_context),
         CcStaticLibraryInfo(root_static_archive = output_file, objects = objects_to_link),
     ]
-
-    if ctx.attr.tidy:
-        cpp_srcs, cpp_hdrs = get_non_header_srcs(ctx.files.srcs_cpp)
-        c_srcs, c_hdrs = get_non_header_srcs(ctx.files.srcs_c)
-        hdrs = ctx.attr.hdrs + cpp_hdrs + c_hdrs
-        cpp_tidy_outs = generate_clang_tidy_actions(
-            ctx,
-            ctx.attr.copts_cpp,
-            ctx.attr.deps + ctx.attr.includes,
-            cpp_srcs,
-            hdrs,
-            "c++",
-            ctx.attr.tidy_flags,
-            ctx.attr.tidy_checks,
-            ctx.attr.tidy_checks_as_errors,
-        )
-        c_tidy_outs = generate_clang_tidy_actions(
-            ctx,
-            ctx.attr.copts_c,
-            ctx.attr.deps + ctx.attr.includes,
-            c_srcs,
-            hdrs,
-            "c",
-            ctx.attr.tidy_flags,
-            ctx.attr.tidy_checks,
-            ctx.attr.tidy_checks_as_errors,
-        )
-        providers.append(OutputGroupInfo(
-            _validation = depset(cpp_tidy_outs + c_tidy_outs),
-        ))
+    providers.extend(_generate_tidy_actions(ctx))
 
     return providers
 
@@ -387,6 +412,8 @@ _cc_library_combiner = rule(
         "tidy_checks": attr.string_list(),
         "tidy_checks_as_errors": attr.string_list(),
         "tidy_flags": attr.string_list(),
+        "tidy_disabled_srcs": attr.label_list(allow_files = True),
+        "tidy_timeout_srcs": attr.label_list(allow_files = True),
         "_clang_tidy_sh": attr.label(
             default = Label("@//prebuilts/clang/host/linux-x86:clang-tidy.sh"),
             allow_single_file = True,
@@ -406,6 +433,21 @@ _cc_library_combiner = rule(
             allow_single_file = True,
             executable = True,
             cfg = "exec",
+        ),
+        "_with_tidy": attr.label(
+            default = "//build/bazel/flags/cc/tidy:with_tidy",
+        ),
+        "_allow_local_tidy_true": attr.label(
+            default = "//build/bazel/flags/cc/tidy:allow_local_tidy_true",
+        ),
+        "_with_tidy_flags": attr.label(
+            default = "//build/bazel/flags/cc/tidy:with_tidy_flags",
+        ),
+        "_default_tidy_header_dirs": attr.label(
+            default = "//build/bazel/flags/cc/tidy:default_tidy_header_dirs",
+        ),
+        "_tidy_timeout": attr.label(
+            default = "//build/bazel/flags/cc/tidy:tidy_timeout",
         ),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],

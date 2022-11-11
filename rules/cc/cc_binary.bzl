@@ -64,6 +64,8 @@ def cc_binary(
         tidy_checks = None,
         tidy_checks_as_errors = None,
         tidy_flags = None,
+        tidy_disabled_srcs = None,
+        tidy_timeout_srcs = None,
         **kwargs):
     "Bazel macro to correspond with the cc_binary Soong module."
 
@@ -133,6 +135,7 @@ def cc_binary(
         tidy_checks = tidy_checks,
         tidy_checks_as_errors = tidy_checks_as_errors,
         tidy_flags = tidy_flags,
+        tidy_disabled_srcs = tidy_disabled_srcs,
     )
 
     binary_dynamic_deps = add_lists_defaulting_to_none(
