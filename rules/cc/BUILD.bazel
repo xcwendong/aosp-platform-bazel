@@ -22,6 +22,7 @@ load(":cc_library_static_test.bzl", "cc_library_static_test_suite")
 load(":cc_proto_test.bzl", "cc_proto_test_suite")
 load(":cc_sysprop_library_test.bzl", "cc_gen_sysprop_test_suite")
 load(":cc_prebuilt_binary_test.bzl", "cc_prebuilt_binary_test_suite")
+load(":clang_tidy_test.bzl", "clang_tidy_test_suite")
 load(":flex_test.bzl", "flex_test_suite")
 load(":stl_test.bzl", "stl_test_suite")
 load(":yasm_test.bzl", "yasm_test_suite")
@@ -57,6 +58,8 @@ cc_gen_sysprop_test_suite(name = "cc_gen_sysprop_tests")
 cc_prebuilt_binary_test_suite(name = "cc_prebuilt_binary_tests")
 
 cc_proto_test_suite(name = "cc_proto_tests")
+
+clang_tidy_test_suite(name = "clang_tidy_tests")
 
 flex_test_suite(name = "flex_tests")
 

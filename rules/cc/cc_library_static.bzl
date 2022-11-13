@@ -16,6 +16,8 @@ limitations under the License.
 
 load(
     ":cc_library_common.bzl",
+    "CPP_EXTENSIONS",
+    "C_EXTENSIONS",
     "create_ccinfo_for_includes",
     "get_non_header_srcs",
     "is_external_directory",
@@ -233,8 +235,16 @@ def _generate_tidy_actions(ctx):
     if tidy_timeout != "":
         disabled_srcs.extend(ctx.attr.tidy_timeout_srcs)
 
-    cpp_srcs, cpp_hdrs = get_non_header_srcs(ctx.files.srcs_cpp, disabled_srcs)
-    c_srcs, c_hdrs = get_non_header_srcs(ctx.files.srcs_c, disabled_srcs)
+    cpp_srcs, cpp_hdrs = get_non_header_srcs(
+        ctx.files.srcs_cpp,
+        ctx.files.tidy_disabled_srcs,
+        source_extensions = CPP_EXTENSIONS,
+    )
+    c_srcs, c_hdrs = get_non_header_srcs(
+        ctx.files.srcs_cpp + ctx.files.srcs_c,
+        ctx.files.tidy_disabled_srcs,
+        source_extensions = C_EXTENSIONS,
+    )
     hdrs = ctx.attr.hdrs + cpp_hdrs + c_hdrs
     cpp_tidy_outs = generate_clang_tidy_actions(
         ctx,

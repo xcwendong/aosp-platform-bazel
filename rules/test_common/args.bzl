@@ -36,3 +36,34 @@ def get_arg_value(args_list, arg_name):
         if actual_args[i] == arg_name:
             return actual_args[i + 1]
     return None
+
+def get_all_args_with_prefix(input_args, arg_prefix):
+    """returns all arguments that start with arg_prefix
+
+    Args:
+        input_args (list[str]): list of arguments
+        arg_prefix (str): prefix of argument to search for
+    Returns:
+        args (list[str]): value in args that start with arg_prefix
+    """
+    args = []
+    for a in input_args:
+        if a.startswith(arg_prefix):
+            args.append(a[len(arg_prefix):])
+    return args
+
+def get_single_arg_with_prefix(input_args, arg_prefix):
+    """returns all arguments that start with arg_prefix
+
+    Fails if more than one argument exists.
+
+    Args:
+        input_args (list[str]): list of arguments
+        arg_prefix (str): prefix of argument to search for
+    Returns:
+        args (str): value in args that starts with arg_prefix
+    """
+    args = get_all_args_with_prefix(input_args, arg_prefix)
+    if len(args) != 1:
+        fail("expected single argument with prefix `%s`, got %d; args = `%s`" % (arg_prefix, len(args), args))
+    return args[0]

@@ -37,6 +37,7 @@ _TIDY_GLOBAL_NO_CHECKS = constants.TidyGlobalNoChecks.split(",")
 _TIDY_GLOBAL_NO_ERROR_CHECKS = constants.TidyGlobalNoErrorChecks.split(",")
 _TIDY_DEFAULT_GLOBAL_CHECKS = constants.TidyDefaultGlobalChecks.split(",")
 _TIDY_EXTERNAL_VENDOR_CHECKS = constants.TidyExternalVendorChecks.split(",")
+_TIDY_DEFAULT_GLOBAL_CHECKS_NO_ANALYZER = constants.TidyDefaultGlobalChecks.split(",") + ["-clang-analyzer-*"]
 
 def _get_compilation_args(toolchain, feature_config, flags, compilation_ctx, action_name):
     compilation_vars = cc_common.create_compile_variables(
@@ -80,7 +81,7 @@ def _check_bad_tidy_checks(tidy_checks):
         if " " in check:
             fail("Check `%s` invalid, cannot contain spaces" % check)
         if "," in check:
-            fail("Check `%s` invalid, cannot contain commas. Split each entry into it's own string instead" % check)
+            fail("Check `%s` invalid, cannot contain commas. Split each entry into its own string instead" % check)
 
 def _add_with_tidy_flags(ctx, tidy_flags):
     with_tidy_flags = ctx.attr._with_tidy_flags[BuildSettingInfo].value
@@ -155,10 +156,13 @@ def _clang_rewrite_tidy_checks(tidy_checks):
     # remove the enabling argument from the list.
     return [t for t in tidy_checks if t not in clang_tidy_disable_checks]
 
-def _add_checks_for_dir(directory):
+def _add_checks_for_dir(directory, input_file):
     """should be kept up to date with
     https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/config/tidy.go;l=170;drc=b45a2ea782074944f79fc388df20b06e01f265f7
     """
+
+    if not input_file.is_source:
+        return _TIDY_DEFAULT_GLOBAL_CHECKS_NO_ANALYZER
 
     # This is a map of local path prefixes to the set of default clang-tidy checks
     # to be used.  This is like android.IsThirdPartyPath, but with more patterns.
@@ -184,12 +188,12 @@ def _add_checks_for_dir(directory):
 
     return _TIDY_DEFAULT_GLOBAL_CHECKS
 
-def _add_global_tidy_checks(ctx, local_checks):
+def _add_global_tidy_checks(ctx, local_checks, input_file):
     global_tidy_checks = []
     if product_vars["TidyChecks"]:
         global_tidy_checks = _PRODUCT_VARIABLE_TIDY_CHECKS
     else:
-        global_tidy_checks = _add_checks_for_dir(ctx.label.package)
+        global_tidy_checks = _add_checks_for_dir(ctx.label.package, input_file)
 
     # If Tidy_checks contains "-*", ignore all checks before "-*".
     for i, check in enumerate(local_checks):
@@ -220,7 +224,7 @@ def _create_clang_tidy_action(
     tidy_flags = _add_header_filter(ctx, tidy_flags)
     tidy_flags = _add_extra_arg_flags(tidy_flags)
     tidy_flags = _add_quiet_if_not_global_tidy(tidy_flags)
-    tidy_checks = _add_global_tidy_checks(ctx, tidy_checks)
+    tidy_checks = _add_global_tidy_checks(ctx, tidy_checks, input_file)
     tidy_checks_as_errors = _add_global_tidy_checks_as_errors(tidy_checks_as_errors)
 
     _check_bad_tidy_checks(tidy_checks)
@@ -259,6 +263,7 @@ def _create_clang_tidy_action(
         execution_requirements = {
             "no-sandbox": "1",
         },
+        mnemonic = "ClangTidy",
     )
 
     return tidy_file
