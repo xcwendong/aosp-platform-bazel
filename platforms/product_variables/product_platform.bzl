@@ -2,6 +2,7 @@
 
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load("//prebuilts/clang/host/linux-x86:cc_toolchain_constants.bzl", "variant_name")
+load("//build/bazel/platforms/arch/variants:constants.bzl", _arch_constants = "constants")
 
 def _product_variables_providing_rule_impl(ctx):
     return [
@@ -94,31 +95,20 @@ def product_variable_config(name, product_config_vars):
         if add_constraint:
             constraints.append("//build/bazel/product_variables:" + constraint_var)
 
+    arch_configs = _determine_target_arches_from_config(local_vars)
+
+    # TODO(b/258802089): figure out how to deal with multiple arches for target
+    if len(arch_configs) > 0:
+        arch = arch_configs[0]
+        native.alias(
+            name = name,
+            actual = "{os}_{arch}{variant}".format(os = "android", arch = arch.arch, variant = _variant_name(arch.arch, arch.arch_variant, arch.cpu_variant)),
+        )
+
     native.platform(
         name = name + _product_only_suffix,
         constraint_values = constraints,
     )
-
-    arch = local_vars.get("DeviceArch")
-    arch_variant = local_vars.get("DeviceArchVariant")
-    cpu_variant = local_vars.get("DeviceCpuVariant")
-
-    os = "android"
-
-    native.alias(
-        name = name,
-        actual = "{os}_{arch}{variant}".format(os = os, arch = arch, variant = _variant_name(arch, arch_variant, cpu_variant)),
-    )
-
-    arch = local_vars.get("DeviceSecondaryArch")
-    arch_variant = local_vars.get("DeviceSecondaryArchVariant")
-    cpu_variant = local_vars.get("DeviceSecondaryCpuVariant")
-
-    if arch:
-        native.alias(
-            name = name + "_secondary",
-            actual = "{os}_{arch}{variant}".format(os = os, arch = arch, variant = _variant_name(arch, arch_variant, cpu_variant)),
-        )
 
     product_variables_providing_rule(
         name = name + "_product_vars",
@@ -139,6 +129,13 @@ def _variant_name(arch, arch_variant, cpu_variant):
     )
     return variant_name(variant)
 
+def _soong_arch_config_to_struct(soong_arch_config):
+    return struct(
+        arch = soong_arch_config["arch"],
+        arch_variant = soong_arch_config["arch_variant"],
+        cpu_variant = soong_arch_config["cpu_variant"],
+    )
+
 def android_platform(name = None, constraint_values = [], product = None):
     """ android_platform creates a platform with the specified constraint_values and product constraints."""
     native.platform(
@@ -146,3 +143,47 @@ def android_platform(name = None, constraint_values = [], product = None):
         constraint_values = constraint_values,
         parents = [product + _product_only_suffix],
     )
+
+def _determine_target_arches_from_config(config):
+    arches = []
+
+    # ndk_abis and aml_abis explicitly get handled first as they override any setting
+    # for DeviceArch, DeviceSecondaryArch in Soong:
+    # https://cs.android.com/android/platform/superproject/+/master:build/soong/android/config.go;l=455-468;drc=b45a2ea782074944f79fc388df20b06e01f265f7
+    if config.get("Ndk_abis"):
+        for arch_config in _arch_constants.ndk_arches:
+            arches.append(_soong_arch_config_to_struct(arch_config))
+        return arches
+    elif config.get("Aml_abis"):
+        for arch_config in _arch_constants.aml_arches:
+            arches.append(_soong_arch_config_to_struct(arch_config))
+        return arches
+
+    arch = config.get("DeviceArch")
+    arch_variant = config.get("DeviceArchVariant")
+    cpu_variant = config.get("DeviceCpuVariant")
+
+    if not arch:
+        # TODO(b/258839711): determine how to better id whether a config is actually host only or we're just missing the target config
+        if "DeviceArch" in config:
+            fail("No architecture was specified in the product config, expected one of Ndk_abis, Aml_abis, or DeviceArch to be set:\n%s" % config)
+        else:
+            return arches
+
+    arches.append(struct(
+        arch = arch,
+        arch_variant = arch_variant,
+        cpu_variant = cpu_variant,
+    ))
+
+    arch = config.get("DeviceSecondaryArch")
+    arch_variant = config.get("DeviceSecondaryArchVariant")
+    cpu_variant = config.get("DeviceSecondaryCpuVariant")
+
+    if arch:
+        arches.append(struct(
+            arch = arch,
+            arch_variant = arch_variant,
+            cpu_variant = cpu_variant,
+        ))
+    return arches

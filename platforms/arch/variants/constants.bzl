@@ -16,10 +16,12 @@
 
 load(
     "@soong_injection//product_config:arch_configuration.bzl",
+    _aml_arches = "aml_arches",
     _android_arch_feature_for_arch_variant = "android_arch_feature_for_arch_variants",
     _arch_to_cpu_variants = "arch_to_cpu_variants",
     _arch_to_features = "arch_to_features",
     _arch_to_variants = "arch_to_variants",
+    _ndk_arches = "ndk_arches",
 )
 
 def _flatten_string_list_dict_to_set(string_list_dict):
@@ -41,6 +43,8 @@ constants = struct(
     CpuToVariants = _arch_to_cpu_variants,
     ArchToFeatures = _arch_to_features,
     AndroidArchToVariantToFeatures = _android_arch_feature_for_arch_variant,
+    aml_arches = _aml_arches,
+    ndk_arches = _ndk_arches,
 )
 
 def power_set(items, *, include_empty = True):
