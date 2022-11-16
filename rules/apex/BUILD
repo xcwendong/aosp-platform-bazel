@@ -110,6 +110,7 @@ apex_toolchain(
     jsonmodify = "//build/soong/scripts:jsonmodify",
     manifest_fixer = "//build/soong/scripts:manifest_fixer",
     mke2fs = "//external/e2fsprogs/misc:mke2fs",
+    notice_generator = "//build/bazel/compliance/cmd:bazel_notice_gen",
     readelf = "//prebuilts/clang/host/linux-x86:llvm-readelf",
     resize2fs = "//external/e2fsprogs/resize:resize2fs",
     sefcontext_compile = "//external/selinux/libselinux:sefcontext_compile",

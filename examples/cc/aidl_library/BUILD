@@ -7,13 +7,17 @@ load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 # Use aidl sources from another package
 cc_aidl_library(
     name = "foo_cc_aidl_library",
+    implementation_dynamic_deps = [
+        "//frameworks/native/libs/binder:libbinder",
+        "//system/core/libutils:libutils",
+    ],
     deps = ["//build/bazel/examples/cc/aidl:foo"],
 )
 
 cc_library_shared(
     name = "foo",
     srcs = ["foo.cpp"],
-    dynamic_deps = [
+    implementation_dynamic_deps = [
         "//frameworks/native/libs/binder:libbinder",
         "//system/core/libutils:libutils",
     ],
@@ -25,12 +29,12 @@ cc_library_shared(
 cc_library_static(
     name = "foo_bp2build_cc_library_static",
     srcs = ["foo.cpp"],
-    whole_archive_deps = [
-        "foo_cc_aidl_library",
-    ],
-    deps = [
+    implementation_dynamic_deps = [
         "//frameworks/native/libs/binder:libbinder",
         "//system/core/libutils",
+    ],
+    whole_archive_deps = [
+        "foo_cc_aidl_library",
     ],
 )
 

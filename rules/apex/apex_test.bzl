@@ -1575,6 +1575,37 @@ def _test_apex_java_symbols_used_by_apex():
 
     return test_name
 
+def _generate_notice_file_test(ctx):
+    env = analysistest.begin(ctx)
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "GenerateNoticeFile"]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "apex target should have a single GenerateNoticeFile action, found %s" % actions,
+    )
+    input_json = [f for f in actions[0].inputs.to_list() if f.basename.endswith("_licenses.json")]
+    asserts.true(
+        env,
+        len(input_json) == 1,
+        "apex GenerateNoticeFile should have a single input *_license.json file, got %s" % input_json,
+    )
+    outs = actions[0].outputs.to_list()
+    asserts.true(
+        env,
+        len(outs) == 1 and outs[0].basename == "NOTICE.html.gz",
+        "apex GenerateNoticeFile should generate a single NOTICE.html.gz file, got %s" % [o.short_path for o in outs],
+    )
+    return analysistest.end(env)
+
+apex_generate_notice_file_test = analysistest.make(_generate_notice_file_test)
+
+def _test_apex_generate_notice_file():
+    name = "apex_notice_file"
+    test_name = name + "_test"
+    test_apex(name = name)
+    apex_generate_notice_file_test(name = test_name, target_under_test = name)
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -1612,5 +1643,6 @@ def apex_test_suite(name):
             _test_apex_symbols_used_by_apex(),
             _test_apex_installed_files(),
             _test_apex_java_symbols_used_by_apex(),
+            _test_apex_generate_notice_file(),
         ],
     )

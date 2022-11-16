@@ -26,6 +26,7 @@ readonly -a APEX_FILES=(
   "AndroidManifest.xml"
   "apex_payload.img"
   "apex_pubkey"
+  "assets/NOTICE.html.gz"
   "META-INF/CERT\.SF"
   "META-INF/CERT\.RSA"
   "META-INF/MANIFEST\.MF"

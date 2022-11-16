@@ -50,7 +50,7 @@ def _remap_license_kind(license_kind):
 # buildifier: disable=function-docstring-args
 def android_license(
         name,
-        license_text = "LICENSE",
+        license_text = "__NO_LICENSE__",  # needed as `license` expects it
         visibility = ["//visibility:public"],
         license_kinds = None,
         copyright_notice = None,

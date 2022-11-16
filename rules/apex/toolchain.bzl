@@ -34,6 +34,7 @@ ApexToolchainInfo = provider(
         "readelf",
         "gen_java_usedby_apex",
         "dexdeps",
+        "notice_generator",
     ],
 )
 
@@ -57,6 +58,7 @@ def _apex_toolchain_impl(ctx):
             readelf = ctx.attr.readelf,
             gen_java_usedby_apex = ctx.attr.gen_java_usedby_apex,
             dexdeps = ctx.attr.dexdeps,
+            notice_generator = ctx.attr.notice_generator,
         ),
     )
     return [toolchain_info]
@@ -84,5 +86,6 @@ apex_toolchain = rule(
         "readelf": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = True),
         "gen_java_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
         "dexdeps": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "notice_generator": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
     },
 )
