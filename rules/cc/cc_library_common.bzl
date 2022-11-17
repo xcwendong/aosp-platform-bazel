@@ -17,6 +17,7 @@ limitations under the License.
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
+load("@soong_injection//android:constants.bzl", android_constants = "constants")
 
 _bionic_targets = ["//bionic/libc", "//bionic/libdl", "//bionic/libm"]
 _static_bionic_targets = ["//bionic/libc:libc_bp2build_cc_library_static", "//bionic/libdl:libdl_bp2build_cc_library_static", "//bionic/libm:libm_bp2build_cc_library_static"]
@@ -206,3 +207,43 @@ def get_non_header_srcs(input_srcs, exclude_srcs, source_extensions = None, head
         elif is_source and s not in exclude_srcs:
             srcs.append(s)
     return srcs, hdrs
+
+def prefix_in_list(str, prefixes):
+    """returns the prefix if any element of prefixes is a prefix of path
+
+    Args:
+        str (str): the string to compare prefixes against
+        prefixes (list[str]): a list of prefixes to check against str
+    Returns:
+        prefix (str or None): the prefix (if any) that str starts with
+    """
+    for prefix in prefixes:
+        if str.startswith(prefix):
+            return prefix
+    return None
+
+_DISALLOWED_INCLUDE_DIRS = android_constants.NeverAllowNotInIncludeDir
+_PACKAGES_DISALLOWED_TO_SPECIFY_INCLUDE_DIRS = android_constants.NeverAllowNoUseIncludeDir
+
+def check_absolute_include_dirs_disabled(target_package, absolute_includes):
+    """checks that absolute include dirs are disabled for some directories
+
+    Args:
+        target_package (str): package of current target
+        absolute_includes (list[str]): list of absolute include directories
+    """
+    if len(absolute_includes) > 0:
+        disallowed_prefix = prefix_in_list(
+            target_package,
+            _PACKAGES_DISALLOWED_TO_SPECIFY_INCLUDE_DIRS,
+        )
+        if disallowed_prefix != None:
+            fail("include_dirs is deprecated, all usages of them in '" +
+                 disallowed_prefix + "' have been migrated to use alternate" +
+                 " mechanisms and so can no longer be used.")
+
+    for path in absolute_includes:
+        if path in _DISALLOWED_INCLUDE_DIRS:
+            fail("include_dirs is deprecated, all usages of '" + path + "' have" +
+                 " been migrated to use alternate mechanisms and so can no longer" +
+                 " be used.")

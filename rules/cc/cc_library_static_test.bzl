@@ -17,7 +17,10 @@ limitations under the License.
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
+load("//build/bazel/rules/cc:cc_library_headers.bzl", "cc_library_headers")
+load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/test_common:paths.bzl", "get_package_dir_based_path")
+load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test")
 
 def _cc_library_static_propagating_compilation_context_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -260,6 +263,69 @@ def _cc_library_static_does_not_propagate_implementation_dynamic_deps():
 
     return test_name
 
+def _cc_rules_do_not_allow_absolute_includes():
+    name = "cc_rules_do_not_allow_absolute_includes"
+    test_names = []
+
+    DISALLOWED_INCLUDE_DIRS = [
+        "art",
+        "art/libnativebridge",
+        "art/libnativeloader",
+        "libcore",
+        "libnativehelper",
+        "external/apache-harmony",
+        "external/apache-xml",
+        "external/boringssl",
+        "external/bouncycastle",
+        "external/conscrypt",
+        "external/icu",
+        "external/okhttp",
+        "external/vixl",
+        "external/wycheproof",
+    ]
+
+    for include_dir in DISALLOWED_INCLUDE_DIRS:
+        binary_name = name + "_binary" + "_" + include_dir
+        library_headers_name = name + "_library_headers" + "_" + include_dir
+        library_shared_name = name + "_library_shared" + "_" + include_dir
+        library_static_name = name + "_library_static" + "_" + include_dir
+
+        cc_binary(
+            name = binary_name,
+            absolute_includes = [include_dir],
+            tags = ["manual"],
+        )
+        cc_library_headers(
+            name = library_headers_name,
+            absolute_includes = [include_dir],
+            tags = ["manual"],
+        )
+        cc_library_shared(
+            name = library_shared_name,
+            absolute_includes = [include_dir],
+            tags = ["manual"],
+        )
+        cc_library_static(
+            name = library_static_name,
+            absolute_includes = [include_dir],
+            tags = ["manual"],
+        )
+
+        for target in [
+            binary_name,
+            library_headers_name,
+            library_static_name,
+            library_shared_name,
+        ]:
+            test_name = target + "_" + include_dir + "_test"
+            test_names.append(test_name)
+            expect_failure_test(
+                name = test_name,
+                target_under_test = target,
+            )
+
+    return test_names
+
 def cc_library_static_test_suite(name):
     native.genrule(name = "hdr", cmd = "null", outs = ["f.h"], tags = ["manual"])
 
@@ -272,5 +338,5 @@ def cc_library_static_test_suite(name):
             _cc_library_static_does_not_propagate_implementation_deps(),
             _cc_library_static_does_not_propagate_implementation_whole_archive_deps(),
             _cc_library_static_does_not_propagate_implementation_dynamic_deps(),
-        ],
+        ] + _cc_rules_do_not_allow_absolute_includes(),
     )

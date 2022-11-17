@@ -38,6 +38,7 @@ _TIDY_GLOBAL_NO_ERROR_CHECKS = constants.TidyGlobalNoErrorChecks.split(",")
 _TIDY_DEFAULT_GLOBAL_CHECKS = constants.TidyDefaultGlobalChecks.split(",")
 _TIDY_EXTERNAL_VENDOR_CHECKS = constants.TidyExternalVendorChecks.split(",")
 _TIDY_DEFAULT_GLOBAL_CHECKS_NO_ANALYZER = constants.TidyDefaultGlobalChecks.split(",") + ["-clang-analyzer-*"]
+_TIDY_EXTRA_ARG_FLAGS = constants.TidyExtraArgFlags
 
 def _get_compilation_args(toolchain, feature_config, flags, compilation_ctx, action_name):
     compilation_vars = cc_common.create_compile_variables(
@@ -111,25 +112,7 @@ def _add_header_filter(ctx, tidy_flags):
     return tidy_flags + [header_filter]
 
 def _add_extra_arg_flags(tidy_flags):
-    """keep up to date with
-    https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/tidy.go;l=138-152;drc=ff2efae9b014d644fcce8143258fa652fc2bcf13
-    TODO(b/255750565) export this
-    """
-    extra_arg_flags = [
-        # We might be using the static analyzer through clang tidy.
-        # https://bugs.llvm.org/show_bug.cgi?id=32914
-        "-D__clang_analyzer__",
-
-        # A recent change in clang-tidy (r328258) enabled destructor inlining, which
-        # appears to cause a number of false positives. Until that's resolved, this turns
-        # off the effects of r328258.
-        # https://bugs.llvm.org/show_bug.cgi?id=37459
-        "-Xclang",
-        "-analyzer-config",
-        "-Xclang",
-        "c++-temp-dtor-inlining=false",
-    ]
-    return tidy_flags + ["-extra-arg-before=" + f for f in extra_arg_flags]
+    return tidy_flags + ["-extra-arg-before=" + f for f in _TIDY_EXTRA_ARG_FLAGS]
 
 def _add_quiet_if_not_global_tidy(tidy_flags):
     if len(_PRODUCT_VARIABLE_TIDY_CHECKS) == 0:

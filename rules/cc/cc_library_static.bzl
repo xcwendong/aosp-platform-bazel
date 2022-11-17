@@ -18,6 +18,7 @@ load(
     ":cc_library_common.bzl",
     "CPP_EXTENSIONS",
     "C_EXTENSIONS",
+    "check_absolute_include_dirs_disabled",
     "create_ccinfo_for_includes",
     "get_non_header_srcs",
     "is_external_directory",
@@ -466,6 +467,11 @@ _cc_library_combiner = rule(
 )
 
 def _cc_includes_impl(ctx):
+    check_absolute_include_dirs_disabled(
+        ctx.label.package,
+        ctx.attr.absolute_includes,
+    )
+
     return [create_ccinfo_for_includes(
         ctx,
         includes = ctx.attr.includes,
