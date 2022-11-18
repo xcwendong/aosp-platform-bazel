@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("//build/bazel/platforms:transitions.bzl", "default_android_transition")
 load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
+load("//build/bazel/rules:toolchain_utils.bzl", "verify_toolchain_exists")
 load(":apex.bzl", "ApexInfo")
 load(":apex_key.bzl", "ApexKeyInfo")
 load(":bundle.bzl", "build_bundle_config")
@@ -240,6 +240,7 @@ def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
 def _apex_aab_impl(ctx):
     """Implementation of apex_aab rule, which drives the process of creating aab
     file from apex files created for each arch."""
+    verify_toolchain_exists(ctx, "//build/bazel/rules/apex:apex_toolchain_type")
     apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
 
     signed_apex_files = {}
@@ -296,9 +297,10 @@ def _apex_aab_impl(ctx):
 # by invoking Soong multiple times.
 _apex_aab = rule(
     implementation = _apex_aab_impl,
-    cfg = default_android_transition,
     toolchains = [
-        "//build/bazel/rules/apex:apex_toolchain_type",
+        # The apex toolchain is not mandatory so that we don't get toolchain resolution errors
+        # even when the aab is not compatible with the current target (via target_compatible_with).
+        config_common.toolchain_type("//build/bazel/rules/apex:apex_toolchain_type", mandatory = False),
         "@bazel_tools//tools/python:toolchain_type",
     ],
     attrs = {
@@ -396,11 +398,17 @@ _apex_aab = rule(
     },
 )
 
-def apex_aab(name, mainline_module, dev_sign_bundle = None, dev_keystore = None, **kwargs):
+def apex_aab(name, mainline_module, dev_sign_bundle = None, dev_keystore = None, target_compatible_with = [], **kwargs):
+    target_compatible_with = select({
+        "//build/bazel/platforms/os:android": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }) + target_compatible_with
+
     _apex_aab(
         name = name,
         mainline_module = mainline_module,
         dev_sign_bundle = dev_sign_bundle,
         dev_keystore = dev_keystore,
+        target_compatible_with = target_compatible_with,
         **kwargs
     )

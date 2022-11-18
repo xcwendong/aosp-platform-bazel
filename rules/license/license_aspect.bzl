@@ -4,19 +4,15 @@ RuleLicensedDependenciesInfo = provider(
     doc = """Rule's licensed dependencies.""",
     fields = dict(
         license_closure = "depset(license) for the rule and its licensed dependencies",
-        licensed_dependencies = "depset(Target) with rule's licensed dependencies",
     ),
 )
 
-def _maybe_expand(rule, transitive_licenses, direct_licensed_deps, transitive_licensed_deps):
+def _maybe_expand(rule, transitive_licenses):
     if not RuleLicensedDependenciesInfo in rule:
         return
     dep_info = rule[RuleLicensedDependenciesInfo]
     if hasattr(dep_info, "license_closure"):
-        direct_licensed_deps.append(rule)
         transitive_licenses.append(dep_info.license_closure)
-    if hasattr(dep_info, "licensed_dependencies"):
-        transitive_licensed_deps.append(dep_info.licensed_dependencies)
 
 def _rule_licenses_aspect_impl(rule, ctx):
     if ctx.rule.kind == "_license":
@@ -24,8 +20,6 @@ def _rule_licenses_aspect_impl(rule, ctx):
 
     licenses = []
     transitive_licenses = []
-    licensed_deps = []
-    transitive_licensed_deps = []
     if hasattr(ctx.rule.attr, "applicable_licenses"):
         licenses.extend(ctx.rule.attr.applicable_licenses)
 
@@ -36,15 +30,9 @@ def _rule_licenses_aspect_impl(rule, ctx):
         value = getattr(ctx.rule.attr, a)
         vlist = value if type(value) == type([]) else [value]
         for item in vlist:
-            if type(item) == "Target":
-                _maybe_expand(item, transitive_licenses, licensed_deps, transitive_licensed_deps)
-    return RuleLicensedDependenciesInfo(
-        license_closure = depset(licenses, transitive = transitive_licenses),
-        licensed_dependencies = depset(
-            licensed_deps,
-            transitive = transitive_licensed_deps,
-        ),
-    )
+            if type(item) == "Target" and RuleLicensedDependenciesInfo in item:
+                _maybe_expand(item, transitive_licenses)
+    return RuleLicensedDependenciesInfo(license_closure = depset(licenses, transitive = transitive_licenses))
 
 license_aspect = aspect(
     doc = """Collect transitive license closure.""",
@@ -81,6 +69,8 @@ def _divine_package_name(license):
 def license_map(ctx, deps):
     """Collects license to licensees map for the given set of rule targets.
 
+    TODO(asmundak): at the moment licensees lists are all empty because collecting
+    the licensees turned out to be too slow. Restore this later.
     Args:
         ctx:context
         deps: list of rule targets
@@ -88,32 +78,20 @@ def license_map(ctx, deps):
         dictionary mapping a license to its licensees
     """
     transitive_licenses = []
-    direct_licensed_deps = []
-    transitive = []
     for d in deps:
-        _maybe_expand(d, transitive_licenses, direct_licensed_deps, transitive)
-
-    licensed_rules = depset(direct_licensed_deps, transitive = transitive).to_list()
+        _maybe_expand(d, transitive_licenses)
 
     # Each rule provides the closure of its licenses, let us build the
     # reverse map. A minor quirk is that for some reason there may be
     # multiple license instances with with the same label. Use the
     # intermediary dict to map rule's label to its first instance
     license_by_label = dict()
-
     licensees = dict()
-    for r in licensed_rules:
-        for lic in r[RuleLicensedDependenciesInfo].license_closure.to_list():
-            label = lic[LicenseInfo].rule
-            if label in license_by_label:
-                lic = license_by_label[label]
-            else:
-                license_by_label[label] = lic
-            if not lic in licensees:
-                licensees[lic] = []
-            licensees[lic].append(str(r.label))
-    for lic in licensees.keys():
-        licensees[lic] = depset(licensees[lic]).to_list()
+    for lic in depset(transitive = transitive_licenses).to_list():
+        label = lic[LicenseInfo].rule
+        if not label in license_by_label:
+            license_by_label[label] = lic
+            licensees[lic] = []
     return licensees
 
 _license_template = """  {{

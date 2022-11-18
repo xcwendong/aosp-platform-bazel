@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("//build/bazel/platforms:transitions.bzl", "default_android_transition")
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@product_config//:product_config.bzl", "product_config")
@@ -344,9 +343,8 @@ def _partition_impl(ctx):
 
     return DefaultInfo(files = depset([output_image]))
 
-partition = rule(
+_partition = rule(
     implementation = _partition_impl,
-    cfg = default_android_transition,
     attrs = {
         "type": attr.string(
             mandatory = True,
@@ -362,10 +360,19 @@ partition = rule(
             executable = True,
             default = "//build/bazel/rules:staging_dir_builder",
         ),
-        "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
     },
     toolchains = [
         ":partition_toolchain_type",
         "@bazel_tools//tools/python:toolchain_type",
     ],
 )
+
+def partition(target_compatible_with = [], **kwargs):
+    target_compatible_with = select({
+        "//build/bazel/platforms/os:android": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }) + target_compatible_with
+    _partition(
+        target_compatible_with = target_compatible_with,
+        **kwargs
+    )

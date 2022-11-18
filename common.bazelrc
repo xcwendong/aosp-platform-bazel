@@ -91,6 +91,9 @@ test:ci --keep_going
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
 
+# Get rid no-op "affected by Starlark transition" config when label-based flag
+# (i.e. //command_line_option:fdo_profile) is set back to None
+build --experimental_output_directory_naming_scheme=diff_against_baseline
 common --experimental_google_legacy_api
 build --android_sdk=//prebuilts/sdk:android_sdk
 build --experimental_enable_android_migration_apis

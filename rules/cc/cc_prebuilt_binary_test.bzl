@@ -15,17 +15,7 @@ limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":cc_binary_test.bzl", "strip_test_assert_flags")
-load(":cc_prebuilt_binary.bzl", "cc_prebuilt_binary", "is_target_host")
-
-# Ensure target == host so there isn't a transition
-_config_settings_not_device = {
-    "//command_line_option:platforms": "@//build/bazel/platforms:linux_x86_64",
-}
-
-# Ensure target != host so there is a transition
-_config_settings_device = {
-    "//command_line_option:platforms": "@//build/bazel/platforms:android_arm",
-}
+load(":cc_prebuilt_binary.bzl", "cc_prebuilt_binary")
 
 def _cc_prebuilt_binary_basic_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -68,13 +58,18 @@ def _cc_prebuilt_binary_stripping_flags_test_impl(ctx):
         strip_test_assert_flags(env, strip_acts[0], ctx.attr.strip_flags)
     return analysistest.end(env)
 
-_cc_prebuilt_binary_stripping_flags_test = analysistest.make(
+__cc_prebuilt_binary_stripping_flags_test = analysistest.make(
     _cc_prebuilt_binary_stripping_flags_test_impl,
     attrs = dict(
         strip_flags = attr.string_list(),
     ),
-    config_settings = _config_settings_device,
 )
+
+def _cc_prebuilt_binary_stripping_flags_test(**kwargs):
+    __cc_prebuilt_binary_stripping_flags_test(
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
+        **kwargs
+    )
 
 def _cc_prebuilt_binary_strip_keep_symbols_test():
     name = "cc_prebuilt_binary_strip_keep_symbols"
@@ -164,10 +159,15 @@ def _cc_prebuilt_binary_no_stripping_action_test_impl(ctx):
     )
     return analysistest.end(env)
 
-_cc_prebuilt_binary_no_stripping_action_test = analysistest.make(
+__cc_prebuilt_binary_no_stripping_action_test = analysistest.make(
     _cc_prebuilt_binary_no_stripping_action_test_impl,
-    config_settings = _config_settings_device,
 )
+
+def _cc_prebuilt_binary_no_stripping_action_test(**kwargs):
+    __cc_prebuilt_binary_no_stripping_action_test(
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
+        **kwargs
+    )
 
 def _cc_prebuilt_binary_strip_none_test():
     name = "cc_prebuilt_binary_strip_none"
@@ -184,11 +184,14 @@ def _cc_prebuilt_binary_strip_none_test():
     )
     return test_name
 
-_cc_prebuilt_binary_host_test = analysistest.make(
-    # NB: Intentionally reuses prior test implementation
-    _cc_prebuilt_binary_no_stripping_action_test_impl,
-    config_settings = _config_settings_not_device,
-)
+def _cc_prebuilt_binary_host_test(**kwargs):
+    __cc_prebuilt_binary_no_stripping_action_test(
+        target_compatible_with = select({
+            "//build/bazel/platforms/os:android": ["@platforms//:incompatible"],
+            "//conditions:default": [],
+        }),
+        **kwargs
+    )
 
 def _cc_prebuilt_binary_no_strip_host_test():
     name = "cc_prebuilt_binary_no_strip_host"

@@ -15,13 +15,13 @@ limitations under the License.
 """
 
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
-load("//build/bazel/platforms:transitions.bzl", "default_android_transition")
 load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo", "android_app_certificate_with_default_cert")
 load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "apex_cc_aspect")
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition", "shared_lib_transition_32", "shared_lib_transition_64")
 load("//build/bazel/rules/cc:stripped_cc_common.bzl", "StrippedCcBinaryInfo")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 load("//build/bazel/rules:sh_binary.bzl", "ShBinaryInfo")
+load("//build/bazel/rules:toolchain_utils.bzl", "verify_toolchain_exists")
 load(
     "//build/bazel/rules/license:license_aspect.bzl",
     "RuleLicensedDependenciesInfo",
@@ -571,6 +571,7 @@ def _generate_java_symbols_used_by_apex(ctx, apex_toolchain):
 
 # See the APEX section in the README on how to use this rule.
 def _apex_rule_impl(ctx):
+    verify_toolchain_exists(ctx, "//build/bazel/rules/apex:apex_toolchain_type")
     apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
 
     apexer_outputs = _run_apexer(ctx, apex_toolchain)
@@ -625,7 +626,6 @@ def _apex_rule_impl(ctx):
 
 _apex = rule(
     implementation = _apex_rule_impl,
-    cfg = default_android_transition,
     attrs = {
         "manifest": attr.label(allow_single_file = [".json"]),
         "android_manifest": attr.label(allow_single_file = [".xml"]),
@@ -706,7 +706,9 @@ _apex = rule(
             doc = "If enabled, make apexer log verbosely.",
         ),
     },
-    toolchains = ["//build/bazel/rules/apex:apex_toolchain_type"],
+    # The apex toolchain is not mandatory so that we don't get toolchain resolution errors even
+    # when the apex is not compatible with the current target (via target_compatible_with).
+    toolchains = [config_common.toolchain_type("//build/bazel/rules/apex:apex_toolchain_type", mandatory = False)],
     fragments = ["platform"],
 )
 
@@ -731,6 +733,7 @@ def apex(
         testonly = False,
         # TODO(b/255400736): tests are not fully supported yet.
         tests = [],
+        target_compatible_with = [],
         **kwargs):
     "Bazel macro to correspond with the APEX bundle Soong module."
 
@@ -763,6 +766,11 @@ def apex(
         android_app_certificate_with_default_cert(app_cert_name)
         certificate_label = ":" + app_cert_name
 
+    target_compatible_with = select({
+        "//build/bazel/platforms/os:android": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }) + target_compatible_with
+
     _apex(
         name = name,
         manifest = manifest,
@@ -788,5 +796,6 @@ def apex(
         apex_output = apex_output,
         capex_output = capex_output,
         testonly = testonly,
+        target_compatible_with = target_compatible_with,
         **kwargs
     )
