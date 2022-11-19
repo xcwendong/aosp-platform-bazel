@@ -150,6 +150,8 @@ def handle_user_input() -> UserInput:
     build_type = BuildType.B
   elif options.bazel_mode_dev:
     build_type = BuildType.MIXED_DEV
+  elif options.bazel_mode_staging:
+    build_type = BuildType.MIXED_STAGING
   elif options.bazel_mode:
     build_type = BuildType.MIXED_PROD
   else:

@@ -137,17 +137,17 @@ def _stl_flags(stl_name, is_shared):
 
     return struct(
         cppflags = select({
-            constants.ArchVariantToConstraints["bionic"]: [],
+            "//build/bazel/platforms/os:bionic": [],
             "//conditions:default": cppflags_not_bionic,
         }) + select({
-            constants.ArchVariantToConstraints["darwin"]: cppflags_darwin,
-            constants.ArchVariantToConstraints["windows"]: (
+            "//build/bazel/platforms/os:darwin": cppflags_darwin,
+            "//build/bazel/platforms/os:windows": (
                 cppflags_windows_not_bionic
             ),
             "//conditions:default": [],
         }),
         linkopts = select({
-            constants.ArchVariantToConstraints["bionic"]: [],
+            "//build/bazel/platforms/os:bionic": [],
             "//conditions:default": linkopts_not_bionic,
         }),
     )

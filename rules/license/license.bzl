@@ -52,7 +52,7 @@ def android_license(
         name,
         license_text = "__NO_LICENSE__",  # needed as `license` expects it
         visibility = ["//visibility:public"],
-        license_kinds = None,
+        license_kinds = [],
         copyright_notice = None,
         package_name = None,
         tags = []):
