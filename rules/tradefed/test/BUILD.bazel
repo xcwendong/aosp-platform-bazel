@@ -1,0 +1,7 @@
+filegroup(
+    name = "example_configs",
+    srcs = glob(
+        ["*.xml"],
+    ),
+    visibility = ["//build/bazel/rules/tradefed:__subpackages__"],
+)

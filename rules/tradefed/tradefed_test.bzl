@@ -102,11 +102,42 @@ def tradefed_cc_host_outputs():
     )
     return name
 
+def tradefed_cc_host_outputs_with_existing_tf_config():
+    name = "cc_host_with_example_config"
+    target = "cc_host_target_with_example_config"
+
+    cc_object(
+        name = target,
+        tags = ["manual"],
+    )
+    tradefed_deviceless_test(
+        name = name,
+        tags = ["manual"],
+        test = target,
+        target_compatible_with = ["//build/bazel/platforms/os:linux"],
+        tradefed_configs = [
+            "//build/bazel/rules/tradefed/test:example_configs",
+        ],
+    )
+
+    # check for expected output files (.config file  and .sh script)
+    tradefed_config_generation_test(
+        name = name + "_test",
+        target_under_test = name,
+        expected_outputs = [
+            "tradefed_test_" + name + ".sh",
+            "example_config.xml.tradefed.config",
+        ],
+        target_compatible_with = ["//build/bazel/platforms/os:linux"],
+    )
+    return name
+
 def tradefed_test_suite(name):
     native.test_suite(
         name = name,
         tests = [
             tradefed_cc_outputs(),
             tradefed_cc_host_outputs(),
+            tradefed_cc_host_outputs_with_existing_tf_config(),
         ],
     )

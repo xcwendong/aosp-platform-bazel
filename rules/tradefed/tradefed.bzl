@@ -37,24 +37,40 @@ TRADEFED_TEST_ATTRIBUTES = {
     ),
 
     # Tradefed config specific attributes.
-    "extra_configs": attr.string(
-        doc = "Extra configs to extend into tradefed config file.",
-    ),
-    "test_install_base": attr.string(
-        default = "/data/local/tmp",
-        doc = "Directory to install the tests onto the device",
+    "tradefed_configs": attr.label_list(
+        allow_files = True,
+        doc = "Tradefed configs.",
     ),
     "_config_templates": attr.label_list(
         default = _config_templates.values(),
         allow_files = True,
         doc = "List of templates to generate a tradefed config based on a provider type.",
     ),
+    "extra_configs": attr.string(
+        doc = "Extra configs to extend into generated tf config.",
+    ),
+    "test_install_base": attr.string(
+        default = "/data/local/tmp",
+        doc = "Directory to install tests onto the device for generated config",
+    ),
 }
 
 # Generate tradefed config from template.
-def _create_tradefed_test_config(ctx):
-    out = ctx.actions.declare_file(ctx.attr.name + ".tradefed.config")
+def _create_tradefed_test_configs(ctx):
+    # Check for existing tradefed configs; and symlink
+    if len(ctx.files.tradefed_configs) > 0:
+        configs = []
+        for f in ctx.files.tradefed_configs:
+            out = ctx.actions.declare_file(f.basename + ".tradefed.config")
+            ctx.actions.symlink(
+                output = out,
+                target_file = f,
+            )
+            configs.append(out)
+        return configs
 
+    # No existing configs -- generate from template.
+    out = ctx.actions.declare_file(ctx.attr.name + ".tradefed.config")
     module_name = ctx.attr.test.label.name
 
     # Choose template based on test target provider and host attribute.
@@ -79,12 +95,12 @@ def _create_tradefed_test_config(ctx):
             "{TEST_INSTALL_BASE}": ctx.attr.test_install_base,
         },
     )
-    return out
+    return [out]
 
 # Generate and run tradefed bash script.
 def _tradefed_test_impl(ctx):
-    # Generate tradefed config.
-    config = _create_tradefed_test_config(ctx)
+    # Generate tradefed configs.
+    configs = _create_tradefed_test_configs(ctx)
 
     # Generate script to run tradefed.
     script = ctx.actions.declare_file("tradefed_test_%s.sh" % ctx.label.name)
@@ -98,7 +114,7 @@ def _tradefed_test_impl(ctx):
     # Gather runfiles.
     runfiles = ctx.runfiles()
     runfiles = runfiles.merge(ctx.attr.test.default_runfiles)
-    runfiles = runfiles.merge(ctx.runfiles(files = [config]))
+    runfiles = runfiles.merge(ctx.runfiles(files = configs))
 
     return [DefaultInfo(
         executable = script,
