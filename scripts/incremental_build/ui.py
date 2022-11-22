@@ -15,6 +15,7 @@
 import argparse
 import dataclasses
 import logging
+import os
 import re
 import textwrap
 from enum import Enum
@@ -31,7 +32,7 @@ class BuildType(Enum):
   _soong_cmd = ['build/soong/soong_ui.bash',
                 '--make-mode',
                 '--skip-soong-tests']
-  SOONG_ONLY = _soong_cmd
+  SOONG_ONLY = [*_soong_cmd, 'BUILD_BROKEN_DISABLE_BAZEL=true']
   MIXED_PROD = [*_soong_cmd, '--bazel-mode']
   MIXED_STAGING = [*_soong_cmd, '--bazel-mode-staging']
   MIXED_DEV = [*_soong_cmd, '--bazel-mode-dev']
@@ -144,18 +145,30 @@ def handle_user_input() -> UserInput:
     sys.exit(f'Don\'t mix bazel labels {bazel_labels} with soong targets '
              f'{[t for t in options.targets if t not in bazel_labels]}')
   build_type: BuildType
-  if len(bazel_labels):
+  disable_bazel = os.getenv('BUILD_BROKEN_DISABLE_BAZEL') is not None
+  if len(bazel_labels) > 0:
     if len(chosen_bazel_modes) > 0:
       sys.exit(f'{chosen_bazel_modes} not applicable for b')
+    if disable_bazel:
+      sys.exit('BUILD_BROKEN_DISABLE_BAZEL not applicable for `b`')
     build_type = BuildType.B
-  elif options.bazel_mode_dev:
-    build_type = BuildType.MIXED_DEV
-  elif options.bazel_mode_staging:
-    build_type = BuildType.MIXED_STAGING
-  elif options.bazel_mode:
-    build_type = BuildType.MIXED_PROD
   else:
-    build_type = BuildType.SOONG_ONLY
+    if len(chosen_bazel_modes) == 0:
+      if not disable_bazel:
+        raise RuntimeError('Use BUILD_BROKEN_DISABLE_BAZEL or --bazel-mode')
+      build_type = BuildType.SOONG_ONLY
+    else:
+      assert len(chosen_bazel_modes) == 1
+      if disable_bazel:
+        raise RuntimeError('Unset BUILD_BROKEN_DISABLE_BAZEL')
+      if options.bazel_mode_dev:
+        build_type = BuildType.MIXED_DEV
+      elif options.bazel_mode_staging:
+        build_type = BuildType.MIXED_STAGING
+      elif options.bazel_mode:
+        build_type = BuildType.MIXED_PROD
+      else:
+        raise RuntimeError('UNREACHABLE')
 
   chosen_cuj_list = '\n'.join(
       [f'{i:2}: {cujgroups[i]}' for i in chosen_cujgroups])

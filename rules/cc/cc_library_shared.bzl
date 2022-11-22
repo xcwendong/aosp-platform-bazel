@@ -237,7 +237,7 @@ def cc_library_shared(
         name = name,
         shared = stripped_name,
         shared_debuginfo = unstripped_name,
-        root = shared_root_name,
+        deps = [shared_root_name],
         table_of_contents = toc_name,
         output_file = soname,
         target_compatible_with = target_compatible_with,
@@ -295,7 +295,13 @@ CcSharedLibraryOutputInfo = provider(
 )
 
 def _cc_library_shared_proxy_impl(ctx):
-    root_files = ctx.attr.root[DefaultInfo].files.to_list()
+    # Using a "deps" label_list instead of a single mandatory label attribute
+    # is a hack to support aspect propagation of graph_aspect of the native
+    # cc_shared_library. The aspect will only be applied and propagated along
+    # a label_list attribute named "deps".
+    if len(ctx.attr.deps) != 1:
+        fail("Exactly one 'deps' must be specified for cc_library_shared_proxy")
+    root_files = ctx.attr.deps[0][DefaultInfo].files.to_list()
     shared_files = ctx.attr.shared[DefaultInfo].files.to_list()
     shared_debuginfo = ctx.attr.shared_debuginfo[DefaultInfo].files.to_list()
     if len(shared_files) != 1 or len(shared_debuginfo) != 1:
@@ -328,7 +334,7 @@ def _cc_library_shared_proxy_impl(ctx):
         # The _only_ linker_input is the statically linked root itself. We need to propagate this
         # as cc_shared_library identifies which libraries can be linked dynamically based on the
         # linker_inputs of the roots
-        ctx.attr.root[CcInfo],
+        ctx.attr.deps[0][CcInfo],
         CcStubLibrariesInfo(has_stubs = ctx.attr.has_stubs),
         ctx.attr.shared[OutputGroupInfo],
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
@@ -340,7 +346,9 @@ _cc_library_shared_proxy = rule(
     attrs = {
         "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo]),
         "shared_debuginfo": attr.label(mandatory = True),
-        "root": attr.label(mandatory = True, providers = [CcInfo]),
+        # "deps" should be a single element: the root target of the shared library.
+        # See _cc_library_shared_proxy_impl comment for explanation.
+        "deps": attr.label_list(mandatory = True, providers = [CcInfo]),
         "output_file": attr.output(mandatory = True),
         "table_of_contents": attr.label(
             mandatory = True,

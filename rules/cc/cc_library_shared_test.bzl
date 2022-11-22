@@ -152,7 +152,7 @@ def _cc_library_shared_propagates_deps():
     dep_name = name + "_dep"
     test_name = name + "_test"
 
-    cc_library_shared(
+    cc_library_static(
         name = dep_name,
         hdrs = [":cc_library_shared_hdr"],
         export_includes = ["a/b/c"],
@@ -181,7 +181,7 @@ def _cc_library_shared_propagates_whole_archive_deps():
     dep_name = name + "_dep"
     test_name = name + "_test"
 
-    cc_library_shared(
+    cc_library_static(
         name = dep_name,
         hdrs = [":cc_library_shared_hdr"],
         export_includes = ["a/b/c"],

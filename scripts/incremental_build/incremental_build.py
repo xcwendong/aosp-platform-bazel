@@ -84,6 +84,7 @@ def _build(user_input: ui.UserInput) -> (int, dict[str, any]):
   with open(logfile, mode='w') as f:
     f.write(f'Command: {cmd}\n')
     f.write(f'Environment Variables:\n{textwrap.indent(env_str, "  ")}\n\n\n')
+    f.flush()
     start_ns = time.perf_counter_ns()
     p = subprocess.run(cmd, check=False, cwd=util.get_top_dir(), env=env,
                        shell=False, stdout=f, stderr=f)
