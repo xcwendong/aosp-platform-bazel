@@ -20,6 +20,7 @@ A tool for running builds (soong or b) and measuring the time taken.
 
 import datetime
 import functools
+import hashlib
 import logging
 import os
 import subprocess
@@ -89,10 +90,16 @@ def _build(user_input: ui.UserInput) -> (int, dict[str, any]):
     p = subprocess.run(cmd, check=False, cwd=util.get_top_dir(), env=env,
                        shell=False, stdout=f, stderr=f)
     elapsed_ns = time.perf_counter_ns() - start_ns
-
+  build_file_sha256: str
+  with open(util.get_out_dir().joinpath('soong/build.ninja'), mode="rb") as f:
+    h = hashlib.sha256()
+    for block in iter(lambda: f.read(4096), b''):
+      h.update(block)
+    build_file_sha256 = h.hexdigest()
   build_type = user_input.build_type.name.lower()
   return (p.returncode, {
       'build_type': build_type,
+      'build.ninja': build_file_sha256,
       'targets': ' '.join(user_input.targets),
       'log': logfile.relative_to(user_input.log_dir),
       'ninja_explains': util.count_explanations(logfile),
@@ -177,7 +184,4 @@ def main():
 
 if __name__ == '__main__':
   logging.root.setLevel(logging.INFO)
-  f = logging.Formatter('%(levelname)s: %(message)s')
-  for h in logging.root.handlers:
-    h.setFormatter(f)
   main()

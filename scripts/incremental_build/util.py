@@ -53,7 +53,7 @@ def get_summary_cmd(d: Path) -> str:
       continue
   columns.sort()
   f = ','.join(str(i + 1) for i in columns)
-  return f'cut -d, -f1-7,{f} "{summary_csv.absolute()}" | column -t -s,'
+  return f'cut -d, -f1-8,{f} "{summary_csv.absolute()}" | column -t -s,'
 
 
 @functools.cache

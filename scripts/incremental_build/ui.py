@@ -170,9 +170,9 @@ def handle_user_input() -> UserInput:
       else:
         raise RuntimeError('UNREACHABLE')
 
-  chosen_cuj_list = '\n'.join(
+  pretty_str = '\n'.join(
       [f'{i:2}: {cujgroups[i]}' for i in chosen_cujgroups])
-  logging.info(f'CUJs chosen:\n{chosen_cuj_list}')
+  logging.info(f'%d CUJs chosen:\n%s', len(chosen_cujgroups), pretty_str)
 
   if not options.ignore_repo_diff and util.has_uncommitted_changes():
     error_message = 'THERE ARE UNCOMMITTED CHANGES (TIP: repo status).' \
