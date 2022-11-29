@@ -18,6 +18,7 @@ load(
     ":cc_library_common.bzl",
     "add_lists_defaulting_to_none",
     "parse_sdk_version",
+    "sanitizer_deps",
     "system_dynamic_deps_defaults",
     "system_static_deps_defaults",
 )
@@ -155,10 +156,17 @@ def cc_binary(
         "//conditions:default": [],
     })
 
+    sanitizer_deps_name = name + "_sanitizer_deps"
+    sanitizer_deps(
+        name = sanitizer_deps_name,
+        dep = root_name,
+        tags = ["manual"],
+    )
+
     if generate_cc_test:
         native.cc_test(
             name = name,
-            deps = [root_name] + deps + system_static_deps + stl_info.static_deps + extra_implementation_deps,
+            deps = [root_name, sanitizer_deps_name] + deps + system_static_deps + stl_info.static_deps + extra_implementation_deps,
             dynamic_deps = binary_dynamic_deps,
             features = toolchain_features,
             linkopts = linkopts,
@@ -169,7 +177,7 @@ def cc_binary(
     else:
         native.cc_binary(
             name = unstripped_name,
-            deps = [root_name] + deps + system_static_deps + stl_info.static_deps + extra_implementation_deps,
+            deps = [root_name, sanitizer_deps_name] + deps + system_static_deps + stl_info.static_deps + extra_implementation_deps,
             dynamic_deps = binary_dynamic_deps,
             features = toolchain_features,
             linkopts = linkopts,

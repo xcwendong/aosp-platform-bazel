@@ -1,7 +1,7 @@
 load(":apex_diff_test.bzl", "apex_diff_test")
-load(":apex_test.bzl", "apex_compression_test")
+load(":apex_compression_test.bzl", "apex_compression_test")
 load(":apex_aab_test.bzl", "apex_aab_test")
-load(":apex_aapt2_test.bzl", "apex_package_name_test")
+load(":apex_package_name_test.bzl", "apex_package_name_test")
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 
 # Test that the compressed apex and uncompressed apex have the same contents
@@ -60,7 +60,6 @@ diff_test(
     name = "com.android.adbd.apex_manifest_diff_test",
     file1 = "com.android.adbd.apex_manifest.json",
     file2 = "com.android.adbd.apex_manifest.json.golden",
-    target_compatible_with = ["//build/bazel/platforms/os:linux"],
 )
 
 filegroup(
@@ -119,19 +118,10 @@ diff_test(
     name = "com.android.adbd_backing_libs_diff_test",
     file1 = ":com.android.adbd_backing_libs",
     file2 = "com.android.adbd_backing.txt.golden",
-    target_compatible_with = ["//build/bazel/platforms/os:linux"],
 )
 
 filegroup(
     name = "com.android.adbd_installed_files",
     srcs = ["//packages/modules/adb/apex:com.android.adbd"],
     output_group = "installed_files",
-)
-
-# (TODO:weiwli) update the diff test to compare libs only.
-diff_test(
-    name = "com.android.adbd_installed_files_diff_test",
-    file1 = "com.android.adbd_installed-files.txt.golden",
-    file2 = "com.android.adbd_installed-files.txt.golden",
-    target_compatible_with = ["//build/bazel/platforms/arch:arm"],
 )

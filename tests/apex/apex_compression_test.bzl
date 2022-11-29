@@ -31,7 +31,7 @@ def apex_compression_test(name, apex, compressed, **kwargs):
 
     native.sh_test(
         name = name,
-        srcs = ["apex_test.sh"],
+        srcs = ["apex_compression_test.sh"],
         deps = ["@bazel_tools//tools/bash/runfiles"],
         data = [
             ":" + name + "_wrapper_sh_lib",
