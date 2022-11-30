@@ -20,9 +20,10 @@ load(
     "C_EXTENSIONS",
     "check_absolute_include_dirs_disabled",
     "create_ccinfo_for_includes",
+    "future_version",
     "get_non_header_srcs",
-    "get_sanitizer_lib_info",
     "is_external_directory",
+    "parse_apex_sdk_version",
     "parse_sdk_version",
     "system_dynamic_deps_defaults",
 )
@@ -32,8 +33,29 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//lib:collections.bzl", "collections")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//build/bazel/product_variables:constants.bzl", "constants")
+load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 
 CcStaticLibraryInfo = provider(fields = ["root_static_archive", "objects"])
+
+_APEX_MIN_SDK_VERSION_FLAG = "-D__ANDROID_APEX_MIN_SDK_VERSION__="
+
+def _create_sdk_version_number_map():
+    version_number_map = {}
+    for api in api_levels.values():
+        version_number_map["//build/bazel/rules/apex:min_sdk_version_" + str(api)] = [_APEX_MIN_SDK_VERSION_FLAG + str(api)]
+    version_number_map["//conditions:default"] = [_APEX_MIN_SDK_VERSION_FLAG + future_version]
+
+    return version_number_map
+
+sdk_version_numbers = select(_create_sdk_version_number_map())
+
+def android_apex_sdk_version_opt(version):
+    if version == "apex_inherit":
+        return sdk_version_numbers
+
+    return select({
+        "//conditions:default": [_APEX_MIN_SDK_VERSION_FLAG + parse_apex_sdk_version(version)],
+    })
 
 def cc_library_static(
         name,
@@ -92,6 +114,7 @@ def cc_library_static(
     asm_name = "%s_asm" % name
 
     toolchain_features = []
+    toolchain_features += features
 
     if is_external_directory(native.package_name()):
         toolchain_features += [
@@ -115,7 +138,6 @@ def cc_library_static(
 
     if min_sdk_version:
         toolchain_features += parse_sdk_version(min_sdk_version) + ["-sdk_version_default"]
-    toolchain_features += features
 
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
@@ -170,13 +192,13 @@ def cc_library_static(
         ],
     )
 
+    copts += android_apex_sdk_version_opt(min_sdk_version)
+
     # TODO(b/231574899): restructure this to handle other images
     copts += select({
         "//build/bazel/rules/apex:non_apex": [],
         "//conditions:default": [
             "-D__ANDROID_APEX__",
-            # TODO(b/231322772): sdk_version/min_sdk_version if not finalized
-            "-D__ANDROID_APEX_MIN_SDK_VERSION__=10000",
         ],
     })
 
@@ -207,11 +229,6 @@ def cc_library_static(
         name = name,
         roots = [cpp_name, c_name, asm_name],
         deps = whole_archive_deps + implementation_whole_archive_deps,
-        additional_sanitizer_deps = (
-            deps +
-            stl_info.static_deps +
-            implementation_deps
-        ),
         runtime_deps = runtime_deps,
         target_compatible_with = target_compatible_with,
         alwayslink = alwayslink,
@@ -383,7 +400,6 @@ def _cc_library_combiner_impl(ctx):
         DefaultInfo(files = depset(direct = [output_file]), data_runfiles = ctx.runfiles(files = [output_file])),
         CcInfo(compilation_context = combined_info.compilation_context, linking_context = linking_context),
         CcStaticLibraryInfo(root_static_archive = output_file, objects = objects_to_link),
-        get_sanitizer_lib_info(ctx.attr.features, ctx.attr.deps + ctx.attr.additional_sanitizer_deps),
     ]
     providers.extend(_generate_tidy_actions(ctx))
 
@@ -403,10 +419,6 @@ _cc_library_combiner = rule(
     attrs = {
         "roots": attr.label_list(providers = [CcInfo]),
         "deps": attr.label_list(providers = [CcInfo]),
-        "additional_sanitizer_deps": attr.label_list(
-            providers = [CcInfo],
-            doc = "Deps used only to check for sanitizer enablement",
-        ),
         "runtime_deps": attr.label_list(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",

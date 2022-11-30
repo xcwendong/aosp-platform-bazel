@@ -49,58 +49,6 @@ system_static_deps_defaults = select({
 
 future_version = "10000"
 
-CcSanitizerLibraryInfo = provider(
-    "Denotes which sanitizer libraries to include",
-    fields = {
-        "propagate_sanitizer_deps": ("True if any ubsan sanitizers are " +
-                                     "enabled on any transitive deps, or " +
-                                     "the current target. False otherwise"),
-    },
-)
-
-# Must be called from within a rule (not a macro) so that the features select
-# has been resolved.
-def get_sanitizer_lib_info(features, deps):
-    propagate_sanitizer_deps = False
-    for feature in features:
-        if feature.startswith("ubsan_"):
-            propagate_sanitizer_deps = True
-            break
-    if not propagate_sanitizer_deps:
-        for dep in deps:
-            if (CcSanitizerLibraryInfo in dep and
-                dep[CcSanitizerLibraryInfo].propagate_sanitizer_deps):
-                propagate_sanitizer_deps = True
-                break
-    return CcSanitizerLibraryInfo(
-        propagate_sanitizer_deps = propagate_sanitizer_deps,
-    )
-
-def _sanitizer_deps_impl(ctx):
-    if (CcSanitizerLibraryInfo in ctx.attr.dep and
-        ctx.attr.dep[CcSanitizerLibraryInfo].propagate_sanitizer_deps):
-        return [ctx.attr._ubsan_library[CcInfo]]
-    return [CcInfo()]
-
-# This rule is essentially a workaround to be able to add dependencies
-# conditionally based on provider values
-sanitizer_deps = rule(
-    implementation = _sanitizer_deps_impl,
-    doc = "A rule that propagates given sanitizer dependencies if the " +
-          "proper conditions are met",
-    attrs = {
-        "dep": attr.label(
-            mandatory = True,
-            doc = "library to check for sanitizer dependency propagation",
-        ),
-        "_ubsan_library": attr.label(
-            default = "//prebuilts/clang/host/linux-x86:libclang_rt.ubsan_minimal",
-            doc = "The library target corresponding to the undefined " +
-                  "behavior sanitizer library to be used",
-        ),
-    },
-)
-
 def _create_sdk_version_features_map():
     version_feature_map = {}
     for api in api_levels.values():

@@ -10,7 +10,9 @@ build:linux_x86_64 --platforms=//build/bazel/platforms:linux_x86_64
 # Ban command line usage of setting --platforms to anything other than
 # android_target and host linux. The target platform should be determined by
 # product config / lunch.
-startup --invocation_policy="flag_policies { flag_name: \"platforms\" allow_values { allowed_values: \"//build/bazel/platforms:android_target\", allowed_values: \"//build/bazel/platforms:linux_x86_64\"}}"
+# symlink_prefix is disallowed because the bin/bazel shell script assumes
+# the name of the symlinks.
+startup --invocation_policy="flag_policies { flag_name: \"platforms\" allow_values { allowed_values: \"//build/bazel/platforms:android_target\", allowed_values: \"//build/bazel/platforms:linux_x86_64\"}} flag_policies { flag_name: \"symlink_prefix\", allow_values {} }"
 
 # Use the target platform (android_x86, android_arm) in the bazel-out/ output
 # directory name fragment instead of the CPU (darwin, k8). This avoids

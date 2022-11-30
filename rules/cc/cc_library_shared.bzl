@@ -18,9 +18,7 @@ load(
     ":cc_library_common.bzl",
     "add_lists_defaulting_to_none",
     "disable_crt_link",
-    "get_sanitizer_lib_info",
     "parse_sdk_version",
-    "sanitizer_deps",
     "system_dynamic_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
@@ -150,13 +148,6 @@ def cc_library_shared(
         tags = ["manual"],
     )
 
-    sanitizer_deps_name = name + "_sanitizer_deps"
-    sanitizer_deps(
-        name = sanitizer_deps_name,
-        dep = shared_root_name,
-        tags = ["manual"],
-    )
-
     # implementation_deps and deps are to be linked into the shared library via
     # --no-whole-archive. In order to do so, they need to be dependencies of
     # a "root" of the cc_shared_library, but may not be roots themselves.
@@ -172,8 +163,7 @@ def cc_library_shared(
             stl_info.static_deps +
             implementation_dynamic_deps +
             system_dynamic_deps +
-            stl_info.shared_deps +
-            [sanitizer_deps_name]
+            stl_info.shared_deps
         ),
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
