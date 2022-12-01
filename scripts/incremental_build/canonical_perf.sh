@@ -63,7 +63,6 @@ function build()
 function run()
 {
   local -r bazel_mode="${1:-}"
-  local -r targets=(droid)
 
   # Clear the cache by doing a build. There are probably better ways of clearing the
   # cache, but this does reduce the variance of the first full build.
@@ -71,28 +70,28 @@ function run()
   date
   file="$log_dir/output${bazel_mode:+"$bazel_mode"}.txt"
   echo "logging to $file"
-  m "${targets[*]}"> "$file"
+  m droid> "$file"
 
-  # Droid Builds
-  # ------------
-  # 0 = Clean full build
-  # 0 0 = No-op droid build
-  # Touch root Android.bp
-  # Adding an unreferenced file to the source tree and build
   clean_tree
 
+  # Clean full build
   build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
-    -c 0 0 0 " bionic/unreferenced.txt" " Android.bp" -- "${targets[*]}"
+    -c 0 -- droid
 
-  build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
-    -c stdio.cpp -- "${targets[*]}"
+  for _ in {1..5}
+  do
+    build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
+      -c 0 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
 
-  build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
-    -c 'adb/daemon/main.cpp$' -- "${targets[*]}"
+    build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
+      -c 'modify bionic/.*/stdio.cpp' -- libc
 
-  build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
-    -c View.java -- "${targets[*]}"
+    build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
+      -c 'modify .*/adb/daemon/main.cpp' -- adbd
 
+    build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
+      -c 'modify frameworks/.*/View.java' -- framework
+  done
   pretty "$log_dir/summary.csv"
 }
 

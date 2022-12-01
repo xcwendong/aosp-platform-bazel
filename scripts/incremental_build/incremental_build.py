@@ -178,7 +178,8 @@ def main():
       logging.info(' DONE %s', desc)
 
   summary_cmd = util.get_summary_cmd(user_input.log_dir)
-  subprocess.run(summary_cmd, shell=True)
+  output = subprocess.check_output(summary_cmd, shell=True, text=True)
+  logging.info('\n%s', output)
   logging.info('TIP: ' + summary_cmd)
 
 

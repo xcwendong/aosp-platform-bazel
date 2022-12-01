@@ -232,6 +232,8 @@ def cc_library_static(
         runtime_deps = runtime_deps,
         target_compatible_with = target_compatible_with,
         alwayslink = alwayslink,
+        static_deps = deps + implementation_deps + whole_archive_deps + implementation_whole_archive_deps,
+        exports = exports_name,
         tags = tags,
         features = toolchain_features,
         tidy = tidy,
@@ -340,6 +342,7 @@ def _cc_library_combiner_impl(ctx):
             fail("cc_static_library %s given transitive linker dependency from %s" % (ctx.label, old_linker_input.owner))
 
     cc_toolchain = find_cpp_toolchain(ctx)
+
     CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -423,6 +426,12 @@ _cc_library_combiner = rule(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
         ),
+        # All the static deps of the lib, this is used by abi_dump_aspect to travel along the
+        # static_deps edges to create abi dump files.
+        "static_deps": attr.label_list(providers = [CcInfo]),
+        # The exported includes used by abi_dump_aspect to retrieve and use as the inputs
+        # of abi dumper binary.
+        "exports": attr.label(providers = [CcInfo]),
         "_cc_toolchain": attr.label(
             default = Label("@local_config_cc//:toolchain"),
             providers = [cc_common.CcToolchainInfo],

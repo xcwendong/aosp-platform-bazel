@@ -15,6 +15,12 @@ limitations under the License.
 """
 
 load("//build/bazel/product_variables:constants.bzl", "constants")
+load(
+    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
+    "CPP_COMPILE_ACTION_NAME",
+    "C_COMPILE_ACTION_NAME",
+)
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("@soong_injection//android:constants.bzl", android_constants = "constants")
@@ -46,6 +52,14 @@ system_static_deps_defaults = select({
     "//build/bazel/rules/apex:linux_bionic-non_apex": _static_bionic_targets,
     "//conditions:default": [],
 })
+
+# List comes from here:
+# https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/cc.go;l=1441;drc=9fd9129b5728602a4768e8e8e695660b683c405e
+_bionic_libs = ["libc", "libm", "libdl", "libdl_android", "linker", "linkerconfig"]
+
+# Comes from here:
+# https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/cc.go;l=1450;drc=9fd9129b5728602a4768e8e8e695660b683c405e
+_bootstrap_libs = ["libclang_rt.hwasan"]
 
 future_version = "10000"
 
@@ -185,7 +199,7 @@ C_EXTENSIONS = ["c"]
 
 _HEADER_EXTENSIONS = ["h", "hh", "hpp", "hxx", "h++", "inl", "inc", "ipp", "h.generic"]
 
-def get_non_header_srcs(input_srcs, exclude_srcs, source_extensions = None, header_extensions = _HEADER_EXTENSIONS):
+def get_non_header_srcs(input_srcs, exclude_srcs = [], source_extensions = None, header_extensions = _HEADER_EXTENSIONS):
     """get_non_header_srcs returns a list of srcs that do not have header extensions and aren't in the exclude srcs list
 
     Args:
@@ -247,3 +261,49 @@ def check_absolute_include_dirs_disabled(target_package, absolute_includes):
             fail("include_dirs is deprecated, all usages of '" + path + "' have" +
                  " been migrated to use alternate mechanisms and so can no longer" +
                  " be used.")
+
+def get_compilation_args(toolchain, feature_config, flags, compilation_ctx, action_name):
+    compilation_vars = cc_common.create_compile_variables(
+        cc_toolchain = toolchain,
+        feature_configuration = feature_config,
+        user_compile_flags = flags,
+        include_directories = compilation_ctx.includes,
+        quote_include_directories = compilation_ctx.quote_includes,
+        system_include_directories = compilation_ctx.system_includes,
+        framework_include_directories = compilation_ctx.framework_includes,
+    )
+
+    return cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_config,
+        action_name = action_name,
+        variables = compilation_vars,
+    )
+
+def build_compilation_flags(ctx, deps, user_flags, action_name):
+    cc_toolchain = find_cpp_toolchain(ctx)
+
+    feature_config = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        language = "c++",
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
+
+    cc_info = cc_common.merge_cc_infos(direct_cc_infos = [d[CcInfo] for d in deps])
+
+    compilation_flags = get_compilation_args(
+        toolchain = cc_toolchain,
+        feature_config = feature_config,
+        flags = user_flags,
+        compilation_ctx = cc_info.compilation_context,
+        action_name = action_name,
+    )
+
+    return cc_info.compilation_context, compilation_flags
+
+def is_bionic_lib(name):
+    return name in _bionic_libs
+
+def is_bootstrap_lib(name):
+    return name in _bootstrap_libs

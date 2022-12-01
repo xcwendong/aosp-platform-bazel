@@ -26,6 +26,8 @@ load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
 load(":stl.bzl", "stl_info_from_attr")
 load(":stripped_cc_common.bzl", "CcUnstrippedInfo", "stripped_shared_library")
 load(":versioned_cc_common.bzl", "versioned_shared_library")
+load("//build/bazel/rules/abi:abi_dump.bzl", "AbiDiffInfo", "abi_dump")
+load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
 CcTocInfo = _CcTocInfo
@@ -74,9 +76,16 @@ def cc_library_shared(
         data = [],
         use_version_lib = False,
         has_stubs = False,
+        stubs_symbol_file = None,
         inject_bssl_hash = False,
         sdk_version = "",
         min_sdk_version = "",
+        abi_checker_enabled = None,
+        abi_checker_symbol_file = None,
+        abi_checker_exclude_symbol_versions = [],
+        abi_checker_exclude_symbol_tags = [],
+        abi_checker_check_all_apis = False,
+        abi_checker_diff_flags = [],
         tags = [],
         **kwargs):
     "Bazel macro to correspond with the cc_library_shared Soong module."
@@ -233,6 +242,41 @@ def cc_library_shared(
         tags = ["manual"],
     )
 
+    # The logic here is based on the shouldCreateSourceAbiDumpForLibrary() in sabi.go
+    # abi_root is used to control if abi_dump aspects should be run on the static
+    # deps because there is no way to control the aspects directly from the rule.
+    abi_root = shared_root_name
+
+    # explicitly disabled
+    if abi_checker_enabled == False:
+        abi_root = None
+    elif abi_checker_enabled == True or has_stubs:
+        # The logic comes from here:
+        # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=2288;drc=73feba33308bf9432aea43e069ed24a2f0312f1b
+        if not abi_checker_symbol_file and has_stubs and stubs_symbol_file:
+            abi_checker_symbol_file = stubs_symbol_file
+    else:
+        abi_root = None
+
+    abi_checker_explicitly_disabled = abi_checker_enabled == False
+
+    abi_dump_name = name + "_abi_dump"
+    abi_dump(
+        name = abi_dump_name,
+        shared = stripped_name,
+        root = abi_root,
+        soname = soname,
+        has_stubs = has_stubs,
+        enabled = abi_checker_enabled,
+        explicitly_disabled = abi_checker_explicitly_disabled,
+        symbol_file = abi_checker_symbol_file,
+        exclude_symbol_versions = abi_checker_exclude_symbol_versions,
+        exclude_symbol_tags = abi_checker_exclude_symbol_tags,
+        check_all_apis = abi_checker_check_all_apis,
+        diff_flags = abi_checker_diff_flags,
+        tags = ["manual"],
+    )
+
     _cc_library_shared_proxy(
         name = name,
         shared = stripped_name,
@@ -243,6 +287,7 @@ def cc_library_shared(
         target_compatible_with = target_compatible_with,
         has_stubs = has_stubs,
         runtime_deps = runtime_deps,
+        abi_dump = abi_dump_name,
         tags = tags,
     )
 
@@ -309,12 +354,28 @@ def _cc_library_shared_proxy_impl(ctx):
 
     shared_lib = shared_files[0]
 
+    abi_files = []
+    if AbiDiffInfo in ctx.attr.abi_dump:
+        if ctx.attr.abi_dump[AbiDiffInfo].prev_diff_file:
+            abi_files.append(ctx.attr.abi_dump[AbiDiffInfo].prev_diff_file)
+        if ctx.attr.abi_dump[AbiDiffInfo].diff_file:
+            abi_files.append(ctx.attr.abi_dump[AbiDiffInfo].diff_file)
+
     # Copy the output instead of symlinking. This is because this output
     # can be directly installed into a system image; this installation treats
     # symlinks differently from real files (symlinks will be preserved relative
     # to the image root).
     ctx.actions.run_shell(
-        inputs = depset(direct = [shared_lib]),
+        # We need to add the abi dump files to the inputs of this copy action even
+        # though they are not used, otherwise not all the abi dump files will be
+        # created. For example, for b build
+        # packages/modules/adb/pairing_connection:libadb_pairing_server, only
+        # libadb_pairing_server.so.lsdump will be created, libadb_pairing_auth.so.lsdump
+        # and libadb_pairing_connection.so.lsdump will not be. The reason is that
+        # even though libadb_pairing server depends on libadb_pairing_auth and
+        # libadb_pairing_connection, the abi dump files are not explicitly used
+        # by libadb_pairing_server, so bazel won't bother generating them.
+        inputs = depset(direct = [shared_lib] + abi_files),
         outputs = [ctx.outputs.output_file],
         command = "cp -f %s %s" % (shared_lib.path, ctx.outputs.output_file.path),
         mnemonic = "CopyFile",
@@ -322,7 +383,7 @@ def _cc_library_shared_proxy_impl(ctx):
         use_default_shell_env = True,
     )
 
-    files = root_files + [ctx.outputs.output_file, ctx.files.table_of_contents[0]]
+    files = root_files + [ctx.outputs.output_file, ctx.files.table_of_contents[0]] + abi_files
 
     return [
         DefaultInfo(
@@ -339,6 +400,7 @@ def _cc_library_shared_proxy_impl(ctx):
         ctx.attr.shared[OutputGroupInfo],
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
         CcUnstrippedInfo(unstripped = shared_debuginfo[0]),
+        ctx.attr.abi_dump[AbiDiffInfo],
     ]
 
 _cc_library_shared_proxy = rule(
@@ -361,6 +423,7 @@ _cc_library_shared_proxy = rule(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
         ),
+        "abi_dump": attr.label(providers = [AbiDiffInfo]),
     },
     fragments = ["cpp"],
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],

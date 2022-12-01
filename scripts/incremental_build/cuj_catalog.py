@@ -49,9 +49,11 @@ Action: TypeAlias = Callable[[], None]
 Verify: TypeAlias = Callable[[UserInput], None]
 
 
-def verify_symlink_forest_has_only_symlink_leaves(_: UserInput):
+def verify_symlink_forest_has_only_symlink_leaves(user_input: UserInput):
   """Verifies that symlink forest has only symlinks or directories but no
   files except for merged BUILD.bazel files"""
+  if user_input.build_type == BuildType.SOONG_ONLY:
+    return
 
   def helper(d: Path):
     for child in os.scandir(d):
@@ -402,7 +404,8 @@ def get_cujgroups() -> list[CujGroup]:
           leaf_pkg,
       ]],
 
-      *[create_delete(d.joinpath('BUILD/bogus-under-build-dir.txt'), InWorkspace.UNDER_SYMLINK) for
+      *[create_delete(d.joinpath('BUILD/bogus-under-build-dir.txt'),
+                      InWorkspace.UNDER_SYMLINK) for
         d in [pkg, leaf_pkg, ancestor, pkg_free, leaf_pkg_free]],
 
       # external/guava Bp2BuildKeepExistingBuildFile set True(recursive)

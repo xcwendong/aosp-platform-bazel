@@ -16,7 +16,9 @@
 
 import csv
 import functools
+import statistics
 import sys
+from decimal import Decimal
 from typing import Callable
 
 NA = "--:--"
@@ -38,15 +40,19 @@ def groupby(xs: list[dict], keyfn: Callable[[dict], str]) -> dict[
   return grouped
 
 
-def pretty_time(s):
-  if s.startswith("0:"):
-    s = s[2:]
-  if s.startswith("0"):
-    s = s[1:]
-  if s.find(".") > 0:
-    return s[0:s.find(".")]
+def pretty_time(t_secs: Decimal) -> str:
+  s = int(t_secs.to_integral_exact())
+  h = int(s / 3600)
+  s = s % 3600
+  m = int(s / 60)
+  s = s % 60
+  if h > 0:
+    as_str = f'{h}:{m:02d}:{s:02d}'
+  elif m > 0:
+    as_str = f'{m}:{s:02d}'
   else:
-    return s
+    as_str = str(s)
+  return f'{as_str:>8s}'
 
 
 def write_table(out, rows):
@@ -61,8 +67,21 @@ def write_table(out, rows):
   rows.insert(1, separators)
   widths = functools.reduce(cell_width, rows, [])
   fmt = "  ".join([f"%-{width}s" for width in widths]) + "\n"
-  for row in rows:
-    out.write(fmt % tuple([str(cell) for cell in row]))
+  for r in rows:
+    out.write(fmt % tuple([str(cell) for cell in r]))
+
+
+def seconds(s, acc=Decimal(0.0)):
+  colonpos = s.find(':')
+  if colonpos > 0:
+    left_part = s[0:colonpos]
+  else:
+    left_part = s
+  acc = acc * 60 + Decimal(left_part)
+  if colonpos > 0:
+    return seconds(s[colonpos + 1:], acc)
+  else:
+    return acc
 
 
 def pretty(filename):
@@ -92,7 +111,9 @@ def pretty(filename):
     row = [cuj, f"m {targets}"]
     for build_type in build_types:
       lines = by_build_type.get(build_type)
-      row.append(NA if not lines else pretty_time(lines[-1]['time']))
+      times = [seconds(line['time']) for line in lines]
+      median = statistics.median(times)
+      row.append(NA if not lines else pretty_time(median))
     rows.append(row)
 
   write_table(sys.stdout, rows)

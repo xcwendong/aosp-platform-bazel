@@ -27,7 +27,7 @@ DEFAULT_TIMING_LOGS_DIR: Final[str] = 'timing_logs'
 INDICATOR_FILE: Final[str] = 'build/soong/soong_ui.bash'
 SUMMARY_CSV: Final[str] = 'summary.csv'
 
-IMPORTANT_METRICS: list[str] = ['soong/bootstrap', 'soong_build/_.bazel',
+IMPORTANT_METRICS: list[str] = ['soong/bootstrap', 'soong_build/*.bazel',
                                 'ninja/ninja', 'bp2build/',
                                 'symlink_forest/']
 

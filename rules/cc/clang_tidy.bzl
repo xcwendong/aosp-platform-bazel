@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("//build/bazel/rules/cc:cc_library_common.bzl", "get_compilation_args")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
@@ -39,23 +40,6 @@ _TIDY_DEFAULT_GLOBAL_CHECKS = constants.TidyDefaultGlobalChecks.split(",")
 _TIDY_EXTERNAL_VENDOR_CHECKS = constants.TidyExternalVendorChecks.split(",")
 _TIDY_DEFAULT_GLOBAL_CHECKS_NO_ANALYZER = constants.TidyDefaultGlobalChecks.split(",") + ["-clang-analyzer-*"]
 _TIDY_EXTRA_ARG_FLAGS = constants.TidyExtraArgFlags
-
-def _get_compilation_args(toolchain, feature_config, flags, compilation_ctx, action_name):
-    compilation_vars = cc_common.create_compile_variables(
-        cc_toolchain = toolchain,
-        feature_configuration = feature_config,
-        user_compile_flags = flags,
-        include_directories = compilation_ctx.includes,
-        quote_include_directories = compilation_ctx.quote_includes,
-        system_include_directories = compilation_ctx.system_includes,
-        framework_include_directories = compilation_ctx.framework_includes,
-    )
-
-    return cc_common.get_memory_inefficient_command_line(
-        feature_configuration = feature_config,
-        action_name = action_name,
-        variables = compilation_vars,
-    )
 
 def _check_bad_tidy_flags(tidy_flags):
     """should be kept up to date with
@@ -302,7 +286,7 @@ def generate_clang_tidy_actions(
 
     dep_info = cc_common.merge_cc_infos(direct_cc_infos = [d[CcInfo] for d in deps])
     compilation_ctx = dep_info.compilation_context
-    args = _get_compilation_args(
+    args = get_compilation_args(
         toolchain = toolchain,
         feature_config = feature_config,
         flags = flags,

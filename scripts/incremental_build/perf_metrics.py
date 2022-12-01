@@ -19,6 +19,7 @@ import dataclasses
 import datetime
 import json
 import logging
+import re
 import subprocess
 from pathlib import Path
 from typing import Final
@@ -85,8 +86,9 @@ def read(log_dir: Path) -> dict[str, datetime.timedelta]:
   events.sort(key=lambda e: e.start_time)
 
   def unwrap(desc: str) -> str:
-    return desc.replace('soong_build/soong_build', 'soong_build/_').replace(
-        '.mixed_build.', '.')
+    return re.sub(r'^soong_build/(?:soong_build|mixed_build)',
+                  'soong_build/*',
+                  desc)
 
   return {unwrap(f'{m.name}/{m.description}'): m.real_time for m in events}
 
