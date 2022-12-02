@@ -16,107 +16,31 @@
 """Tests for dependency_analysis.py."""
 
 import dependency_analysis
+import queryview_xml
+import soong_module_json
 import unittest
-import xml.etree.ElementTree as ElementTree
-
-
-def _make_json_dep(name, tag=None, variations=None):
-  return {
-      'Name': name,
-      'Tag': tag,
-      'Variations': variations,
-  }
-
-
-def _make_json_variation(mutator, variation):
-  return {
-      'Mutator': mutator,
-      'Variation': variation,
-  }
-
-
-def _make_json_module(name, typ, deps = [], variations=None, created_by = "", json_props=[]):
-  return {
-      'Name': name,
-      'Type': typ,
-      "CreatedBy": created_by,
-      'Deps': deps,
-      'Variations': variations,
-      'Module': {
-          'Android': {
-              'SetProperties': json_props,
-          },
-      },
-  }
-
-
-def make_json_property(name, value="", values=None):
-  return {
-      'Name': name,
-      'Value': value,
-      'Values': values,
-  }
-
-
-def _make_xml_module(full_name,
-                     name,
-                     kind,
-                     variant='',
-                     dep_names=[],
-                     soong_module_type=None,
-                     srcs=None):
-  rule = ElementTree.Element('rule', attrib={'class': kind, 'name': full_name})
-  ElementTree.SubElement(
-      rule, 'string', attrib={
-          'name': 'soong_module_name',
-          'value': name
-      })
-  ElementTree.SubElement(
-      rule, 'string', attrib={
-          'name': 'soong_module_variant',
-          'value': variant
-      })
-  if soong_module_type:
-    ElementTree.SubElement(
-        rule,
-        'string',
-        attrib={
-            'name': 'soong_module_type',
-            'value': soong_module_type
-        })
-  for dep in dep_names:
-    ElementTree.SubElement(rule, 'rule-input', attrib={'name': dep})
-
-  if not srcs:
-    return rule
-
-  src_element = ElementTree.SubElement(rule, 'list', attrib={'name': 'srcs'})
-  for src in srcs:
-    ElementTree.SubElement(src_element, 'string', attrib={'value': src})
-
-  return rule
 
 
 class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_json_module_graph_post_order_visits_all_in_post_order(self):
     graph = [
-        _make_json_module('q', 'module', [
-            _make_json_dep('a'),
-            _make_json_dep('b'),
+        soong_module_json.make_module('q', 'module', [
+            soong_module_json.make_dep('a'),
+            soong_module_json.make_dep('b'),
         ]),
-        _make_json_module('a', 'module', [
-            _make_json_dep('b'),
-            _make_json_dep('c'),
+        soong_module_json.make_module('a', 'module', [
+            soong_module_json.make_dep('b'),
+            soong_module_json.make_dep('c'),
         ]),
-        _make_json_module('b', 'module', [
-            _make_json_dep('d'),
+        soong_module_json.make_module('b', 'module', [
+            soong_module_json.make_dep('d'),
         ]),
-        _make_json_module('c', 'module', [
-            _make_json_dep('e'),
+        soong_module_json.make_module('c', 'module', [
+            soong_module_json.make_dep('e'),
         ]),
-        _make_json_module('d', 'module', []),
-        _make_json_module('e', 'module', []),
+        soong_module_json.make_module('d', 'module', []),
+        soong_module_json.make_module('e', 'module', []),
     ]
 
     def only_a(json):
@@ -136,18 +60,18 @@ class DependencyAnalysisTest(unittest.TestCase):
   def test_visit_json_module_graph_post_order_skips_ignored_by_name_and_transitive(
       self):
     graph = [
-        _make_json_module('a', 'module', [
-            _make_json_dep('b'),
-            _make_json_dep('c'),
+        soong_module_json.make_module('a', 'module', [
+            soong_module_json.make_dep('b'),
+            soong_module_json.make_dep('c'),
         ]),
-        _make_json_module('b', 'module', [
-            _make_json_dep('d'),
+        soong_module_json.make_module('b', 'module', [
+            soong_module_json.make_dep('d'),
         ]),
-        _make_json_module('c', 'module', [
-            _make_json_dep('e'),
+        soong_module_json.make_module('c', 'module', [
+            soong_module_json.make_dep('e'),
         ]),
-        _make_json_module('d', 'module', []),
-        _make_json_module('e', 'module', []),
+        soong_module_json.make_module('d', 'module', []),
+        soong_module_json.make_module('e', 'module', []),
     ]
 
     def only_a(json):
@@ -167,18 +91,18 @@ class DependencyAnalysisTest(unittest.TestCase):
   def test_visit_json_module_graph_post_order_skips_defaults_and_transitive(
       self):
     graph = [
-        _make_json_module('a', 'module', [
-            _make_json_dep('b'),
-            _make_json_dep('c'),
+        soong_module_json.make_module('a', 'module', [
+            soong_module_json.make_dep('b'),
+            soong_module_json.make_dep('c'),
         ]),
-        _make_json_module('b', 'module_defaults', [
-            _make_json_dep('d'),
+        soong_module_json.make_module('b', 'module_defaults', [
+            soong_module_json.make_dep('d'),
         ]),
-        _make_json_module('c', 'module', [
-            _make_json_dep('e'),
+        soong_module_json.make_module('c', 'module', [
+            soong_module_json.make_dep('e'),
         ]),
-        _make_json_module('d', 'module', []),
-        _make_json_module('e', 'module', []),
+        soong_module_json.make_module('d', 'module', []),
+        soong_module_json.make_module('e', 'module', []),
     ]
 
     def only_a(json):
@@ -197,25 +121,25 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_json_module_graph_post_order_skips_windows_and_transitive(
       self):
-    windows_variation = _make_json_variation('os', 'windows')
+    windows_variation = soong_module_json.make_variation('os', 'windows')
     graph = [
-        _make_json_module('a', 'module', [
-            _make_json_dep('b', variations=[windows_variation]),
-            _make_json_dep('c'),
+        soong_module_json.make_module('a', 'module', [
+            soong_module_json.make_dep('b', variations=[windows_variation]),
+            soong_module_json.make_dep('c'),
         ]),
-        _make_json_module(
+        soong_module_json.make_module(
             'b',
             'module',
             [
-                _make_json_dep('d'),
+                soong_module_json.make_dep('d'),
             ],
-            [windows_variation],
+            variations=[windows_variation],
         ),
-        _make_json_module('c', 'module', [
-            _make_json_dep('e'),
+        soong_module_json.make_module('c', 'module', [
+            soong_module_json.make_dep('e'),
         ]),
-        _make_json_module('d', 'module', []),
-        _make_json_module('e', 'module', []),
+        soong_module_json.make_module('d', 'module', []),
+        soong_module_json.make_module('e', 'module', []),
     ]
 
     def only_a(json):
@@ -234,19 +158,19 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_json_module_graph_post_order_skips_prebuilt_tag_deps(self):
     graph = [
-        _make_json_module('a', 'module', [
-            _make_json_dep(
+        soong_module_json.make_module('a', 'module', [
+            soong_module_json.make_dep(
                 'b', 'android.prebuiltDependencyTag {BaseDependencyTag:{}}'),
-            _make_json_dep('c'),
+            soong_module_json.make_dep('c'),
         ]),
-        _make_json_module('b', 'module', [
-            _make_json_dep('d'),
+        soong_module_json.make_module('b', 'module', [
+            soong_module_json.make_dep('d'),
         ]),
-        _make_json_module('c', 'module', [
-            _make_json_dep('e'),
+        soong_module_json.make_module('c', 'module', [
+            soong_module_json.make_dep('e'),
         ]),
-        _make_json_module('d', 'module', []),
-        _make_json_module('e', 'module', []),
+        soong_module_json.make_module('d', 'module', []),
+        soong_module_json.make_module('e', 'module', []),
     ]
 
     def only_a(json):
@@ -266,7 +190,8 @@ class DependencyAnalysisTest(unittest.TestCase):
   def test_visit_json_module_graph_post_order_no_infinite_loop_for_self_dep(
       self):
     graph = [
-        _make_json_module('a', 'module', [_make_json_dep('a')]),
+        soong_module_json.make_module('a', 'module',
+                                      [soong_module_json.make_dep('a')]),
     ]
 
     def only_a(json):
@@ -285,30 +210,30 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_json_module_graph_post_order_visits_all_variants(self):
     graph = [
-        _make_json_module(
+        soong_module_json.make_module(
             'a',
             'module',
             [
-                _make_json_dep('b'),
+                soong_module_json.make_dep('b'),
             ],
-            [_make_json_variation('m', '1')],
+            variations=[soong_module_json.make_variation('m', '1')],
         ),
-        _make_json_module(
+        soong_module_json.make_module(
             'a',
             'module',
             [
-                _make_json_dep('c'),
+                soong_module_json.make_dep('c'),
             ],
-            [_make_json_variation('m', '2')],
+            variations=[soong_module_json.make_variation('m', '2')],
         ),
-        _make_json_module('b', 'module', [
-            _make_json_dep('d'),
+        soong_module_json.make_module('b', 'module', [
+            soong_module_json.make_dep('d'),
         ]),
-        _make_json_module('c', 'module', [
-            _make_json_dep('e'),
+        soong_module_json.make_module('c', 'module', [
+            soong_module_json.make_dep('e'),
         ]),
-        _make_json_module('d', 'module', []),
-        _make_json_module('e', 'module', []),
+        soong_module_json.make_module('d', 'module', []),
+        soong_module_json.make_module('e', 'module', []),
     ]
 
     def only_a(json):
@@ -327,24 +252,24 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_json_module_skips_filegroup_with_src_same_as_name(self):
     graph = [
-        _make_json_module(
+        soong_module_json.make_module(
             'a',
             'filegroup',
             [
-                _make_json_dep('b'),
+                soong_module_json.make_dep('b'),
             ],
             json_props=[
-                make_json_property(
+                soong_module_json.make_property(
                     name='Srcs',
                     values=['other_file'],
                 ),
             ],
         ),
-        _make_json_module(
+        soong_module_json.make_module(
             'b',
             'filegroup',
             json_props=[
-                make_json_property(
+                soong_module_json.make_property(
                     name='Srcs',
                     values=['b'],
                 ),
@@ -366,19 +291,18 @@ class DependencyAnalysisTest(unittest.TestCase):
     expected_visited = ['a']
     self.assertListEqual(visited_modules, expected_visited)
 
-  def test_visit_json_module_graph_post_order_include_created_by(
-      self):
+  def test_visit_json_module_graph_post_order_include_created_by(self):
     graph = [
-        _make_json_module('a', 'module', [
-            _make_json_dep('b'),
-            _make_json_dep('c'),
+        soong_module_json.make_module('a', 'module', [
+            soong_module_json.make_dep('b'),
+            soong_module_json.make_dep('c'),
         ]),
-        _make_json_module('b', 'module', created_by='d'),
-        _make_json_module('c', 'module', [
-            _make_json_dep('e'),
+        soong_module_json.make_module('b', 'module', created_by='d'),
+        soong_module_json.make_module('c', 'module', [
+            soong_module_json.make_dep('e'),
         ]),
-        _make_json_module('d', 'module', []),
-        _make_json_module('e', 'module', []),
+        soong_module_json.make_module('d', 'module', []),
+        soong_module_json.make_module('e', 'module', []),
     ]
 
     def only_a(json):
@@ -396,16 +320,16 @@ class DependencyAnalysisTest(unittest.TestCase):
     self.assertListEqual(visited_modules, expected_visited)
 
   def test_visit_queryview_xml_module_graph_post_order_visits_all(self):
-    graph = ElementTree.Element('query', attrib={'version': '2'})
-    graph.append(
-        _make_xml_module(
-            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']))
-    graph.append(
-        _make_xml_module('//pkg:b', 'b', 'module', dep_names=['//pkg:d']))
-    graph.append(
-        _make_xml_module('//pkg:c', 'c', 'module', dep_names=['//pkg:e']))
-    graph.append(_make_xml_module('//pkg:d', 'd', 'module'))
-    graph.append(_make_xml_module('//pkg:e', 'e', 'module'))
+    graph = queryview_xml.make_graph([
+        queryview_xml.make_module(
+            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']),
+        queryview_xml.make_module(
+            '//pkg:b', 'b', 'module', dep_names=['//pkg:d']),
+        queryview_xml.make_module(
+            '//pkg:c', 'c', 'module', dep_names=['//pkg:e']),
+        queryview_xml.make_module('//pkg:d', 'd', 'module'),
+        queryview_xml.make_module('//pkg:e', 'e', 'module'),
+    ])
 
     def only_a(module):
       return module.name == 'a'
@@ -423,16 +347,16 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_queryview_xml_module_graph_post_order_skips_ignore_by_name(
       self):
-    graph = ElementTree.Element('query', attrib={'version': '2'})
-    graph.append(
-        _make_xml_module(
-            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']))
-    graph.append(
-        _make_xml_module('//pkg:b', 'b', 'module', dep_names=['//pkg:d']))
-    graph.append(
-        _make_xml_module('//pkg:c', 'c', 'module', dep_names=['//pkg:e']))
-    graph.append(_make_xml_module('//pkg:d', 'd', 'module'))
-    graph.append(_make_xml_module('//pkg:e', 'e', 'module'))
+    graph = queryview_xml.make_graph([
+        queryview_xml.make_module(
+            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']),
+        queryview_xml.make_module(
+            '//pkg:b', 'b', 'module', dep_names=['//pkg:d']),
+        queryview_xml.make_module(
+            '//pkg:c', 'c', 'module', dep_names=['//pkg:e']),
+        queryview_xml.make_module('//pkg:d', 'd', 'module'),
+        queryview_xml.make_module('//pkg:e', 'e', 'module'),
+    ])
 
     def only_a(module):
       return module.name == 'a'
@@ -449,17 +373,16 @@ class DependencyAnalysisTest(unittest.TestCase):
     self.assertListEqual(visited_modules, expected_visited)
 
   def test_visit_queryview_xml_module_graph_post_order_skips_default(self):
-    graph = ElementTree.Element('query', attrib={'version': '2'})
-    graph.append(
-        _make_xml_module(
-            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']))
-    graph.append(
-        _make_xml_module(
-            '//pkg:b', 'b', 'module_defaults', dep_names=['//pkg:d']))
-    graph.append(
-        _make_xml_module('//pkg:c', 'c', 'module', dep_names=['//pkg:e']))
-    graph.append(_make_xml_module('//pkg:d', 'd', 'module'))
-    graph.append(_make_xml_module('//pkg:e', 'e', 'module'))
+    graph = queryview_xml.make_graph([
+        queryview_xml.make_module(
+            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']),
+        queryview_xml.make_module(
+            '//pkg:b', 'b', 'module_defaults', dep_names=['//pkg:d']),
+        queryview_xml.make_module(
+            '//pkg:c', 'c', 'module', dep_names=['//pkg:e']),
+        queryview_xml.make_module('//pkg:d', 'd', 'module'),
+        queryview_xml.make_module('//pkg:e', 'e', 'module'),
+    ])
 
     def only_a(module):
       return module.name == 'a'
@@ -476,17 +399,16 @@ class DependencyAnalysisTest(unittest.TestCase):
     self.assertListEqual(visited_modules, expected_visited)
 
   def test_visit_queryview_xml_module_graph_post_order_skips_cc_prebuilt(self):
-    graph = ElementTree.Element('query', attrib={'version': '2'})
-    graph.append(
-        _make_xml_module(
-            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']))
-    graph.append(
-        _make_xml_module(
-            '//pkg:b', 'b', 'cc_prebuilt_library', dep_names=['//pkg:d']))
-    graph.append(
-        _make_xml_module('//pkg:c', 'c', 'module', dep_names=['//pkg:e']))
-    graph.append(_make_xml_module('//pkg:d', 'd', 'module'))
-    graph.append(_make_xml_module('//pkg:e', 'e', 'module'))
+    graph = queryview_xml.make_graph([
+        queryview_xml.make_module(
+            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']),
+        queryview_xml.make_module(
+            '//pkg:b', 'b', 'cc_prebuilt_library', dep_names=['//pkg:d']),
+        queryview_xml.make_module(
+            '//pkg:c', 'c', 'module', dep_names=['//pkg:e']),
+        queryview_xml.make_module('//pkg:d', 'd', 'module'),
+        queryview_xml.make_module('//pkg:e', 'e', 'module'),
+    ])
 
     def only_a(module):
       return module.name == 'a'
@@ -504,17 +426,16 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_queryview_xml_module_graph_post_order_skips_filegroup_duplicate_name(
       self):
-    graph = ElementTree.Element('query', attrib={'version': '2'})
-    graph.append(
-        _make_xml_module(
-            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']))
-    graph.append(
-        _make_xml_module(
-            '//pkg:b', 'b', 'filegroup', dep_names=['//pkg:d'], srcs=['b']))
-    graph.append(
-        _make_xml_module('//pkg:c', 'c', 'module', dep_names=['//pkg:e']))
-    graph.append(_make_xml_module('//pkg:d', 'd', 'module'))
-    graph.append(_make_xml_module('//pkg:e', 'e', 'module'))
+    graph = queryview_xml.make_graph([
+        queryview_xml.make_module(
+            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']),
+        queryview_xml.make_module(
+            '//pkg:b', 'b', 'filegroup', dep_names=['//pkg:d'], srcs=['b']),
+        queryview_xml.make_module(
+            '//pkg:c', 'c', 'module', dep_names=['//pkg:e']),
+        queryview_xml.make_module('//pkg:d', 'd', 'module'),
+        queryview_xml.make_module('//pkg:e', 'e', 'module'),
+    ])
 
     def only_a(module):
       return module.name == 'a'
@@ -531,21 +452,20 @@ class DependencyAnalysisTest(unittest.TestCase):
     self.assertListEqual(visited_modules, expected_visited)
 
   def test_visit_queryview_xml_module_graph_post_order_skips_windows(self):
-    graph = ElementTree.Element('query', attrib={'version': '2'})
-    graph.append(
-        _make_xml_module(
-            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']))
-    graph.append(
-        _make_xml_module(
+    graph = queryview_xml.make_graph([
+        queryview_xml.make_module(
+            '//pkg:a', 'a', 'module', dep_names=['//pkg:b', '//pkg:c']),
+        queryview_xml.make_module(
             '//pkg:b',
             'b',
             'module',
             dep_names=['//pkg:d'],
-            variant='windows-x86'))
-    graph.append(
-        _make_xml_module('//pkg:c', 'c', 'module', dep_names=['//pkg:e']))
-    graph.append(_make_xml_module('//pkg:d', 'd', 'module'))
-    graph.append(_make_xml_module('//pkg:e', 'e', 'module'))
+            variant='windows-x86'),
+        queryview_xml.make_module(
+            '//pkg:c', 'c', 'module', dep_names=['//pkg:e']),
+        queryview_xml.make_module('//pkg:d', 'd', 'module'),
+        queryview_xml.make_module('//pkg:e', 'e', 'module'),
+    ])
 
     def only_a(module):
       return module.name == 'a'
@@ -563,31 +483,29 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_queryview_xml_module_graph_post_order_self_dep_no_infinite_loop(
       self):
-    graph = ElementTree.Element('query', attrib={'version': '2'})
-    graph.append(
-        _make_xml_module(
+    graph = queryview_xml.make_graph([
+        queryview_xml.make_module(
             '//pkg:a',
             'a',
             'module',
-            dep_names=['//pkg:b--variant1', '//pkg:c']))
-    graph.append(
-        _make_xml_module(
+            dep_names=['//pkg:b--variant1', '//pkg:c']),
+        queryview_xml.make_module(
             '//pkg:b--variant1',
             'b',
             'module',
             variant='variant1',
-            dep_names=['//pkg:b--variant2']))
-    graph.append(
-        _make_xml_module(
+            dep_names=['//pkg:b--variant2']),
+        queryview_xml.make_module(
             '//pkg:b--variant2',
             'b',
             'module',
             variant='variant2',
-            dep_names=['//pkg:d']))
-    graph.append(
-        _make_xml_module('//pkg:c', 'c', 'module', dep_names=['//pkg:e']))
-    graph.append(_make_xml_module('//pkg:d', 'd', 'module'))
-    graph.append(_make_xml_module('//pkg:e', 'e', 'module'))
+            dep_names=['//pkg:d']),
+        queryview_xml.make_module(
+            '//pkg:c', 'c', 'module', dep_names=['//pkg:e']),
+        queryview_xml.make_module('//pkg:d', 'd', 'module'),
+        queryview_xml.make_module('//pkg:e', 'e', 'module'),
+    ])
 
     def only_a(module):
       return module.name == 'a'
@@ -605,22 +523,21 @@ class DependencyAnalysisTest(unittest.TestCase):
 
   def test_visit_queryview_xml_module_graph_post_order_skips_prebuilt_with_same_name(
       self):
-    graph = ElementTree.Element('query', attrib={'version': '2'})
-    graph.append(
-        _make_xml_module(
+    graph = queryview_xml.make_graph([
+        queryview_xml.make_module(
             '//pkg:a',
             'a',
             'module',
-            dep_names=['//other_pkg:prebuilt_a', '//pkg:b', '//pkg:c']))
-    graph.append(
-        _make_xml_module('//other_pkg:prebuilt_a', 'prebuilt_a',
-                         'prebuilt_module'))
-    graph.append(
-        _make_xml_module('//pkg:b', 'b', 'module', dep_names=['//pkg:d']))
-    graph.append(
-        _make_xml_module('//pkg:c', 'c', 'module', dep_names=['//pkg:e']))
-    graph.append(_make_xml_module('//pkg:d', 'd', 'module'))
-    graph.append(_make_xml_module('//pkg:e', 'e', 'module'))
+            dep_names=['//other_pkg:prebuilt_a', '//pkg:b', '//pkg:c']),
+        queryview_xml.make_module('//other_pkg:prebuilt_a', 'prebuilt_a',
+                                  'prebuilt_module'),
+        queryview_xml.make_module(
+            '//pkg:b', 'b', 'module', dep_names=['//pkg:d']),
+        queryview_xml.make_module(
+            '//pkg:c', 'c', 'module', dep_names=['//pkg:e']),
+        queryview_xml.make_module('//pkg:d', 'd', 'module'),
+        queryview_xml.make_module('//pkg:e', 'e', 'module'),
+    ])
 
     def only_a(module):
       return module.name == 'a'
