@@ -30,6 +30,7 @@ load(
     "license_map_notice_files",
     "license_map_to_json",
 )
+load("//build/bazel/rules/apex:apex_available.bzl", "apex_available_aspect")
 load(":apex_key.bzl", "ApexKeyInfo")
 load(":bundle.bzl", "apex_zip_files")
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
@@ -624,9 +625,17 @@ def _apex_rule_impl(ctx):
         ),
     ]
 
+# These are the standard aspects that should be applied on all edges that
+# contribute to an APEX's payload.
+STANDARD_PAYLOAD_ASPECTS = [
+    license_aspect,
+    apex_available_aspect,
+]
+
 _apex = rule(
     implementation = _apex_rule_impl,
     attrs = {
+        # Attributes that configure the APEX container.
         "manifest": attr.label(allow_single_file = [".json"]),
         "android_manifest": attr.label(allow_single_file = [".xml"]),
         "package_name": attr.string(),
@@ -641,15 +650,21 @@ _apex = rule(
         "updatable": attr.bool(default = True),
         "installable": attr.bool(default = True),
         "compressible": attr.bool(default = False),
+        "base_apex_name": attr.string(
+            default = "",
+            doc = "The name of the base apex of this apex. For example, the AOSP variant of this apex.",
+        ),
+
+        # Attributes that contribute to the payload.
         "native_shared_libs_32": attr.label_list(
             providers = [ApexCcInfo, RuleLicensedDependenciesInfo],
-            aspects = [apex_cc_aspect, license_aspect],
+            aspects = [apex_cc_aspect] + STANDARD_PAYLOAD_ASPECTS,
             cfg = shared_lib_transition_32,
             doc = "The libs compiled for 32-bit",
         ),
         "native_shared_libs_64": attr.label_list(
             providers = [ApexCcInfo, RuleLicensedDependenciesInfo],
-            aspects = [apex_cc_aspect, license_aspect],
+            aspects = [apex_cc_aspect] + STANDARD_PAYLOAD_ASPECTS,
             cfg = shared_lib_transition_64,
             doc = "The libs compiled for 64-bit",
         ),
@@ -660,18 +675,22 @@ _apex = rule(
                 [StrippedCcBinaryInfo, CcInfo, ApexCcInfo, RuleLicensedDependenciesInfo],  # cc_binary (stripped)
             ],
             cfg = apex_transition,
-            aspects = [apex_cc_aspect, license_aspect],
+            aspects = [apex_cc_aspect] + STANDARD_PAYLOAD_ASPECTS,
         ),
         "prebuilts": attr.label_list(
             providers = [PrebuiltFileInfo, RuleLicensedDependenciesInfo],
             cfg = apex_transition,
-            aspects = [license_aspect],
+            aspects = STANDARD_PAYLOAD_ASPECTS,
         ),
+
+        # APEX predefined outputs.
         "apex_output": attr.output(doc = "signed .apex output"),
         "capex_output": attr.output(doc = "signed .capex output"),
 
         # Required to use apex_transition. This is an acknowledgement to the risks of memory bloat when using transitions.
         "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
+
+        # Tools that are not part of the apex_toolchain.
         "_staging_dir_builder": attr.label(
             cfg = "exec",
             doc = "The staging dir builder to avoid the problem where symlinks are created inside apex image.",
@@ -701,6 +720,8 @@ _apex = rule(
         "_platform_utils": attr.label(
             default = Label("//build/bazel/platforms:platform_utils"),
         ),
+
+        # Build settings.
         "_apexer_verbose": attr.label(
             default = "//build/bazel/rules/apex:apexer_verbose",
             doc = "If enabled, make apexer log verbosely.",

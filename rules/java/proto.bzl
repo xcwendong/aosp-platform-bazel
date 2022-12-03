@@ -99,9 +99,9 @@ def _java_proto_library(
         name,
         deps = [],
         plugin = None,
-        target_compatible_with = [],
         out_format = None,
-        proto_dep = None):
+        proto_dep = None,
+        **kwargs):
     proto_sources_name = name + "_proto_gen"
 
     _java_proto_sources_gen(
@@ -109,6 +109,7 @@ def _java_proto_library(
         deps = deps,
         plugin = plugin,
         out_format = out_format,
+        tags = ["manual"],
     )
 
     if proto_dep:
@@ -120,70 +121,60 @@ def _java_proto_library(
         name = name,
         srcs = [proto_sources_name],
         deps = deps,
-        target_compatible_with = target_compatible_with,
+        **kwargs
     )
 
 def java_nano_proto_library(
         name,
-        deps = [],
         plugin = "//external/protobuf:protoc-gen-javanano",
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
         proto_dep = "//external/protobuf:libprotobuf-java-nano",
+        **kwargs
     )
 
 def java_micro_proto_library(
         name,
-        deps = [],
         plugin = "//external/protobuf:protoc-gen-javamicro",
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
         proto_dep = "//external/protobuf:libprotobuf-java-micro",
+        **kwargs
     )
 
 def java_lite_proto_library(
         name,
-        deps = [],
         plugin = None,
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
         out_format = "lite",
         proto_dep = "//external/protobuf:libprotobuf-java-lite",
+        **kwargs
     )
 
 def java_stream_proto_library(
         name,
-        deps = [],
         plugin = "//frameworks/base/tools/streaming_proto:protoc-gen-javastream",
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
+        **kwargs
     )
 
 def java_proto_library(
         name,
-        deps = [],
         plugin = None,
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
         proto_dep = "//external/protobuf:libprotobuf-java-full",
+        **kwargs
     )

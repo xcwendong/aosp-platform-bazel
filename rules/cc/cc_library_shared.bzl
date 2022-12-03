@@ -353,13 +353,7 @@ def _cc_library_shared_proxy_impl(ctx):
         fail("Expected only one shared library file and one debuginfo file for it")
 
     shared_lib = shared_files[0]
-
-    abi_files = []
-    if AbiDiffInfo in ctx.attr.abi_dump:
-        if ctx.attr.abi_dump[AbiDiffInfo].prev_diff_file:
-            abi_files.append(ctx.attr.abi_dump[AbiDiffInfo].prev_diff_file)
-        if ctx.attr.abi_dump[AbiDiffInfo].diff_file:
-            abi_files.append(ctx.attr.abi_dump[AbiDiffInfo].diff_file)
+    abi_diff_files = ctx.attr.abi_dump[AbiDiffInfo].diff_files.to_list()
 
     # Copy the output instead of symlinking. This is because this output
     # can be directly installed into a system image; this installation treats
@@ -375,7 +369,7 @@ def _cc_library_shared_proxy_impl(ctx):
         # even though libadb_pairing server depends on libadb_pairing_auth and
         # libadb_pairing_connection, the abi dump files are not explicitly used
         # by libadb_pairing_server, so bazel won't bother generating them.
-        inputs = depset(direct = [shared_lib] + abi_files),
+        inputs = depset(direct = [shared_lib] + abi_diff_files),
         outputs = [ctx.outputs.output_file],
         command = "cp -f %s %s" % (shared_lib.path, ctx.outputs.output_file.path),
         mnemonic = "CopyFile",
@@ -383,7 +377,7 @@ def _cc_library_shared_proxy_impl(ctx):
         use_default_shell_env = True,
     )
 
-    files = root_files + [ctx.outputs.output_file, ctx.files.table_of_contents[0]] + abi_files
+    files = root_files + [ctx.outputs.output_file, ctx.files.table_of_contents[0]] + abi_diff_files
 
     return [
         DefaultInfo(
