@@ -49,6 +49,22 @@ def _create_latest_version_aliases(name, last_version_name, backend_configs, **k
             **kwargs
         )
 
+def versioned_name(name, version):
+    if version == "":
+        return name
+
+    return name + "-V" + version
+
+# https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=782-799;drc=5390d9a42f5e4f99ccb3a84068f554d948cb62b9
+def _next_version(versions, unstable):
+    if unstable:
+        return ""
+
+    if versions == None or len(versions) == 0:
+        return "1"
+
+    return str(int(versions[-1]) + 1)
+
 def is_config_enabled(config):
     return config != None and "enabled" in config and config["enabled"] == True
 
@@ -66,6 +82,8 @@ def aidl_interface(
         # versions prop in favor of versions_with_info prop
         versions = None,
         versions_with_info = None,
+        unstable = False,
+        # TODO(b/261208761): Support frozen attr
         **kwargs):
     """aidl_interface creates a versioned aidl_libraries and language-specific *_aidl_libraries
 
@@ -94,6 +112,10 @@ def aidl_interface(
     if (versions == None and versions_with_info == None and srcs == None):
         fail("must specify at least versions, versions_with_info, or srcs")
 
+    # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=872;drc=5390d9a42f5e4f99ccb3a84068f554d948cb62b9
+    if versions != None and unstable:
+        fail("cannot have versions for unstable interface")
+
     aidl_flags = ["--structured"]
     if flags != None:
         aidl_flags.extend(flags)
@@ -115,16 +137,9 @@ def aidl_interface(
         if JAVA in enabled_backend_configs:
             enabled_backend_configs.pop(JAVA)
 
-    if srcs != None and len(srcs) > 0:
-        create_aidl_binding_for_backends(
-            name = name,
-            srcs = srcs,
-            strip_import_prefix = strip_import_prefix,
-            deps = deps,
-            backend_configs = enabled_backend_configs,
-            aidl_flags = aidl_flags,
-            **kwargs
-        )
+    # next_version will be the last specified version + 1.
+    # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=791?q=system%2Ftools%2Faidl%2Fbuild%2Faidl_interface.go
+    next_version = None
 
     # versions will be deprecated after all migrated to versions_with_info
     if versions_with_info != None and len(versions_with_info) > 0:
@@ -132,6 +147,7 @@ def aidl_interface(
             version_with_info["version"]
             for version_with_info in versions_with_info
         ])
+        next_version = _next_version(versions, False)
         for version_with_info in versions_with_info:
             create_aidl_binding_for_backends(
                 name = name,
@@ -144,12 +160,13 @@ def aidl_interface(
         if len(versions_with_info) > 0:
             _create_latest_version_aliases(
                 name,
-                name + "-V" + versions[-1],
+                versioned_name(name, versions[-1]),
                 enabled_backend_configs,
                 **kwargs
             )
     elif versions != None and len(versions) > 0:
         versions = _check_versions(versions)
+        next_version = _next_version(versions, False)
         for version in versions:
             create_aidl_binding_for_backends(
                 name = name,
@@ -162,10 +179,26 @@ def aidl_interface(
         if len(versions) > 0:
             _create_latest_version_aliases(
                 name,
-                name + "-V" + versions[-1],
+                versioned_name(name, versions[-1]),
                 enabled_backend_configs,
                 **kwargs
             )
+    else:
+        next_version = _next_version(None, unstable)
+
+    # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=941;drc=5390d9a42f5e4f99ccb3a84068f554d948cb62b9
+    # Create aidl binding for next_version with srcs
+    if srcs and len(srcs) > 0:
+        create_aidl_binding_for_backends(
+            name = name,
+            version = next_version,
+            srcs = srcs,
+            strip_import_prefix = strip_import_prefix,
+            deps = deps,
+            aidl_flags = aidl_flags,
+            backend_configs = enabled_backend_configs,
+            **kwargs
+        )
 
 def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_import_prefix = "", deps = None, aidl_flags = [], backend_configs = {}, **kwargs):
     """
@@ -181,13 +214,16 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
         aidl_flags:             List[string], a list of flags to pass to the AIDL compiler
         backends:               List[string], a list of the languages to generate bindings for
     """
-    if version != None and srcs != None:
-        fail("Can not set both version and srcs. Srcs is for unversioned AIDL")
+    aidl_library_name = versioned_name(name, version)
 
-    aidl_library_name = name
+    # srcs is None when create_aidl_binding_for_backends is called with a
+    # frozen version specified via versions or versions_with_info.
+    # next_version being equal to "" means this is an unstable version and
+    # we should use srcs instead
+    if srcs == None:
+        if version == "":
+            fail("need srcs for unversioned interface")
 
-    if version:
-        aidl_library_name = name + "-V" + version
         strip_import_prefix = "aidl_api/{}/{}".format(name, version)
         srcs = native.glob([strip_import_prefix + "/**/*.aidl"])
         aidl_flags = aidl_flags + ["--version=" + version]

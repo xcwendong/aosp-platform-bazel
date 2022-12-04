@@ -29,3 +29,12 @@ expect_failure_test = analysistest.make(
     },
     doc = "This test checks that a rule fails with the expected failure_message",
 )
+
+def _target_under_test_exist_impl(ctx):
+    env = analysistest.begin(ctx)
+    return analysistest.end(env)
+
+target_under_test_exist_test = analysistest.make(
+    impl = _target_under_test_exist_impl,
+    doc = "This test checks that the target under test exists without failure",
+)

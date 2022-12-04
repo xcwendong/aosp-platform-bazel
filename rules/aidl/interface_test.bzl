@@ -14,6 +14,7 @@ limitations under the License.
 """
 
 load("//build/bazel/rules/aidl:interface.bzl", "aidl_interface")
+load("//build/bazel/rules/test_common:rules.bzl", "target_under_test_exist_test")
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
@@ -79,6 +80,7 @@ def _ndk_backend_test():
         ndk_config = {
             "enabled": True,
         },
+        unstable = True,
         srcs = ["a/b/Foo.aidl"],
         strip_import_prefix = "a",
         tags = ["manual"],
@@ -118,6 +120,7 @@ def _ndk_config_test():
 
     aidl_interface(
         name = name,
+        unstable = True,
         ndk_config = {
             "enabled": True,
             "min_sdk_version": "30",
@@ -133,6 +136,43 @@ def _ndk_config_test():
 
     return test_name
 
+def _next_version_for_unversioned_stable_interface_test():
+    name = "unversioned_stable_interface_next_version"
+    test_name = name + "_test"
+    next_version_aidl_library_target = name + "-V1"
+
+    aidl_interface(
+        name = name,
+        srcs = ["Foo.aidl"],
+        tags = ["manual"],
+    )
+
+    target_under_test_exist_test(
+        name = test_name,
+        target_under_test = next_version_aidl_library_target,
+    )
+
+    return test_name
+
+def _next_version_for_versioned_stable_interface_test():
+    name = "versioned_stable_interface_next_version"
+    test_name = name + "_test"
+    next_version_aidl_library_target = name + "-V3"
+
+    aidl_interface(
+        name = name,
+        versions = ["1", "2"],
+        srcs = ["Foo.aidl"],
+        tags = ["manual"],
+    )
+
+    target_under_test_exist_test(
+        name = test_name,
+        target_under_test = next_version_aidl_library_target,
+    )
+
+    return test_name
+
 def aidl_interface_test_suite(name):
     native.test_suite(
         name = name,
@@ -141,5 +181,7 @@ def aidl_interface_test_suite(name):
             "//build/bazel/rules/aidl/testing:interface_macro_produces_all_targets_test",
             _ndk_backend_test(),
             _ndk_config_test(),
+            _next_version_for_unversioned_stable_interface_test(),
+            _next_version_for_versioned_stable_interface_test(),
         ],
     )
