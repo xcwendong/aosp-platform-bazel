@@ -12,6 +12,12 @@ string_setting(
     visibility = ["//visibility:public"],
 )
 
+string_setting(
+    name = "base_apex_name",
+    build_setting_default = "",
+    visibility = ["//visibility:public"],
+)
+
 bool_setting(
     name = "in_apex",
     build_setting_default = False,

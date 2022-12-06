@@ -166,6 +166,9 @@ def _apex_cc_aspect_impl(target, ctx):
         ),
     ]
 
+# The list of attributes in a cc dep graph where this aspect will traverse on.
+CC_ATTR_ASPECTS = ["dynamic_deps", "deps", "shared", "src", "runtime_deps"]
+
 # This aspect is intended to be applied on a apex.native_shared_libs attribute
 apex_cc_aspect = aspect(
     implementation = _apex_cc_aspect_impl,
@@ -176,6 +179,6 @@ apex_cc_aspect = aspect(
         # This is propagated from the apex
         "testonly": attr.bool(default = False),
     },
-    attr_aspects = ["dynamic_deps", "deps", "shared", "src", "runtime_deps"],
+    attr_aspects = CC_ATTR_ASPECTS,
     # TODO: Have this aspect also propagate along attributes of native_shared_libs?
 )

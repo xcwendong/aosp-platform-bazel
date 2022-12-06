@@ -35,7 +35,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 AbiDumpInfo = provider(fields = ["dump_files"])
-AbiDiffInfo = provider(fields = ["prev_diff_file", "diff_file"])
+AbiDiffInfo = provider(fields = ["diff_files"])
 
 _ABI_CLASS_PLATFORM = "platform"
 
@@ -241,10 +241,7 @@ def create_abi_diff(ctx, dump_file):
         if not abi_reference_file:
             prev_version -= 1
 
-    # TODO(b/260611131): it could be lsdump.gz file if lsdump doesn't exist, no lsdump.gz exists currently though.
-
-    prev_diff_file = None
-    diff_file = None
+    diff_files = []
 
     # We need to do the abi check for the previous version and current version if the reference
     # abi dump files are available. If the current previous version doesn't have the reference
@@ -252,13 +249,13 @@ def create_abi_diff(ctx, dump_file):
     if not abi_reference_file:
         abi_reference_file = _find_abi_ref_file(ctx, prev_version, arch, bitness, abi_class, dump_file.basename)
     if abi_reference_file:
-        prev_diff_file = _run_abi_diff(ctx, arch, prev_version, dump_file, abi_reference_file, True)
+        diff_files.append(_run_abi_diff(ctx, arch, prev_version, dump_file, abi_reference_file, True))
 
     abi_reference_file = _find_abi_ref_file(ctx, version, arch, bitness, abi_class, dump_file.basename)
     if abi_reference_file:
-        diff_file = _run_abi_diff(ctx, arch, version, dump_file, abi_reference_file, False)
+        diff_files.append(_run_abi_diff(ctx, arch, version, dump_file, abi_reference_file, False))
 
-    return prev_diff_file, diff_file
+    return diff_files
 
 def _run_abi_diff(ctx, arch, version, dump_file, abi_reference_file, prev_version_diff):
     lib_name = ctx.attr.soname.removesuffix(".so")
@@ -351,15 +348,14 @@ def _abi_diff_enabled(ctx, lib_name, is_aspect):
     return True
 
 def _abi_dump_impl(ctx):
-    diff_file = None
-    prev_diff_file = None
+    diff_files = depset()
     if _abi_diff_enabled(ctx, ctx.attr.soname.removesuffix(".so"), False) and ctx.attr.root != None:
         dump_files = ctx.attr.root[AbiDumpInfo].dump_files.to_list()
         linked_dump_file = create_linked_abi_dump(ctx, dump_files)
-        prev_diff_file, diff_file = create_abi_diff(ctx, linked_dump_file)
+        diff_files = depset(create_abi_diff(ctx, linked_dump_file))
 
     return ([
-        AbiDiffInfo(prev_diff_file = prev_diff_file, diff_file = diff_file),
+        AbiDiffInfo(diff_files = diff_files),
     ])
 
 abi_dump = rule(
