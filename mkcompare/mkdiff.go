@@ -52,8 +52,8 @@ func normalizeInstallPairs(ref string, our string) (string, string) {
 
 type MkVarDiff struct {
 	Name         string
-	MissingItems []string
-	ExtraItems   []string
+	MissingItems []string `json:",omitempty"`
+	ExtraItems   []string `json:",omitempty"`
 }
 
 // MkModuleDiff holds module difference between reference and our mkfile.

@@ -37,6 +37,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@soong_injection//apex_toolchain:constants.bzl", "default_manifest_version")
+load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 
 ApexInfo = provider(
     "ApexInfo exports metadata about this apex.",
@@ -94,12 +95,14 @@ def _create_file_mapping(ctx):
     if platforms.is_target_x86(ctx.attr._platform_utils):
         _add_lib_files("lib", native_shared_libs_32["x86"])
     elif platforms.is_target_x86_64(ctx.attr._platform_utils):
-        _add_lib_files("lib", native_shared_libs_32["x86"])
+        if product_vars["DeviceSecondaryArch"] == "x86":
+            _add_lib_files("lib", native_shared_libs_32["x86"])
         _add_lib_files("lib64", native_shared_libs_64["x86_64"])
     elif platforms.is_target_arm(ctx.attr._platform_utils):
         _add_lib_files("lib", native_shared_libs_32["arm"])
     elif platforms.is_target_arm64(ctx.attr._platform_utils):
-        _add_lib_files("lib", native_shared_libs_32["arm"])
+        if product_vars["DeviceSecondaryArch"] == "arm":
+            _add_lib_files("lib", native_shared_libs_32["arm"])
         _add_lib_files("lib64", native_shared_libs_64["arm64"])
 
     backing_libs = []

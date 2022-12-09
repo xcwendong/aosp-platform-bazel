@@ -27,8 +27,8 @@ for a in $@; do
   fi
 done
 ${builder} --make-mode nothing >/dev/null
-declare -r mkmod_file=$(realpath "out/soong/Android-${TARGET_PRODUCT}.mk")
+declare -r mkmod_file="out/soong/Android-${TARGET_PRODUCT}.mk"
 mv ${mkmod_file} ${mkmod_file}.ref
 ${builder} --make-mode "${bazel_mode}"  nothing >/dev/null
-cd build/bazel/mkcompare
-go run cmd/mkcompare.go ${mkargs[@]} ${mkmod_file}.ref ${mkmod_file}
+GOWORK=$PWD/build/bazel/mkcompare/go.work \
+  go run android/bazel/mkcompare/cmd ${mkargs[@]} ${mkmod_file}.ref ${mkmod_file}

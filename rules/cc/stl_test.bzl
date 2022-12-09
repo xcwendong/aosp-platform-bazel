@@ -238,38 +238,47 @@ def _stl_flags_test_impl(ctx):
 
     return analysistest.end(env)
 
-_stl_flags_android_test = analysistest.make(
+__stl_flags_android_test = analysistest.make(
     impl = _stl_flags_test_impl,
     attrs = {
         "cppflags": attr.string_list(),
         "linkopts": attr.string_list(),
-    },
-    config_settings = {
-        "//command_line_option:platforms": "@//build/bazel/platforms:android_x86",
     },
 )
 
-_stl_flags_linux_test = analysistest.make(
+def _stl_flags_android_test(**kwargs):
+    __stl_flags_android_test(
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
+        **kwargs
+    )
+
+__stl_flags_linux_test = analysistest.make(
     impl = _stl_flags_test_impl,
     attrs = {
         "cppflags": attr.string_list(),
         "linkopts": attr.string_list(),
-    },
-    config_settings = {
-        "//command_line_option:platforms": "@//build/bazel/platforms:linux_x86",
     },
 )
 
-_stl_flags_linux_bionic_test = analysistest.make(
+def _stl_flags_linux_test(**kwargs):
+    __stl_flags_linux_test(
+        target_compatible_with = ["//build/bazel/platforms/os:linux"],
+        **kwargs
+    )
+
+__stl_flags_linux_bionic_test = analysistest.make(
     impl = _stl_flags_test_impl,
     attrs = {
         "cppflags": attr.string_list(),
         "linkopts": attr.string_list(),
     },
-    config_settings = {
-        "//command_line_option:platforms": "@//build/bazel/platforms:linux_bionic_x86_64",
-    },
 )
+
+def _stl_flags_linux_bionic_test(**kwargs):
+    __stl_flags_linux_bionic_test(
+        target_compatible_with = ["//build/bazel/platforms/os:linux_bionic"],
+        **kwargs
+    )
 
 _stl_flags_windows_test = analysistest.make(
     impl = _stl_flags_test_impl,
@@ -278,7 +287,7 @@ _stl_flags_windows_test = analysistest.make(
         "linkopts": attr.string_list(),
     },
     config_settings = {
-        "//command_line_option:platforms": "@//build/bazel/platforms:windows_x86",
+        "//command_line_option:platforms": "@//build/bazel/rules/cc:windows_for_testing",
     },
 )
 
@@ -289,31 +298,37 @@ _stl_flags_darwin_test = analysistest.make(
         "linkopts": attr.string_list(),
     },
     config_settings = {
-        "//command_line_option:platforms": "@//build/bazel/platforms:darwin_arm64",
+        "//command_line_option:platforms": "@//build/bazel/rules/cc:darwin_for_testing",
     },
 )
 
-_stl_deps_android_test = analysistest.make(
+__stl_deps_android_test = analysistest.make(
     impl = _stl_deps_test_impl,
     attrs = {
         "static": attr.string_list(),
         "shared": attr.string_list(),
     },
-    config_settings = {
-        "//command_line_option:platforms": "@//build/bazel/platforms:android_x86",
-    },
 )
 
-_stl_deps_non_android_test = analysistest.make(
+def _stl_deps_android_test(**kwargs):
+    __stl_deps_android_test(
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
+        **kwargs
+    )
+
+__stl_deps_non_android_test = analysistest.make(
     impl = _stl_deps_test_impl,
     attrs = {
         "static": attr.string_list(),
         "shared": attr.string_list(),
     },
-    config_settings = {
-        "//command_line_option:platforms": "@//build/bazel/platforms:linux_x86",
-    },
 )
+
+def _stl_deps_non_android_test(**kwargs):
+    __stl_deps_non_android_test(
+        target_compatible_with = ["//build/bazel/platforms/os:linux"],
+        **kwargs
+    )
 
 def stl_test_suite(name):
     native.test_suite(

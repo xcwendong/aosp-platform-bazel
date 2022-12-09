@@ -21,7 +21,10 @@ load(
 )
 load(":cc_library_shared.bzl", "cc_library_shared")
 load(":cc_library_static.bzl", "cc_library_static")
-load(":cc_library_common.bzl", "create_ccinfo_for_includes")
+load(
+    ":cc_library_common.bzl",
+    "create_ccinfo_for_includes",
+)
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
 # TODO(b/240466571): Implement determination of exported includes

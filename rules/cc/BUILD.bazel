@@ -41,6 +41,16 @@ selects.config_setting_group(
     ],
 )
 
+platform(
+    name = "windows_for_testing",
+    constraint_values = ["@//build/bazel/platforms/os:windows"],
+)
+
+platform(
+    name = "darwin_for_testing",
+    constraint_values = ["@//build/bazel/platforms/os:darwin"],
+)
+
 cc_aidl_library_test_suite(name = "cc_aidl_library_tests")
 
 cc_binary_test_suite(name = "cc_binary_tests")

@@ -22,6 +22,7 @@ load(
     "create_ccinfo_for_includes",
     "future_version",
     "get_non_header_srcs",
+    "get_sanitizer_lib_info",
     "is_external_directory",
     "parse_apex_sdk_version",
     "parse_sdk_version",
@@ -114,7 +115,6 @@ def cc_library_static(
     asm_name = "%s_asm" % name
 
     toolchain_features = []
-    toolchain_features += features
 
     if is_external_directory(native.package_name()):
         toolchain_features += [
@@ -138,6 +138,7 @@ def cc_library_static(
 
     if min_sdk_version:
         toolchain_features += parse_sdk_version(min_sdk_version) + ["-sdk_version_default"]
+    toolchain_features += features
 
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
@@ -229,6 +230,11 @@ def cc_library_static(
         name = name,
         roots = [cpp_name, c_name, asm_name],
         deps = whole_archive_deps + implementation_whole_archive_deps,
+        additional_sanitizer_deps = (
+            deps +
+            stl_info.static_deps +
+            implementation_deps
+        ),
         runtime_deps = runtime_deps,
         target_compatible_with = target_compatible_with,
         alwayslink = alwayslink,
@@ -403,6 +409,7 @@ def _cc_library_combiner_impl(ctx):
         DefaultInfo(files = depset(direct = [output_file]), data_runfiles = ctx.runfiles(files = [output_file])),
         CcInfo(compilation_context = combined_info.compilation_context, linking_context = linking_context),
         CcStaticLibraryInfo(root_static_archive = output_file, objects = objects_to_link),
+        get_sanitizer_lib_info(ctx.attr.features, ctx.attr.deps + ctx.attr.additional_sanitizer_deps),
     ]
     providers.extend(_generate_tidy_actions(ctx))
 
@@ -422,6 +429,10 @@ _cc_library_combiner = rule(
     attrs = {
         "roots": attr.label_list(providers = [CcInfo]),
         "deps": attr.label_list(providers = [CcInfo]),
+        "additional_sanitizer_deps": attr.label_list(
+            providers = [CcInfo],
+            doc = "Deps used only to check for sanitizer enablement",
+        ),
         "runtime_deps": attr.label_list(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",

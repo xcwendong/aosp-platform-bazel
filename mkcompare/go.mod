@@ -1,7 +1,4 @@
 module android/bazel/mkcompare
 
-require github.com/google/go-cmp v0.5.9
-
-replace github.com/google/go-cmp => ../../../external/go-cmp
-
+require github.com/google/go-cmp v0.0.0
 go 1.19

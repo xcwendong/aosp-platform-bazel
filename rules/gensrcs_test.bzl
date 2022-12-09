@@ -140,8 +140,8 @@ def _test_gensrcs_tool_builds_for_host_impl(ctx):
         env,
         # because we set --experimental_platform_in_output_dir, we expect the
         # platform to be in the output path of a generated file
-        "darwin" in tool.path,  # host platform
-        "expected 'darwin' in tool path, got '%s'" % tool.path,
+        "linux" in tool.path,  # host platform
+        "expected 'linux' in tool path, got '%s'" % tool.path,
     )
 
     outputs = action.outputs.to_list()
@@ -150,20 +150,24 @@ def _test_gensrcs_tool_builds_for_host_impl(ctx):
     asserts.true(
         env,
         # because we set --experimental_platform_in_output_dir, we expect the
-        # platform to be in the output path of a generated file
-        "android_x86" in output.path,  # target platform
-        "expected 'android_x86' in output path, got '%s'" % output.path,
+        # platform to be in the output path of a generated file. However, the platform
+        # will be the android product name, like aosp_arm, so we can't check if anything
+        # in particular is in the path. Check that linux is not in the path instead.
+        "linux" not in output.path,  # target platform
+        "expected 'linux' to not be in output path, got '%s'" % output.path,
     )
 
     return analysistest.end(env)
 
-_gensrcs_tool_builds_for_host_test = analysistest.make(
+__gensrcs_tool_builds_for_host_test = analysistest.make(
     _test_gensrcs_tool_builds_for_host_impl,
-    config_settings = {
-        "//command_line_option:platforms": "@//build/bazel/platforms:android_x86",  # ensure target != host so there is a transition
-        "//command_line_option:host_platform": "@//build/bazel/platforms:darwin_x86_64",  # ensure target != host so there is a transition
-    },
 )
+
+def _gensrcs_tool_builds_for_host_test(**kwargs):
+    __gensrcs_tool_builds_for_host_test(
+        target_compatible_with = ["//build/bazel/platforms/os:android"],  # ensure target != host so there is a transition
+        **kwargs
+    )
 
 def _test_gensrcs_tool_builds_for_host():
     native.genrule(
@@ -173,7 +177,7 @@ def _test_gensrcs_tool_builds_for_host():
         cmd = "touch $@",
         target_compatible_with = select({
             # only supported OS is that specified as host_platform
-            "//build/bazel/platforms/os:darwin": [],
+            "//build/bazel/platforms/os:linux": [],
             "//conditions:default": ["@platforms//:incompatible"],
         }),
         tags = ["manual"],

@@ -97,40 +97,65 @@ func printModulesByType(title string, moduleNames []string, mkFile *mkcompare.Mk
 }
 
 type diffMod struct {
+	Name string
 	mkcompare.MkModuleDiff
-	Name        string
-	RefLocation int
-	OurLocation int
+	RefLocation   int
+	OurLocation   int
+	Type          string
+	ReferenceType string `json:",omitempty"`
+}
+
+type missingOrExtraMod struct {
+	Name     string
+	Location int
+	Type     string
 }
 
 type Diff struct {
 	RefPath        string
 	OurPath        string
-	ExtraModules   []string
-	MissingModules []string
-	DiffModules    []diffMod
+	ExtraModules   []missingOrExtraMod `json:",omitempty"`
+	MissingModules []missingOrExtraMod `json:",omitempty"`
+	DiffModules    []diffMod           `json:",omitempty"`
 }
 
 func process(refMkFile, ourMkFile *mkcompare.MkFile) bool {
 	diff := Diff{RefPath: refMkFile.Path, OurPath: ourMkFile.Path}
-	var commonModules []string
-	diff.MissingModules, commonModules, diff.ExtraModules =
+	missing, common, extra :=
 		mkcompare.Classify(refMkFile.Modules, ourMkFile.Modules, func(_ string) bool { return true })
 
-	sort.Strings(diff.MissingModules)
-	if *showSummary && len(diff.MissingModules) > 0 {
-		printModulesByType(fmt.Sprintf("%d missing modules, by type:", len(diff.MissingModules)),
-			diff.MissingModules, refMkFile)
+	sort.Strings(missing)
+	if len(missing) > 0 {
+		if *showSummary {
+			printModulesByType(fmt.Sprintf("%d missing modules, by type:", len(missing)),
+				missing, refMkFile)
+		}
+		if *jsonOut {
+			for _, name := range missing {
+				mod := refMkFile.Modules[name]
+				diff.MissingModules = append(diff.MissingModules,
+					missingOrExtraMod{name, mod.Location, mod.Type})
+			}
+		}
 	}
 
-	sort.Strings(diff.ExtraModules)
-	if *showSummary && len(diff.ExtraModules) > 0 {
-		printModulesByType(fmt.Sprintf("%d extra modules, by type:", len(diff.ExtraModules)), diff.ExtraModules, ourMkFile)
+	sort.Strings(extra)
+	if len(extra) > 0 {
+		if *showSummary {
+			printModulesByType(fmt.Sprintf("%d extra modules, by type:", len(extra)), extra, ourMkFile)
+		}
+		if *jsonOut {
+			for _, name := range extra {
+				mod := ourMkFile.Modules[name]
+				diff.ExtraModules = append(diff.ExtraModules,
+					missingOrExtraMod{name, mod.Location, mod.Type})
+			}
+		}
 	}
 	filesAreEqual := len(diff.MissingModules)+len(diff.ExtraModules) == 0
 
 	nDiff := 0
-	sort.Strings(commonModules)
+	sort.Strings(common)
 	filterVars := func(name string) bool {
 		_, ok := ignoredVarSet[name]
 		return !ok
@@ -138,18 +163,26 @@ func process(refMkFile, ourMkFile *mkcompare.MkFile) bool {
 	var missingVariables = make(map[string][]string)
 	var extraVariables = make(map[string][]string)
 	var diffVariables = make(map[string][]string)
-	for _, m := range commonModules {
-		d := mkcompare.Compare(refMkFile.Modules[m], ourMkFile.Modules[m], filterVars)
+	for _, name := range common {
+		d := mkcompare.Compare(refMkFile.Modules[name], ourMkFile.Modules[name], filterVars)
 		if d.Empty() {
 			continue
 		}
 		filesAreEqual = false
-		diff.DiffModules = append(diff.DiffModules, diffMod{
-			MkModuleDiff: d,
-			Name:         m,
-			RefLocation:  d.Ref.Location,
-			OurLocation:  d.Our.Location,
-		})
+		var refType string
+		if d.Ref.Type != d.Our.Type {
+			refType = d.Ref.Type
+		}
+		if *jsonOut {
+			diff.DiffModules = append(diff.DiffModules, diffMod{
+				MkModuleDiff:  d,
+				Name:          name,
+				RefLocation:   d.Ref.Location,
+				OurLocation:   d.Our.Location,
+				Type:          d.Our.Type,
+				ReferenceType: refType,
+			})
+		}
 		nDiff = nDiff + 1
 		if nDiff >= *maxDiff {
 			fmt.Printf("Only the first %d module diffs are processed\n", *maxDiff)
@@ -160,17 +193,17 @@ func process(refMkFile, ourMkFile *mkcompare.MkFile) bool {
 				return
 			}
 			for _, v := range items {
-				d[v] = append(d[v], m)
+				d[v] = append(d[v], name)
 			}
 		}
 		addToDiffList(missingVariables, d.MissingVars)
 		addToDiffList(extraVariables, d.ExtraVars)
 		for _, dv := range d.DiffVars {
-			diffVariables[dv.Name] = append(diffVariables[dv.Name], m)
+			diffVariables[dv.Name] = append(diffVariables[dv.Name], name)
 		}
 		if *showPerModuleDiffs {
 			fmt.Println()
-			d.Print(os.Stdout, m)
+			d.Print(os.Stdout, name)
 		}
 	}
 	if *showSummary {
