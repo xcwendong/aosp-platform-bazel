@@ -16,6 +16,7 @@ load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load(":cc_library_common.bzl", "disable_crt_link")
 load(":cc_library_static.bzl", "cc_library_static")
 load(":cc_library_shared.bzl", "CcStubLibrariesInfo")
+load(":fdo_profile_transitions.bzl", "drop_fdo_profile_transition")
 
 # This file contains the implementation for the cc_stub_library rule.
 #
@@ -193,6 +194,9 @@ def _cc_stub_library_shared_impl(ctx):
 _cc_stub_library_shared = rule(
     implementation = _cc_stub_library_shared_impl,
     doc = "Top level rule to merge CcStubInfo and CcSharedLibraryInfo into a single target",
+    # Incoming transition to reset //command_line_option:fdo_profile to None
+    # to converge the configurations of the stub targets
+    cfg = drop_fdo_profile_transition,
     attrs = {
         "stub_target": attr.label(mandatory = True),
         "library_target": attr.label(mandatory = True),
@@ -200,6 +204,9 @@ _cc_stub_library_shared = rule(
         # See _cc_stub_library_shared_impl comment for explanation.
         "deps": attr.label_list(mandatory = True),
         "source_library": attr.label(mandatory = True),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
 )
 

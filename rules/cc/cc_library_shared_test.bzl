@@ -18,6 +18,7 @@ load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/test_common:paths.bzl", "get_package_dir_based_path")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 
 def _cc_library_shared_suffix_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -321,6 +322,371 @@ def _cc_library_shared_does_not_propagate_implementation_dynamic_deps():
 
     return test_name
 
+ActionArgsInfo = provider(
+    fields = {
+        "argv_map": "A dict with compile action arguments keyed by the target label",
+    },
+)
+
+def _compile_action_argv_aspect_impl(target, ctx):
+    argv_map = {}
+    if ctx.rule.kind == "cc_library":
+        cpp_compile_commands_args = []
+        for action in target.actions:
+            if action.mnemonic == "CppCompile":
+                cpp_compile_commands_args.extend(action.argv)
+
+        if len(cpp_compile_commands_args):
+            argv_map = dicts.add(
+                argv_map,
+                {
+                    target.label.name: cpp_compile_commands_args,
+                },
+            )
+    elif ctx.rule.kind == "_cc_library_combiner":
+        # propagate compile actions flags from [implementation_]whole_archive_deps upstream
+        for dep in ctx.rule.attr.deps:
+            argv_map = dicts.add(
+                argv_map,
+                dep[ActionArgsInfo].argv_map,
+            )
+
+        # propagate compile actions flags from roots (e.g. _cpp) upstream
+        for root in ctx.rule.attr.roots:
+            argv_map = dicts.add(
+                argv_map,
+                root[ActionArgsInfo].argv_map,
+            )
+
+        # propagate action flags from locals and exports
+        for include in ctx.rule.attr.includes:
+            argv_map = dicts.add(
+                argv_map,
+                include[ActionArgsInfo].argv_map,
+            )
+    elif ctx.rule.kind == "_cc_includes":
+        for dep in ctx.rule.attr.deps:
+            argv_map = dicts.add(
+                argv_map,
+                dep[ActionArgsInfo].argv_map,
+            )
+    elif ctx.rule.kind == "_cc_library_shared_proxy":
+        # propagate compile actions flags from root upstream
+        argv_map = dicts.add(
+            argv_map,
+            ctx.rule.attr.deps[0][ActionArgsInfo].argv_map,
+        )
+    return ActionArgsInfo(
+        argv_map = argv_map,
+    )
+
+# _compile_action_argv_aspect is used to examine compile action from static deps
+# as the result of the fdo transition attached to the cc_library_shared's deps
+# and __internal_root_cpp which have cc compile actions.
+# Checking the deps directly using their names give us the info before
+# transition takes effect.
+_compile_action_argv_aspect = aspect(
+    implementation = _compile_action_argv_aspect_impl,
+    attr_aspects = ["root", "roots", "deps", "includes"],
+    provides = [ActionArgsInfo],
+)
+
+def _cc_library_shared_propagating_fdo_profile_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    argv_map = target_under_test[ActionArgsInfo].argv_map
+    for label in ctx.attr.deps_labels_to_check_fdo_profile:
+        asserts.true(
+            env,
+            label in argv_map,
+            "can't find {} in argv map".format(label),
+        )
+        argv = argv_map[label]
+        asserts.true(
+            env,
+            _has_fdo_profile(argv, ctx.attr.fdo_profile_path_basename),
+            "can't find {} in compile action of {}".format(
+                ctx.attr.fdo_profile_path_basename,
+                label,
+            ),
+        )
+    for label in ctx.attr.deps_labels_to_check_no_fdo_profile:
+        asserts.true(
+            env,
+            label in argv_map,
+            "can't find {} in argv_map".format(label),
+        )
+        argv = argv_map[label]
+        asserts.true(
+            env,
+            not _has_fdo_profile(argv, ctx.attr.fdo_profile_path_basename),
+            "{} should not have {} in compile action".format(
+                ctx.attr.fdo_profile_path_basename,
+                label,
+            ),
+        )
+
+    return analysistest.end(env)
+
+cc_library_shared_propagating_fdo_profile_test = analysistest.make(
+    _cc_library_shared_propagating_fdo_profile_test_impl,
+    attrs = {
+        # FdoProfileInfo isn't exposed to Starlark so we need to test against
+        # the path basename directly
+        "fdo_profile_path_basename": attr.string(),
+        # This has to be a string_list() instead of label_list(). If the deps
+        # are given as labels, the deps are analyzed because transition is attached
+        "deps_labels_to_check_fdo_profile": attr.string_list(),
+        "deps_labels_to_check_no_fdo_profile": attr.string_list(),
+    },
+    # We need to use aspect to examine the dependencies' actions of the apex
+    # target as the result of the transition, checking the dependencies directly
+    # using names will give you the info before the transition takes effect.
+    extra_target_under_test_aspects = [_compile_action_argv_aspect],
+)
+
+# _has_fdo_profile checks whether afdo-specific flag is present in actions.argv
+def _has_fdo_profile(argv, fdo_profile_path_basename):
+    for arg in argv:
+        if fdo_profile_path_basename in arg and "-fprofile-sample-use" in arg:
+            return True
+
+    return False
+
+def _cc_libary_shared_propagate_fdo_profile_to_whole_archive_deps():
+    name = "_cc_libary_shared_propagate_fdo_profile_to_whole_archive_deps"
+    fdo_profile_name = name + "_fdo_profile"
+    dep_name = name + "_dep"
+    transitive_dep_name = name + "_transitive_dep"
+    unexported_dep_name = name + "_exported_dep"
+    transitive_unexported_dep_name = name + "_transitive_unexported_dep"
+    test_name = name + "_test"
+
+    native.fdo_profile(
+        name = fdo_profile_name,
+        profile = fdo_profile_name + ".afdo",
+    )
+
+    cc_library_static(
+        name = transitive_dep_name,
+        srcs = ["foo.cpp"],
+        tags = ["manual"],
+    )
+    cc_library_static(
+        name = transitive_unexported_dep_name,
+        srcs = ["foo.cpp"],
+        tags = ["manual"],
+    )
+    cc_library_static(
+        name = dep_name,
+        whole_archive_deps = [transitive_dep_name],
+        implementation_whole_archive_deps = [transitive_unexported_dep_name],
+        srcs = ["foo.cpp", "bar.cpp"],
+        tags = ["manual"],
+    )
+    cc_library_static(
+        name = unexported_dep_name,
+        srcs = ["foo.cpp"],
+        tags = ["manual"],
+    )
+
+    cc_library_shared(
+        name = name,
+        whole_archive_deps = [dep_name],
+        implementation_whole_archive_deps = [unexported_dep_name],
+        fdo_profile = ":" + fdo_profile_name,
+        tags = ["manual"],
+    )
+
+    cc_library_shared_propagating_fdo_profile_test(
+        name = test_name,
+        target_under_test = name,
+        deps_labels_to_check_fdo_profile = [
+            dep_name + "_cpp",
+            transitive_dep_name + "_cpp",
+            unexported_dep_name + "_cpp",
+            transitive_unexported_dep_name + "_cpp",
+        ],
+        fdo_profile_path_basename = fdo_profile_name + ".afdo",
+    )
+
+    return test_name
+
+def _cc_library_shared_does_not_propagate_fdo_profile_to_dynamic_deps():
+    name = "_cc_library_shared_does_not_propagate_fdo_profile_to_dynamic_deps"
+    fdo_profile_name = name + "_fdo_profile"
+    dep_name = name + "_dep"
+    transitive_shared_dep_name = name + "_transitive_shared_dep"
+    unexported_transitive_shared_dep_name = name + "_unexported_transitive_shared_dep"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = transitive_shared_dep_name,
+        srcs = ["foo.cpp"],
+        tags = ["manual"],
+    )
+    cc_library_shared(
+        name = unexported_transitive_shared_dep_name,
+        srcs = ["foo.cpp"],
+        tags = ["manual"],
+    )
+    cc_library_static(
+        name = dep_name,
+        srcs = ["foo.cpp"],
+        dynamic_deps = [transitive_shared_dep_name],
+        implementation_dynamic_deps = [unexported_transitive_shared_dep_name],
+        tags = ["manual"],
+    )
+    native.fdo_profile(
+        name = fdo_profile_name,
+        profile = fdo_profile_name + ".afdo",
+    )
+    cc_library_shared(
+        name = name,
+        whole_archive_deps = [dep_name],
+        fdo_profile = fdo_profile_name,
+        stl = "",
+        tags = ["manual"],
+    )
+
+    cc_library_shared_propagating_fdo_profile_test(
+        name = test_name,
+        target_under_test = name,
+        deps_labels_to_check_fdo_profile = [
+            dep_name + "_cpp",
+        ],
+        # make sure dynamic deps don't build with afdo profiles from rdeps
+        deps_labels_to_check_no_fdo_profile = [
+            transitive_shared_dep_name + "__internal_root_cpp",
+            unexported_transitive_shared_dep_name + "__internal_root_cpp",
+        ],
+        fdo_profile_path_basename = fdo_profile_name + ".afdo",
+    )
+
+    return test_name
+
+def _fdo_profile_transition_correctly_set_and_unset_fdo_profile():
+    name = "_fdo_profile_transition_set_and_unset_fdo_profile_correctly"
+    fdo_profile_name = name + "_fdo_profile"
+    dep_with_fdo_profile = name + "_dep_with_fdo_profile"
+    transitive_dep_without_fdo_profile = name + "_transitive_dep_without_fdo_profile"
+    test_name = name + "_test"
+
+    native.fdo_profile(
+        name = fdo_profile_name,
+        profile = fdo_profile_name + ".afdo",
+    )
+
+    cc_library_shared(
+        name = name,
+        srcs = ["foo.cpp"],
+        tags = ["manual"],
+        dynamic_deps = [dep_with_fdo_profile],
+    )
+
+    cc_library_shared(
+        name = dep_with_fdo_profile,
+        fdo_profile = fdo_profile_name,
+        srcs = ["foo.cpp"],
+        tags = ["manual"],
+        dynamic_deps = [transitive_dep_without_fdo_profile],
+    )
+
+    cc_library_shared(
+        name = transitive_dep_without_fdo_profile,
+        srcs = ["foo.cpp"],
+        tags = ["manual"],
+    )
+
+    cc_library_shared_propagating_fdo_profile_test(
+        name = test_name,
+        target_under_test = name,
+        deps_labels_to_check_fdo_profile = [
+            dep_with_fdo_profile + "__internal_root_cpp",
+        ],
+        # make sure dynamic deps don't build with afdo profiles from rdeps
+        deps_labels_to_check_no_fdo_profile = [
+            name + "__internal_root_cpp",
+            transitive_dep_without_fdo_profile + "__internal_root_cpp",
+        ],
+        fdo_profile_path_basename = fdo_profile_name + ".afdo",
+    )
+
+    return test_name
+
+def _cc_library_link_flags_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+
+    for action in target.actions:
+        if action.mnemonic == "CppLink":
+            for flag in ctx.attr.expected_link_flags:
+                if flag not in action.argv:
+                    fail("{} is not in list of flags for linking {}".format(flag, action.argv))
+
+    return analysistest.end(env)
+
+cc_library_link_flags_test = analysistest.make(
+    _cc_library_link_flags_test_impl,
+    attrs = {
+        "expected_link_flags": attr.string_list(),
+    },
+)
+
+def _cc_library_with_fdo_profile_link_flags():
+    name = "_cc_library_with_fdo_profile_link_flags"
+    test_name = name + "_test"
+    cc_library_shared(
+        name = name,
+        fdo_profile = name + "_fdo_profile",
+        tags = ["manual"],
+    )
+    cc_library_link_flags_test(
+        name = test_name,
+        target_under_test = name + "_unstripped",
+        expected_link_flags = [
+            "-funique-internal-linkage-names",
+            "-fprofile-sample-accurate",
+            "-fprofile-sample-use=build/bazel/rules/cc/_cc_library_with_fdo_profile_link_flags_fdo_profile.afdo",
+            "-Wl,-mllvm,-no-warn-sample-unused=true",
+        ],
+    )
+    return test_name
+
+def _cc_library_disable_fdo_optimization_if_coverage_is_enabled_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+
+    for action in target.actions:
+        if action.mnemonic == "CppCompile":
+            for arg in action.argv:
+                if "-fprofile-sample-use" in arg:
+                    fail("fdo optimization can not be enabled when coverage is enabled")
+
+    return analysistest.end(env)
+
+cc_library_disable_fdo_optimization_if_coverage_is_enabled_test = analysistest.make(
+    _cc_library_disable_fdo_optimization_if_coverage_is_enabled_impl,
+    config_settings = {
+        "//command_line_option:collect_code_coverage": True,
+    },
+)
+
+def _cc_library_disable_fdo_optimization_if_coverage_is_enabled_test():
+    name = "_cc_library_disable_fdo_optimization_if_coverage_is_enabled_test"
+    test_name = name + "_test"
+    cc_library_shared(
+        name = name,
+        fdo_profile = name + "_fdo_profile",
+        srcs = ["foo.cpp"],
+        tags = ["manual"],
+    )
+    cc_library_disable_fdo_optimization_if_coverage_is_enabled_test(
+        name = test_name,
+        target_under_test = name + "__internal_root_cpp",
+    )
+    return test_name
+
 def cc_library_shared_test_suite(name):
     native.genrule(name = "cc_library_shared_hdr", cmd = "null", outs = ["cc_shared_f.h"], tags = ["manual"])
 
@@ -335,5 +701,10 @@ def cc_library_shared_test_suite(name):
             _cc_library_shared_does_not_propagate_implementation_deps(),
             _cc_library_shared_does_not_propagate_implementation_whole_archive_deps(),
             _cc_library_shared_does_not_propagate_implementation_dynamic_deps(),
+            _cc_libary_shared_propagate_fdo_profile_to_whole_archive_deps(),
+            _cc_library_shared_does_not_propagate_fdo_profile_to_dynamic_deps(),
+            _fdo_profile_transition_correctly_set_and_unset_fdo_profile(),
+            _cc_library_with_fdo_profile_link_flags(),
+            _cc_library_disable_fdo_optimization_if_coverage_is_enabled_test(),
         ],
     )

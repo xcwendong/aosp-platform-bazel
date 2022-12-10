@@ -21,6 +21,7 @@ import json
 import logging
 import re
 import subprocess
+import textwrap
 from pathlib import Path
 from typing import Final
 from typing import Optional
@@ -179,11 +180,14 @@ def main():
       description='read perf metrics and archive them at [LOG_DIR]')
   default_log_dir = util.get_out_dir().joinpath(util.DEFAULT_TIMING_LOGS_DIR)
   p.add_argument('-l', '--log-dir', type=Path, default=default_log_dir,
-                 help='Directory for timing logs. Defaults to %(default)s\n'
-                      'TIPS:\n'
-                      '  Specify a directory outside of the source tree\n'
-                      '  For a quick look at key metrics:\n'
-                      f'    {util.get_summary_cmd(default_log_dir)}')
+                 help=textwrap.dedent(f'''
+                 Directory for timing logs. Defaults to %(default)s
+                 TIPS:
+                  1 Specify a directory outside of the source tree
+                  2 To view key metrics in summary.csv:
+                    {util.get_summary_cmd(default_log_dir)}
+                  3 To view column headers:
+                    {util.get_csv_columns_cmd(default_log_dir)}'''))
   p.add_argument('description')
   options = p.parse_args()
 

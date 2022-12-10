@@ -292,6 +292,9 @@ def _run_abi_diff(ctx, arch, version, dump_file, abi_reference_file, prev_versio
         executable = ctx.executable._abi_diff,
         outputs = [diff_file],
         arguments = [args],
+        execution_requirements = {
+            "no-sandbox": "1",
+        },
         mnemonic = "AbiDiff",
     )
 
@@ -355,6 +358,7 @@ def _abi_dump_impl(ctx):
         diff_files = depset(create_abi_diff(ctx, linked_dump_file))
 
     return ([
+        DefaultInfo(files = diff_files),
         AbiDiffInfo(diff_files = diff_files),
     ])
 

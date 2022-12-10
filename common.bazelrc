@@ -110,3 +110,7 @@ build --fat_apk_cpu=k8
 # This also means all python scripts are using py3 runtime.
 build --python_top=//prebuilts/build-tools:python3
 build --noincompatible_use_python_toolchains
+
+# Enable optimization compilation mode to build cc with fdo
+# https://github.com/bazelbuild/bazel/blob/de7b26acfdfcd9c36ec957305a889ac29f0da30e/src/main/java/com/google/devtools/build/lib/rules/cpp/FdoHelper.java#L55
+build --compilation_mode=opt

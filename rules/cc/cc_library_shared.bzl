@@ -24,12 +24,16 @@ load(
     "system_dynamic_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
+load(
+    ":fdo_profile_transitions.bzl",
+    "FDO_PROFILE_ATTR",
+    "fdo_profile_transition",
+)
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
 load(":stl.bzl", "stl_info_from_attr")
 load(":stripped_cc_common.bzl", "CcUnstrippedInfo", "stripped_shared_library")
 load(":versioned_cc_common.bzl", "versioned_shared_library")
 load("//build/bazel/rules/abi:abi_dump.bzl", "AbiDiffInfo", "abi_dump")
-load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
 CcTocInfo = _CcTocInfo
@@ -89,6 +93,7 @@ def cc_library_shared(
         abi_checker_check_all_apis = False,
         abi_checker_diff_flags = [],
         tags = [],
+        fdo_profile = None,
         **kwargs):
     "Bazel macro to correspond with the cc_library_shared Soong module."
 
@@ -110,6 +115,24 @@ def cc_library_shared(
 
     if min_sdk_version:
         features = features + parse_sdk_version(min_sdk_version) + ["-sdk_version_default"]
+
+    if fdo_profile != None:
+        # FIXME(b/261609769): This is a temporary workaround to add link flags
+        # that requires the path to fdo profile.
+        # This workaround is error-prone because it assumes all the fdo_profile
+        # targets are created in a specific way (e.g. fdo_profile target named foo
+        # uses an afdo profile file named foo.afdo in the same folder).
+        fdo_profile_path = fdo_profile + ".afdo"
+        linkopts = linkopts + [
+            "-funique-internal-linkage-names",
+            "-fprofile-sample-accurate",
+            "-fprofile-sample-use=$(location {})".format(fdo_profile_path),
+            "-Wl,-mllvm,-no-warn-sample-unused=true",
+        ]
+        if additional_linker_inputs != None:
+            additional_linker_inputs = additional_linker_inputs + [fdo_profile_path]
+        else:
+            additional_linker_inputs = [fdo_profile_path]
 
     stl_info = stl_info_from_attr(stl, True)
     linkopts = linkopts + stl_info.linkopts
@@ -298,6 +321,7 @@ def cc_library_shared(
         has_stubs = has_stubs,
         runtime_deps = runtime_deps,
         abi_dump = abi_dump_name,
+        fdo_profile = fdo_profile,
         tags = tags,
     )
 
@@ -357,8 +381,8 @@ def _cc_library_shared_proxy_impl(ctx):
     if len(ctx.attr.deps) != 1:
         fail("Exactly one 'deps' must be specified for cc_library_shared_proxy")
     root_files = ctx.attr.deps[0][DefaultInfo].files.to_list()
-    shared_files = ctx.attr.shared[DefaultInfo].files.to_list()
-    shared_debuginfo = ctx.attr.shared_debuginfo[DefaultInfo].files.to_list()
+    shared_files = ctx.attr.shared[0][DefaultInfo].files.to_list()
+    shared_debuginfo = ctx.attr.shared_debuginfo[0][DefaultInfo].files.to_list()
     if len(shared_files) != 1 or len(shared_debuginfo) != 1:
         fail("Expected only one shared library file and one debuginfo file for it")
 
@@ -394,14 +418,14 @@ def _cc_library_shared_proxy_impl(ctx):
             files = depset(direct = files),
             runfiles = ctx.runfiles(files = [ctx.outputs.output_file]),
         ),
-        _swap_shared_linker_input(ctx, ctx.attr.shared[CcSharedLibraryInfo], ctx.outputs.output_file),
-        ctx.attr.table_of_contents[CcTocInfo],
+        _swap_shared_linker_input(ctx, ctx.attr.shared[0][CcSharedLibraryInfo], ctx.outputs.output_file),
+        ctx.attr.table_of_contents[0][CcTocInfo],
         # The _only_ linker_input is the statically linked root itself. We need to propagate this
         # as cc_shared_library identifies which libraries can be linked dynamically based on the
         # linker_inputs of the roots
         ctx.attr.deps[0][CcInfo],
         CcStubLibrariesInfo(has_stubs = ctx.attr.has_stubs),
-        ctx.attr.shared[OutputGroupInfo],
+        ctx.attr.shared[0][OutputGroupInfo],
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
         CcUnstrippedInfo(unstripped = shared_debuginfo[0]),
         ctx.attr.abi_dump[AbiDiffInfo],
@@ -409,25 +433,34 @@ def _cc_library_shared_proxy_impl(ctx):
 
 _cc_library_shared_proxy = rule(
     implementation = _cc_library_shared_proxy_impl,
+    # Incoming transition to override outgoing transition from rdep
+    cfg = fdo_profile_transition,
     attrs = {
-        "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo]),
-        "shared_debuginfo": attr.label(mandatory = True),
+        FDO_PROFILE_ATTR: attr.label(),
+        "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo], cfg = fdo_profile_transition),
+        "shared_debuginfo": attr.label(mandatory = True, cfg = fdo_profile_transition),
         # "deps" should be a single element: the root target of the shared library.
         # See _cc_library_shared_proxy_impl comment for explanation.
-        "deps": attr.label_list(mandatory = True, providers = [CcInfo]),
+        "deps": attr.label_list(mandatory = True, providers = [CcInfo], cfg = fdo_profile_transition),
         "output_file": attr.output(mandatory = True),
         "table_of_contents": attr.label(
             mandatory = True,
             # TODO(b/217908237): reenable allow_single_file
             # allow_single_file = True,
             providers = [CcTocInfo],
+            cfg = fdo_profile_transition,
         ),
         "has_stubs": attr.bool(default = False),
+        # fdo_profile does not get propagated to runtime_deps.
+        # Hence, fdo_profile_transition does not need to get attached here
         "runtime_deps": attr.label_list(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
         ),
         "abi_dump": attr.label(providers = [AbiDiffInfo]),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
     fragments = ["cpp"],
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
