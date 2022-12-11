@@ -18,8 +18,9 @@ def get_arg_value(args_list, arg_name):
     """
     Fetches the value of a named argument from the list of args provided by a
     Bazel action. If there are multiple instances of the arg present, this
-    function will return the first. This function assumes that the argument
-    name is separated from its value via a space.
+    function will return the first. This function makes all the same assumptions
+    as get_arg_values() below.
+
     Arguments:
         args_list (string[]): The list of arguments provided by the Bazel action.
                            i.e., bazel_action.argv
@@ -41,8 +42,17 @@ def get_arg_values(args_list, arg_name):
     """
     Fetches all the values of a named argument from the list of args provided
     by a Bazel action, the argument and its values can repeat multiple times
-    and all the values will be returned. This function assumes that the argument
-    name is separated from its value via a space.
+    and all the values will be returned.
+
+    This function assumes that the only
+    one argument is added per call to args.add() or per string passed to
+    args.add_all(). It still works when two values are passed to
+    args.add() as separate strings, however.
+
+    The above assumption implies that this function does not handle cases where
+    an argument name is separated from its value by an =, or any character
+    other than a space, in the final command.
+
     Arguments:
         args_list (string[]): The list of arguments provided by the Bazel action.
                            i.e., bazel_action.argv
@@ -51,14 +61,10 @@ def get_arg_values(args_list, arg_name):
         All the values corresponding to the specified argument name
     """
 
-    # This is to account for different ways of adding arguments to the action
-    # when constructing it
     values = []
-    actual_args = " ".join(args_list).split(" ")
-
-    for i in range(1, len(actual_args) - 1):
-        if actual_args[i] == arg_name:
-            values.append(actual_args[i + 1])
+    for i in range(1, len(args_list) - 1):
+        if args_list[i] == arg_name:
+            values.append(args_list[i + 1])
 
     return values
 

@@ -22,8 +22,8 @@ OUTPUTS=(
   JNIHelp.o
 )
 PATH_FILTERS=(
-  "linux_glibc_x86_shared/\|linux_x86-fastbuild"
-  "linux_glibc_x86_64_shared/\|linux_x86_64-fastbuild"
+  "linux_glibc_x86_shared/\|linux_x86-opt"
+  "linux_glibc_x86_64_shared/\|linux_x86_64-opt"
   "android_arm64[-_]"
 #  "android_arm[-_]" TODO(usta) investigate why there is a diff for this
 )

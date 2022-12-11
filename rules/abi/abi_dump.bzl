@@ -134,7 +134,7 @@ def _create_abi_dumps(ctx, target, srcs, user_flags, action_name):
     return dumps
 
 def _include_flag(flag):
-    return "-I %s" % flag
+    return ["-I", flag]
 
 def _create_abi_dump(ctx, target, src, header_inputs, compilation_context, compilation_flags):
     """ Utility function to generate abi dump file."""

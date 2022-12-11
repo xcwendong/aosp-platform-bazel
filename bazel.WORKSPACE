@@ -109,7 +109,7 @@ bind(
 # cut the dependency from test rules to the external repo.
 local_repository(
     name = "remote_coverage_tools",
-    path = "build/bazel/rules/coverage/remote_coverage_tools",
+    path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
 )
 
 # The following 2 repositories contain prebuilts that are necessary to the Java Rules.
