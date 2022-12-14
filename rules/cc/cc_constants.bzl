@@ -22,7 +22,7 @@ limitations under the License.
 _HDR_EXTS = ["h", "hh", "hpp", "hxx", "h++", "inl", "inc", "ipp", "h.generic"]
 _C_SRC_EXTS = ["c"]
 _CPP_SRC_EXTS = ["cc", "cpp"]
-_AS_SRC_EXTS = ["S"]
+_AS_SRC_EXTS = ["s", "S"]
 _SRC_EXTS = _C_SRC_EXTS + _CPP_SRC_EXTS + _AS_SRC_EXTS
 _ALL_EXTS = _SRC_EXTS + _HDR_EXTS
 _HDR_EXTS_WITH_DOT = ["." + ext for ext in _HDR_EXTS]

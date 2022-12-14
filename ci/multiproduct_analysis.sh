@@ -15,7 +15,8 @@ function report {
     printf "Failed products:\n"
     printf '%s\n' "${FAILED_PRODUCTS[@]}"
 
-    # Don't fail the build until every product is OK and we want to prevent backsliding.
+    # TODO(b/262192655): Support riscv64 products in Bazel.
+    # TODO(b/261023967): Don't fail the build until every product is OK and we want to prevent backsliding.
     # exit 1
   fi
 }

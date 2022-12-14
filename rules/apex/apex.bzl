@@ -164,7 +164,10 @@ def _add_apex_manifest_information(
     args.add_all(["-a", "provideNativeLibs"])
     args.add_all(provides_native_libs, map_each = _add_so)
 
-    args.add_all(["-se", "version", "0", default_manifest_version])
+    manifest_version = ctx.attr._override_apex_manifest_default_version[BuildSettingInfo].value
+    if not manifest_version:
+        manifest_version = default_manifest_version
+    args.add_all(["-se", "version", "0", manifest_version])
 
     # TODO: support other optional flags like -v name and -a jniLibs
     args.add_all(["-o", apex_manifest_full_json])
@@ -728,6 +731,10 @@ _apex = rule(
         "_apexer_verbose": attr.label(
             default = "//build/bazel/rules/apex:apexer_verbose",
             doc = "If enabled, make apexer log verbosely.",
+        ),
+        "_override_apex_manifest_default_version": attr.label(
+            default = "//build/bazel/rules/apex:override_apex_manifest_default_version",
+            doc = "If specified, override 'version: 0' in apex_manifest.json with this value instead of the branch default. Non-zero versions will not be changed.",
         ),
     },
     # The apex toolchain is not mandatory so that we don't get toolchain resolution errors even

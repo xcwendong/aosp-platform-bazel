@@ -1,7 +1,5 @@
-filegroup(
-    name = "example_configs",
-    srcs = glob(
-        ["*.xml"],
-    ),
-    visibility = ["//build/bazel/rules/tradefed:__subpackages__"],
+package(default_visibility = ["//build/bazel/rules/tradefed:__subpackages__"])
+
+exports_files(
+    glob(["*.xml"]),
 )

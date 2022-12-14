@@ -71,7 +71,10 @@ def _get_default_output_file():
   out_dir = os.getenv("OUT_DIR")
   if not out_dir:
     out_dir = "out"
-  return os.path.join(os.getenv("ANDROID_BUILD_TOP"), out_dir, "soong_build_metrics.pb")
+  build_top = os.getenv("ANDROID_BUILD_TOP")
+  if not build_top:
+  	raise Exception("$ANDROID_BUILD_TOP not found in environment. Have you run lunch?")
+  return os.path.join(build_top, out_dir, "soong_build_metrics.pb")
 
 
 def _make_nested_events(root_event, event):

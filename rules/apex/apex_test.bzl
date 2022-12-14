@@ -911,12 +911,14 @@ def _action_args_test(ctx):
 
     return analysistest.end(env)
 
+_action_args_test_attrs = {
+    "action_mnemonic": attr.string(mandatory = True),
+    "expected_args": attr.string_list(mandatory = True),
+}
+
 action_args_test = analysistest.make(
     _action_args_test,
-    attrs = {
-        "action_mnemonic": attr.string(mandatory = True),
-        "expected_args": attr.string_list(mandatory = True),
-    },
+    attrs = _action_args_test_attrs,
 )
 
 def _test_logging_parent_flag():
@@ -957,6 +959,37 @@ def _test_default_apex_manifest_version():
             "version",
             "0",
             str(default_manifest_version),
+        ],
+    )
+
+    return test_name
+
+action_args_with_override_apex_manifest_default_version_test = analysistest.make(
+    _action_args_test,
+    attrs = _action_args_test_attrs,
+    # Wouldn't it be nice if it's possible to set the config_setting from the test callsite..
+    config_settings = {
+        "@//build/bazel/rules/apex:override_apex_manifest_default_version": "1234567890",
+    },
+)
+
+def _test_override_apex_manifest_version():
+    name = "override_apex_manifest_version"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+    )
+
+    action_args_with_override_apex_manifest_default_version_test(
+        name = test_name,
+        target_under_test = name,
+        action_mnemonic = "ApexManifestModify",
+        expected_args = [
+            "-se",
+            "version",
+            "0",
+            "1234567890",
         ],
     )
 
@@ -1723,6 +1756,7 @@ def apex_test_suite(name):
             _test_logging_parent_flag(),
             _test_generate_file_contexts(),
             _test_default_apex_manifest_version(),
+            _test_override_apex_manifest_version(),
             _test_min_sdk_version_failure(),
             _test_min_sdk_version_failure_transitive(),
             _test_apex_certificate_none(),

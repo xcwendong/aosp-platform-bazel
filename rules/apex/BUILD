@@ -5,6 +5,7 @@ load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 load(":apex_test.bzl", "apex_test_suite")
 load(":apex_aab_test.bzl", "apex_aab_test_suite")
 load(":apex_key_test.bzl", "apex_key_test_suite")
+load("@env//:env.bzl", "env")
 
 string_setting(
     name = "apex_name",
@@ -15,6 +16,12 @@ string_setting(
 string_setting(
     name = "base_apex_name",
     build_setting_default = "",
+    visibility = ["//visibility:public"],
+)
+
+string_setting(
+    name = "override_apex_manifest_default_version",
+    build_setting_default = env.get("OVERRIDE_APEX_MANIFEST_DEFAULT_VERSION", ""),
     visibility = ["//visibility:public"],
 )
 
