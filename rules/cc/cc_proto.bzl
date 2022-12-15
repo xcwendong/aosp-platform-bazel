@@ -128,7 +128,8 @@ def _cc_proto_library(
         tags = [],
         target_compatible_with = [],
         out_format = None,
-        proto_dep = None):
+        proto_dep = None,
+        **kwargs):
     proto_lib_name = name + PROTO_GEN_NAME_SUFFIX
 
     _cc_proto_sources_gen(
@@ -149,6 +150,7 @@ def _cc_proto_library(
         local_includes = ["."],
         tags = tags,
         target_compatible_with = target_compatible_with,
+        **kwargs
     )
 
 def cc_lite_proto_library(
@@ -156,7 +158,8 @@ def cc_lite_proto_library(
         deps = [],
         plugin = None,
         tags = [],
-        target_compatible_with = []):
+        target_compatible_with = [],
+        **kwargs):
     _cc_proto_library(
         name,
         deps = deps,
@@ -165,6 +168,7 @@ def cc_lite_proto_library(
         target_compatible_with = target_compatible_with,
         out_format = "lite",
         proto_dep = "//external/protobuf:libprotobuf-cpp-lite",
+        **kwargs
     )
 
 def cc_proto_library(
@@ -172,7 +176,8 @@ def cc_proto_library(
         deps = [],
         plugin = None,
         tags = [],
-        target_compatible_with = []):
+        target_compatible_with = [],
+        **kwargs):
     _cc_proto_library(
         name,
         deps = deps,
@@ -180,4 +185,5 @@ def cc_proto_library(
         tags = tags,
         target_compatible_with = target_compatible_with,
         proto_dep = "//external/protobuf:libprotobuf-cpp-full",
+        **kwargs
     )

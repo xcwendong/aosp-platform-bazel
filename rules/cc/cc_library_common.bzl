@@ -215,7 +215,7 @@ def is_external_directory(package_name):
 def parse_sdk_version(version):
     if version == "apex_inherit":
         # use the version determined by the transition value.
-        return sdk_version_features
+        return sdk_version_features + ["sdk_version_apex_inherit"]
 
     return ["sdk_version_" + parse_apex_sdk_version(version)]
 

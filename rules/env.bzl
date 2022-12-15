@@ -21,6 +21,7 @@ _CAPTURED_ENV_VARS = [
     "WITH_TIDY",
     "WITH_TIDY_FLAGS",
     "SKIP_ABI_CHECKS",
+    "UNSAFE_DISABLE_APEX_ALLOWED_DEPS_CHECK",
 
     # Overrides the version in the apex_manifest.json. The version is unique for
     # each branch (internal, aosp, mainline releases, dessert releases).  This

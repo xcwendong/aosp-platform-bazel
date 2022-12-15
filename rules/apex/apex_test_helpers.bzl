@@ -14,7 +14,8 @@
 
 load("//build/bazel/rules/android:android_app_certificate.bzl", "android_app_certificate")
 load(":apex_key.bzl", "apex_key")
-load(":apex.bzl", "ApexInfo", "apex")
+load(":apex.bzl", "apex")
+load(":apex_info.bzl", "ApexInfo")
 
 # Set up test-local dependencies required for every apex.
 def setup_apex_required_deps(

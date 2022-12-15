@@ -1,3 +1,5 @@
+load("@env//:env.bzl", "env")
+load("//build/bazel/flags:common.bzl", "is_env_true")
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load("//build/bazel/rules/apex:toolchain.bzl", "apex_toolchain")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting", "string_list_setting", "string_setting")
@@ -105,6 +107,12 @@ string_setting(
     )
     for api in api_levels.values()
 ]
+
+bool_flag(
+    name = "unsafe_disable_apex_allowed_deps_check",
+    build_setting_default = is_env_true(env.get("UNSAFE_DISABLE_APEX_ALLOWED_DEPS_CHECK")),
+    visibility = ["//visibility:public"],
+)
 
 toolchain_type(name = "apex_toolchain_type")
 

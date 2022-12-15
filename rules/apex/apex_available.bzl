@@ -15,9 +15,18 @@ limitations under the License.
 """
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("//build/bazel/rules:common.bzl", "get_dep_targets")
 load("//build/bazel/rules/apex:cc.bzl", "CC_ATTR_ASPECTS")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
-load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
+load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubInfo", "CcStubLibrarySharedInfo")
+
+ApexAvailableInfo = provider(
+    "ApexAvailableInfo collects APEX availability metadata.",
+    fields = {
+        "apex_available_names": "names of APEXs that this target is available to",
+        "platform_available": "whether this target is available for the platform",
+    },
+)
 
 # Allowlist of APEX names that are validated with apex_available.
 #
@@ -77,7 +86,6 @@ def _validate_apex_available(target, ctx):
 
 def _apex_available_aspect_impl(target, ctx):
     _validate_apex_available(target, ctx)
-
     return []  # aspects need to return something.
 
 apex_available_aspect = aspect(
@@ -95,4 +103,45 @@ apex_available_aspect = aspect(
     # payload-contributing targets in the apex_available_aspect, perhaps by
     # inspecting for special Providers, like ApexCcInfo.
     attr_aspects = CC_ATTR_ASPECTS,
+)
+
+def _apex_platform_available_aspect_impl(target, ctx):
+    apex_available_tags = [
+        t.removeprefix("apex_available=")
+        for t in ctx.rule.attr.tags
+        if t.startswith("apex_available=")
+    ]
+    platform_available = (
+        "//apex_available:platform" in apex_available_tags or
+        len(apex_available_tags) == 0
+    )
+
+    dep_targets = get_dep_targets(
+        ctx,
+        predicate = lambda target: ApexAvailableInfo in target,
+        skipped_attributes = ["certificate", "key", "android_manifest", "applicable_licenses"],
+    )
+    for target in dep_targets:
+        if target[ApexAvailableInfo].platform_available != None:
+            platform_available = platform_available and target[ApexAvailableInfo].platform_available
+
+    if "manual" in ctx.rule.attr.tags and "apex_available_checked_manual_for_testing" not in ctx.rule.attr.tags:
+        platform_available = None
+
+    if CcStubLibrarySharedInfo in target:
+        # stub libraries libraries are always available to platform
+        # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/cc.go;l=3670;drc=89ff729d1d65fb0ce2945ec6b8c4777a9d78dcab
+        platform_available = True
+
+    return [
+        ApexAvailableInfo(
+            platform_available = platform_available,
+            apex_available_names = apex_available_tags,
+        ),
+    ]
+
+apex_platform_available_aspect = aspect(
+    implementation = _apex_platform_available_aspect_impl,
+    provides = [ApexAvailableInfo],
+    attr_aspects = ["*"],
 )

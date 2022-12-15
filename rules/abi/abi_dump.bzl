@@ -127,8 +127,15 @@ def _create_abi_dumps(ctx, target, srcs, user_flags, action_name):
         compilation_context.direct_public_headers +
         compilation_context.direct_textual_headers
     )
+    objects = []
+    linker_inputs = target[CcInfo].linking_context.linker_inputs.to_list()
+
+    # These are created in cc_library_static and there should be only one
+    # linker_inputs and one libraries
+    if CcInfo in target and len(linker_inputs) == 1 and len(linker_inputs[0].libraries) == 1:
+        objects = linker_inputs[0].libraries[0].objects
     for file in sources:
-        output = _create_abi_dump(ctx, target, file, header_inputs, compilation_context, compilation_flags)
+        output = _create_abi_dump(ctx, target, file, objects, header_inputs, compilation_flags)
         dumps.append(output)
 
     return dumps
@@ -136,7 +143,7 @@ def _create_abi_dumps(ctx, target, srcs, user_flags, action_name):
 def _include_flag(flag):
     return ["-I", flag]
 
-def _create_abi_dump(ctx, target, src, header_inputs, compilation_context, compilation_flags):
+def _create_abi_dump(ctx, target, src, objects, header_inputs, compilation_flags):
     """ Utility function to generate abi dump file."""
 
     file = paths.join(src.dirname, target.label.name + "." + src.basename + ".sdump")
@@ -160,7 +167,7 @@ def _create_abi_dump(ctx, target, src, header_inputs, compilation_context, compi
     args.add("-isystem", "prebuilts/clang-tools/linux-x86/clang-headers")
 
     ctx.actions.run(
-        inputs = [src] + header_inputs,
+        inputs = [src] + header_inputs + objects,
         executable = ctx.executable._abi_dumper,
         outputs = [output],
         arguments = [args],

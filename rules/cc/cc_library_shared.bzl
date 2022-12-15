@@ -315,6 +315,7 @@ def cc_library_shared(
         shared = stripped_name,
         shared_debuginfo = unstripped_name,
         deps = [shared_root_name],
+        features = features,
         table_of_contents = toc_name,
         output_file = soname,
         target_compatible_with = target_compatible_with,

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("//build/bazel/rules/apex:apex.bzl", "ApexInfo")
+load("//build/bazel/rules/apex:apex_info.bzl", "ApexInfo")
 
 InstallableInfo = provider(
     "If a target provides InstallableInfo, it means it can be installed on a partition image.",

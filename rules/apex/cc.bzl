@@ -53,18 +53,69 @@ def is_apex_direct_dep(target, ctx):
     apex_direct_deps = ctx.attr._apex_direct_deps[BuildSettingInfo].value
     return str(target.label) in apex_direct_deps
 
-def _validate_min_sdk_version(ctx):
-    # ctx.features refer to the features of the (e.g. cc_library) target being visited
-    for f in ctx.features:
+MinSdkVersionInfo = provider(
+    "MinSdkVersionInfo provides metadata about the min_sdk_version attribute of a target",
+    fields = {
+        "min_sdk_version": "value of min_sdk_version",
+        "apex_inherit": "true if min_sdk_version: \"apex_inherit\" is present on the module",
+    },
+)
+
+def get_min_sdk_version(ctx):
+    """get_min_sdk_version returns the min_sdk_version for the existing target
+
+    Args:
+        ctx (rule context): a rule context
+    Returns:
+        MinSdkVersionInfo
+    """
+    min_sdk_version = None
+    apex_inherit = False
+    if hasattr(ctx.rule.attr, "min_sdk_version"):
+        min_sdk_version = ctx.rule.attr.min_sdk_version
+    else:
         # min_sdk_version in cc targets are represented as features
-        if f.startswith("sdk_version_"):
-            # e.g. sdk_version_29 or sdk_version_10000
-            version = f.split("_")[-1]
-            min_sdk_version = ctx.attr._min_sdk_version[BuildSettingInfo].value
-            if min_sdk_version < version:
-                fail("The apex %s's min_sdk_version %s cannot be lower than the dep's min_sdk_version %s" %
-                     (ctx.attr._apex_name[BuildSettingInfo].value, min_sdk_version, version))
-            return
+        for f in ctx.rule.attr.features:
+            if f.startswith("sdk_version_"):
+                # e.g. sdk_version_29 or sdk_version_10000 or sdk_version_apex_inherit
+                sdk_version = f.removeprefix("sdk_version_")
+                if sdk_version == "apex_inherit":
+                    apex_inherit = True
+                elif min_sdk_version == None:
+                    min_sdk_version = sdk_version
+                else:
+                    fail(
+                        "found more than one sdk_version feature on {target}; features = {features}",
+                        target = ctx.label,
+                        features = ctx.rule.attr.features,
+                    )
+    return MinSdkVersionInfo(
+        min_sdk_version = min_sdk_version,
+        apex_inherit = apex_inherit,
+    )
+
+def _compare_sdk_version(v1, v2):
+    max = ["current", "10000"]
+    if v1 in max and v2 not in max:
+        return 1
+    elif v2 in max and v1 not in max:
+        return -1
+    if v1.isdigit():
+        v1 = int(v1)
+    else:
+        fail("tried to parse invalid min_sdk_version: %s".format(v1))
+    if v2.isdigit():
+        v2 = int(v2)
+    else:
+        fail("tried to parse invalid min_sdk_version: %s".format(v2))
+    return v1 - v2
+
+def _validate_min_sdk_version(ctx):
+    dep_min_version = get_min_sdk_version(ctx).min_sdk_version
+    apex_min_version = ctx.attr._min_sdk_version[BuildSettingInfo].value
+    if dep_min_version and _compare_sdk_version(apex_min_version, dep_min_version) < 0:
+        fail("The apex %s's min_sdk_version %s cannot be lower than the dep's min_sdk_version %s" %
+             (ctx.attr._apex_name[BuildSettingInfo].value, apex_min_version, dep_min_version))
 
 def _apex_cc_aspect_impl(target, ctx):
     # Ensure that dependencies are compatible with this apex's min_sdk_level

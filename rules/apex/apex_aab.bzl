@@ -16,7 +16,7 @@ limitations under the License.
 
 load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
 load("//build/bazel/rules:toolchain_utils.bzl", "verify_toolchain_exists")
-load(":apex.bzl", "ApexInfo")
+load(":apex_info.bzl", "ApexInfo")
 load(":apex_key.bzl", "ApexKeyInfo")
 load(":bundle.bzl", "build_bundle_config")
 load("@bazel_skylib//lib:paths.bzl", "paths")
