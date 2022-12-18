@@ -31,6 +31,7 @@ limitations under the License.
 # https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/apex.go;l=948-962;drc=539d41b686758eeb86236c0e0dcf75478acb77f3
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("//build/bazel/platforms:product_variables/product_platform.bzl", "get_platform_for_shared_lib_transition_32")
 load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
 
 def _create_apex_configuration(attr, additional = {}):
@@ -61,6 +62,34 @@ apex_transition = transition(
     outputs = APEX_TRANSITION_BUILD_SETTINGS,
 )
 
+SHARED_LIB_TRANSITION_BUILD_SETTINGS = APEX_TRANSITION_BUILD_SETTINGS + [
+    "//build/bazel/rules/apex:apex_direct_deps",
+    "//command_line_option:platforms",
+]
+
+# The following table describes how target platform of shared_lib_transition_32 and shared_lib_transition_64
+# look like when building APEXes for different primary/secondary architecture.
+#
+# |---------------------------+----------------------------------------------------+----------------------------------------------------|
+# | Primary arch              | Platform for                                       | Platform for                                       |
+# |       /  Secondary arch   | 32b libs transition                                | 64b libs transition                                |
+# |---------------------------+----------------------------------------------------+----------------------------------------------------|
+# | 32bit / N/A               | android_target                                     | android_target                                     |
+# | (android_target is 32bit) |                                                    | (wrong target platform indicates the transition    |
+# |                           |                                                    | is not needed, and the 64bit libs are not included |
+# |                           |                                                    | in APEXes for 32bit devices, see                   |
+# |                           |                                                    | _create_file_mapping() in apex.bzl)                |
+# |---------------------------+----------------------------------------------------+----------------------------------------------------|
+# | 64bit / 32bit             | android_target_secondary                           | android_target                                     |
+# | (android_target is 64bit) |                                                    |                                                    |
+# |---------------------------+----------------------------------------------------+----------------------------------------------------|
+# | 64bit / N/A               | android_target                                     | android_target                                     |
+# | (android_target is 64bit) | (wrong target platform indicates the transition    |                                                    |
+# |                           | is not needed, and the 32bit libs are not included |                                                    |
+# |                           | in APEXes for 64bit ONLY devices, see              |                                                    |
+# |                           | _create_file_mapping() in apex.bzl)                |                                                    |
+# |---------------------------+----------------------------------------------------+----------------------------------------------------|
+
 def _impl_shared_lib_transition_32(settings, attr):
     # Perform a transition to apply APEX specific build settings on the
     # destination target (i.e. an APEX dependency).
@@ -68,23 +97,10 @@ def _impl_shared_lib_transition_32(settings, attr):
     direct_deps = [str(dep) for dep in attr.native_shared_libs_32]
     direct_deps += [str(dep) for dep in attr.binaries]
 
-    # TODO: We need to check if this is a x86 or arm arch then only set one platform
-    # instead of this 1:2 split to avoid performance hit.
-    return {
-        "x86": _create_apex_configuration(attr, {
-            "//command_line_option:platforms": "//build/bazel/platforms:android_x86",
-            "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
-        }),
-        "arm": _create_apex_configuration(attr, {
-            "//command_line_option:platforms": "//build/bazel/platforms:android_arm",
-            "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
-        }),
-    }
-
-SHARED_LIB_TRANSITION_BUILD_SETTINGS = APEX_TRANSITION_BUILD_SETTINGS + [
-    "//build/bazel/rules/apex:apex_direct_deps",
-    "//command_line_option:platforms",
-]
+    return _create_apex_configuration(attr, {
+        "//command_line_option:platforms": get_platform_for_shared_lib_transition_32(),
+        "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
+    })
 
 shared_lib_transition_32 = transition(
     implementation = _impl_shared_lib_transition_32,
@@ -99,18 +115,10 @@ def _impl_shared_lib_transition_64(settings, attr):
     direct_deps = [str(dep) for dep in attr.native_shared_libs_64]
     direct_deps += [str(dep) for dep in attr.binaries]
 
-    # TODO: We need to check if this is a x86 or arm arch then only set one platform
-    # instead of this 1:2 split to avoid performance hit.
-    return {
-        "x86_64": _create_apex_configuration(attr, {
-            "//command_line_option:platforms": "//build/bazel/platforms:android_x86_64",
-            "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
-        }),
-        "arm64": _create_apex_configuration(attr, {
-            "//command_line_option:platforms": "//build/bazel/platforms:android_arm64",
-            "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
-        }),
-    }
+    return _create_apex_configuration(attr, {
+        "//command_line_option:platforms": "//build/bazel/platforms:android_target",
+        "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
+    })
 
 shared_lib_transition_64 = transition(
     implementation = _impl_shared_lib_transition_64,

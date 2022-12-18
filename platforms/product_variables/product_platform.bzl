@@ -1,5 +1,6 @@
 """Parallels variable.go to provide variables and create a platform based on converted config."""
 
+load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load("//prebuilts/clang/host/linux-x86:cc_toolchain_constants.bzl", "variant_name")
 load("//build/bazel/platforms/arch/variants:constants.bzl", _arch_constants = "constants")
@@ -104,6 +105,12 @@ def product_variable_config(name, product_config_vars):
             name = name,
             actual = "{os}_{arch}{variant}".format(os = "android", arch = arch.arch, variant = _variant_name(arch.arch, arch.arch_variant, arch.cpu_variant)),
         )
+        if len(arch_configs) > 1:
+            arch = arch_configs[1]
+            native.alias(
+                name = name + "_secondary",
+                actual = "{os}_{arch}{variant}".format(os = "android", arch = arch.arch, variant = _variant_name(arch.arch, arch.arch_variant, arch.cpu_variant)),
+            )
 
     native.platform(
         name = name + _product_only_suffix,
@@ -187,3 +194,13 @@ def _determine_target_arches_from_config(config):
             cpu_variant = cpu_variant,
         ))
     return arches
+
+def get_platform_for_shared_lib_transition_32():
+    device_arch = product_vars.get("DeviceArch")
+    device_secondary_arch = product_vars.get("DeviceSecondaryArch")
+
+    platform = "android_target"
+    if device_arch in ("arm64", "x86_64") and not device_secondary_arch == "":
+        platform = "android_target_secondary"
+
+    return "//build/bazel/platforms:" + platform
