@@ -37,6 +37,7 @@ _gtest_deps = [
     "//external/googletest/googletest:libgtest",
 ]
 
+# TODO (b/262914724): convert to tradefed_cc_test and tradefed_cc_test_host
 def cc_test(
         name,
         copts = [],
@@ -50,6 +51,10 @@ def cc_test(
         tidy_flags = None,
         tidy_disabled_srcs = None,
         tidy_timeout_srcs = None,
+        test_config = None,
+        template_test_config = None,
+        template_configs = [],
+        template_install_base = None,
         **kwargs):
     # NOTE: Keep this in sync with cc/test.go#linkerDeps
     if gtest:
