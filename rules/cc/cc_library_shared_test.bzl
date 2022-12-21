@@ -679,6 +679,10 @@ def _cc_library_disable_fdo_optimization_if_coverage_is_enabled_test():
         name = name,
         fdo_profile = name + "_fdo_profile",
         srcs = ["foo.cpp"],
+        # Coverage will add an extra lib to all the shared libs, we try to avoid
+        # that by clearing the system_dynamic_deps and stl.
+        system_dynamic_deps = [],
+        stl = "none",
         tags = ["manual"],
     )
     cc_library_disable_fdo_optimization_if_coverage_is_enabled_test(

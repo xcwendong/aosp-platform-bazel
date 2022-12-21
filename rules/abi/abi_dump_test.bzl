@@ -392,6 +392,10 @@ def _test_abi_linker_action_not_run_for_coverage_enabled():
         name = name,
         abi_checker_enabled = True,
         features = ["coverage"],
+        # Coverage will add an extra lib to all the shared libs, we try to avoid
+        # that by clearing the system_dynamic_deps and stl.
+        system_dynamic_deps = [],
+        stl = "none",
         tags = ["manual"],
     )
 

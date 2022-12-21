@@ -67,6 +67,7 @@ def cc_binary(
         tidy_flags = None,
         tidy_disabled_srcs = None,
         tidy_timeout_srcs = None,
+        native_coverage = True,
         **kwargs):
     "Bazel macro to correspond with the cc_binary Soong module."
 
@@ -98,6 +99,20 @@ def cc_binary(
         system_dynamic_deps = system_deps
     else:
         system_static_deps = system_deps
+
+    if not native_coverage:
+        toolchain_features += ["-coverage"]
+    else:
+        toolchain_features += select({
+            "//build/bazel/rules/cc:android_coverage_lib_flag": ["android_coverage_lib"],
+            "//conditions:default": [],
+        })
+
+        # TODO(b/233660582): deal with the cases where the default lib shouldn't be used
+        whole_archive_deps = whole_archive_deps + select({
+            "//build/bazel/rules/cc:android_coverage_lib_flag": ["//system/extras/toolchain-extras:libprofile-clang-extras"],
+            "//conditions:default": [],
+        })
 
     stl_info = stl_info_from_attr(stl, linkshared, is_binary = True)
     linkopts = linkopts + stl_info.linkopts
@@ -137,6 +152,7 @@ def cc_binary(
         tidy_checks_as_errors = tidy_checks_as_errors,
         tidy_flags = tidy_flags,
         tidy_disabled_srcs = tidy_disabled_srcs,
+        native_coverage = native_coverage,
     )
 
     binary_dynamic_deps = add_lists_defaulting_to_none(
@@ -144,17 +160,6 @@ def cc_binary(
         system_dynamic_deps,
         stl_info.shared_deps,
     )
-
-    toolchain_features += select({
-        "//build/bazel/rules/cc:android_coverage_lib_flag": ["android_coverage_lib"],
-        "//conditions:default": [],
-    })
-
-    # TODO(b/233660582): deal with the cases where the default lib shouldn't be used
-    extra_implementation_deps = select({
-        "//build/bazel/rules/cc:android_coverage_lib_flag": ["//system/extras/toolchain-extras:libprofile-clang-extras"],
-        "//conditions:default": [],
-    })
 
     sanitizer_deps_name = name + "_sanitizer_deps"
     sanitizer_deps(
@@ -166,7 +171,7 @@ def cc_binary(
     cc_rule = native.cc_test if generate_cc_test else native.cc_binary
     cc_rule(
         name = unstripped_name,
-        deps = [root_name, sanitizer_deps_name] + deps + system_static_deps + stl_info.static_deps + extra_implementation_deps,
+        deps = [root_name, sanitizer_deps_name] + deps + system_static_deps + stl_info.static_deps,
         dynamic_deps = binary_dynamic_deps,
         features = toolchain_features,
         linkopts = linkopts,

@@ -18,6 +18,7 @@ load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
+load("//build/bazel/rules:common.bzl", "get_dep_targets")
 load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load(":apex.bzl", "apex")
@@ -1860,6 +1861,87 @@ def _test_apex_deps_validation():
 
     return test_name
 
+_MarchInfo = provider(fields = {"march": "list of march values found in the cc deps of this apex"})
+
+def _apex_transition_test(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    march_values = target_under_test[_MarchInfo].march
+
+    asserts.equals(env, ctx.attr.expected, march_values.to_list())
+
+    return analysistest.end(env)
+
+def _cc_compile_test_aspect_impl(target, ctx):
+    transitive_march = []
+    for dep in get_dep_targets(ctx, predicate = lambda target: _MarchInfo in target):
+        transitive_march += [dep[_MarchInfo].march]
+    march_values = []
+    if (target.label.name).startswith("apex_transition_lib"):
+        for a in target.actions:
+            if a.mnemonic == "CppCompile":
+                march_values += [arg for arg in a.argv if "march" in arg]
+    return [
+        _MarchInfo(
+            march = depset(
+                direct = march_values,
+                transitive = transitive_march,
+            ),
+        ),
+    ]
+
+_cc_compile_test_aspect = aspect(
+    implementation = _cc_compile_test_aspect_impl,
+    attr_aspects = ["*"],
+)
+
+apex_transition_test = analysistest.make(
+    _apex_transition_test,
+    attrs = {
+        "expected": attr.string_list(),
+    },
+    extra_target_under_test_aspects = [_cc_compile_test_aspect],
+)
+
+def _test_apex_transition():
+    name = "apex_transition"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_lib_cc",
+        srcs = [name + "_lib.cc"],
+        tags = ["manual"],
+    )
+
+    cc_library_shared(
+        name = name + "_lib2_cc",
+        srcs = [name + "_lib2.cc"],
+        tags = ["manual"],
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_lib_cc"],
+        native_shared_libs_64 = [name + "_lib2_cc"],
+        android_manifest = "AndroidManifest.xml",
+    )
+
+    apex_transition_test(
+        name = test_name + "_32",
+        target_under_test = name,
+        target_compatible_with = ["//build/bazel/platforms/os:android", "//build/bazel/platforms/arch:arm"],
+        expected = ["-march=armv7-a"],
+    )
+
+    apex_transition_test(
+        name = test_name + "_64",
+        target_under_test = name,
+        target_compatible_with = ["//build/bazel/platforms/os:android", "//build/bazel/platforms/arch:arm64"],
+        expected = ["-march=armv8-a"],
+    )
+
+    return [test_name + "_32", test_name + "_64"]
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -1902,5 +1984,5 @@ def apex_test_suite(name):
             _test_apex_available(),
             _test_apex_available_with_base_apex(),
             _test_apex_deps_validation(),
-        ],
+        ] + _test_apex_transition(),
     )

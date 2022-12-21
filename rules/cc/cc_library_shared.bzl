@@ -92,6 +92,7 @@ def cc_library_shared(
         abi_checker_exclude_symbol_tags = [],
         abi_checker_check_all_apis = False,
         abi_checker_diff_flags = [],
+        native_coverage = True,
         tags = [],
         fdo_profile = None,
         **kwargs):
@@ -138,16 +139,20 @@ def cc_library_shared(
     linkopts = linkopts + stl_info.linkopts
     copts = copts + stl_info.cppflags
 
-    features = features + select({
-        "//build/bazel/rules/cc:android_coverage_lib_flag": ["android_coverage_lib"],
-        "//conditions:default": [],
-    })
+    extra_archive_deps = []
+    if not native_coverage:
+        features = features + ["-coverage"]
+    else:
+        features = features + select({
+            "//build/bazel/rules/cc:android_coverage_lib_flag": ["android_coverage_lib"],
+            "//conditions:default": [],
+        })
 
-    # TODO(b/233660582): deal with the cases where the default lib shouldn't be used
-    implementation_deps = implementation_deps + select({
-        "//build/bazel/rules/cc:android_coverage_lib_flag": ["//system/extras/toolchain-extras:libprofile-clang-extras"],
-        "//conditions:default": [],
-    })
+        # TODO(b/233660582): deal with the cases where the default lib shouldn't be used
+        extra_archive_deps = select({
+            "//build/bazel/rules/cc:android_coverage_lib_flag": ["//system/extras/toolchain-extras:libprofile-clang-extras"],
+            "//conditions:default": [],
+        })
 
     # The static library at the root of the shared library.
     # This may be distinct from the static version of the library if e.g.
@@ -180,6 +185,7 @@ def cc_library_shared(
         features = features,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
+        native_coverage = native_coverage,
     )
 
     sanitizer_deps_name = name + "_sanitizer_deps"
@@ -237,7 +243,7 @@ def cc_library_shared(
         static_deps = ["//:__subpackages__"] + [shared_root_name, imp_deps_stub, deps_stub],
         dynamic_deps = shared_dynamic_deps,
         additional_linker_inputs = additional_linker_inputs,
-        roots = [shared_root_name, imp_deps_stub, deps_stub] + whole_archive_deps,
+        roots = [shared_root_name, imp_deps_stub, deps_stub] + whole_archive_deps + extra_archive_deps,
         features = features,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],

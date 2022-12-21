@@ -32,6 +32,7 @@ load(":stl.bzl", "stl_info_from_attr")
 load(":clang_tidy.bzl", "ClangTidyInfo", "generate_clang_tidy_actions")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//lib:collections.bzl", "collections")
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
@@ -105,7 +106,8 @@ def cc_library_static(
         tidy_checks_as_errors = None,
         tidy_flags = None,
         tidy_disabled_srcs = None,
-        tidy_timeout_srcs = None):
+        tidy_timeout_srcs = None,
+        native_coverage = True):
     "Bazel macro to correspond with the cc_library_static Soong module."
 
     exports_name = "%s_exports" % name
@@ -139,6 +141,9 @@ def cc_library_static(
     if min_sdk_version:
         toolchain_features += parse_sdk_version(min_sdk_version) + ["-sdk_version_default"]
     toolchain_features += features
+
+    if not native_coverage:
+        toolchain_features += ["-coverage"]
 
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
@@ -187,7 +192,6 @@ def cc_library_static(
             ("deps", [exports_name]),
             ("features", toolchain_features),
             ("toolchains", ["//build/bazel/platforms:android_target_product_vars"]),
-            ("alwayslink", alwayslink),
             ("target_compatible_with", target_compatible_with),
             ("linkopts", linkopts),
         ],
@@ -208,6 +212,7 @@ def cc_library_static(
         srcs = srcs,
         copts = copts + cppflags,
         tags = ["manual"],
+        alwayslink = True,
         **common_attrs
     )
     native.cc_library(
@@ -215,6 +220,7 @@ def cc_library_static(
         srcs = srcs_c,
         copts = copts + conlyflags,
         tags = ["manual"],
+        alwayslink = True,
         **common_attrs
     )
     native.cc_library(
@@ -222,6 +228,7 @@ def cc_library_static(
         srcs = srcs_as,
         copts = asflags,
         tags = ["manual"],
+        alwayslink = True,
         **common_attrs
     )
 
@@ -313,6 +320,55 @@ def _generate_tidy_actions(ctx):
         ),
     ]
 
+def _archive_with_prebuilt_libs(ctx, prebuilt_deps, linking_outputs, cc_toolchain):
+    linking_output = linking_outputs.library_to_link.static_library
+    if not prebuilt_deps:
+        return linking_output
+
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features + ["archive_with_prebuilt_flags"],
+        unsupported_features = ctx.disabled_features + ["linker_flags", "archiver_flags"],
+    )
+
+    output_file = ctx.actions.declare_file("lib" + ctx.label.name + ".a")
+
+    archiver_path = cc_common.get_tool_for_action(
+        feature_configuration = feature_configuration,
+        action_name = ACTION_NAMES.cpp_link_static_library,
+    )
+    archiver_variables = cc_common.create_link_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        output_file = output_file.path,
+        is_using_linker = False,
+    )
+    command_line = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = ACTION_NAMES.cpp_link_static_library,
+        variables = archiver_variables,
+    )
+    args = ctx.actions.args()
+    args.add_all(command_line)
+    args.add(linking_output)
+    args.add_all(prebuilt_deps)
+
+    ctx.actions.run(
+        executable = archiver_path,
+        arguments = [args],
+        inputs = depset(
+            direct = [linking_output] + prebuilt_deps,
+            transitive = [
+                cc_toolchain.all_files,
+            ],
+        ),
+        outputs = [output_file],
+        mnemonic = "CppArchive",
+    )
+
+    return output_file
+
 # Returns a CcInfo object which combines one or more CcInfo objects, except that all
 # linker inputs owned by  owners in `old_owner_labels` are relinked and owned by the current target.
 #
@@ -331,9 +387,12 @@ def _cc_library_combiner_impl(ctx):
 
         # do not propagate includes, hdrs, etc, already handled by roots
         cc_infos.append(CcInfo(linking_context = cc_info.linking_context))
+
     combined_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
 
     objects_to_link = []
+
+    prebuilt_deps = []
 
     # This is not ideal, as it flattens a depset.
     for old_linker_input in combined_info.linking_context.linker_inputs.to_list():
@@ -341,6 +400,10 @@ def _cc_library_combiner_impl(ctx):
             for lib in old_linker_input.libraries:
                 # These objects will be recombined into the root archive.
                 objects_to_link.extend(lib.objects)
+
+                # This is a prebuilt library, we have to handle it separately
+                if not lib.objects and lib.static_library:
+                    prebuilt_deps.append(lib.static_library)
         else:
             # Android macros don't handle transitive linker dependencies because
             # it's unsupported in legacy. We may want to change this going forward,
@@ -349,15 +412,27 @@ def _cc_library_combiner_impl(ctx):
 
     cc_toolchain = find_cpp_toolchain(ctx)
 
-    CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
-        requested_features = ctx.features,
+        requested_features = ctx.features + ["archiver_flags"],
         unsupported_features = ctx.disabled_features + ["linker_flags"],
     )
 
-    output_file = ctx.actions.declare_file("lib" + ctx.label.name + ".a")
+    out_name = ctx.label.name
+    if prebuilt_deps:
+        out_name += "_objs_only"
+    linking_context, linking_outputs = cc_common.create_linking_context_from_compilation_outputs(
+        actions = ctx.actions,
+        name = out_name,
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        alwayslink = ctx.attr.alwayslink,
+        disallow_dynamic_library = True,
+        compilation_outputs = cc_common.create_compilation_outputs(objects = depset(direct = objects_to_link)),
+    )
+
+    output_file = _archive_with_prebuilt_libs(ctx, prebuilt_deps, linking_outputs, cc_toolchain)
     linker_input = cc_common.create_linker_input(
         owner = ctx.label,
         libraries = depset(direct = [
@@ -371,39 +446,7 @@ def _cc_library_combiner_impl(ctx):
             ),
         ]),
     )
-
     linking_context = cc_common.create_linking_context(linker_inputs = depset(direct = [linker_input]))
-
-    archiver_path = cc_common.get_tool_for_action(
-        feature_configuration = feature_configuration,
-        action_name = CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
-    )
-    archiver_variables = cc_common.create_link_variables(
-        feature_configuration = feature_configuration,
-        cc_toolchain = cc_toolchain,
-        output_file = output_file.path,
-        is_using_linker = False,
-    )
-    command_line = cc_common.get_memory_inefficient_command_line(
-        feature_configuration = feature_configuration,
-        action_name = CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
-        variables = archiver_variables,
-    )
-    args = ctx.actions.args()
-    args.add_all(command_line)
-    args.add_all(objects_to_link)
-
-    ctx.actions.run(
-        executable = archiver_path,
-        arguments = [args],
-        inputs = depset(
-            direct = objects_to_link,
-            transitive = [
-                cc_toolchain.all_files,
-            ],
-        ),
-        outputs = [output_file],
-    )
 
     providers = [
         DefaultInfo(files = depset(direct = [output_file]), data_runfiles = ctx.runfiles(files = [output_file])),

@@ -14,12 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_library_headers.bzl", "cc_library_headers")
+load("//build/bazel/rules/cc:cc_prebuilt_library_static.bzl", "cc_prebuilt_library_static")
 load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
-load("//build/bazel/rules/test_common:paths.bzl", "get_package_dir_based_path")
+load("//build/bazel/rules/test_common:paths.bzl", "get_output_and_package_dir_based_path", "get_package_dir_based_path")
 load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test")
 
 def _cc_library_static_propagating_compilation_context_test_impl(ctx):
@@ -326,6 +328,57 @@ def _cc_rules_do_not_allow_absolute_includes():
 
     return test_names
 
+def _cc_library_static_links_against_prebuilt_library_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = analysistest.target_actions(env)
+
+    asserts.equals(env, 2, len(actions), "Expected actions, got %s" % actions)
+
+    argv = actions[0].argv
+    expected_output_action1 = get_output_and_package_dir_based_path(env, "libcc_library_static_links_against_prebuilt_library_objs_only.a")
+    asserts.equals(env, 5, len(argv))
+    asserts.equals(env, "crsPD", argv[1])
+    asserts.equals(env, expected_output_action1, argv[2])
+    asserts.equals(env, get_output_and_package_dir_based_path(env, paths.join("_objs", "cc_library_static_links_against_prebuilt_library_cpp", "bar.o")), argv[3])
+    asserts.equals(env, "--format=gnu", argv[4])
+
+    argv = actions[1].argv
+    asserts.equals(env, 6, len(argv))
+    asserts.equals(env, "cqsL", argv[1])
+    asserts.equals(env, get_output_and_package_dir_based_path(env, "libcc_library_static_links_against_prebuilt_library.a"), argv[2])
+    asserts.equals(env, "--format=gnu", argv[3])
+    asserts.equals(env, expected_output_action1, argv[4])
+    asserts.equals(env, get_package_dir_based_path(env, "foo.a"), argv[5])
+
+    return analysistest.end(env)
+
+_cc_library_static_links_against_prebuilt_library_test = analysistest.make(_cc_library_static_links_against_prebuilt_library_test_impl)
+
+def _cc_library_static_links_against_prebuilt_library():
+    name = "cc_library_static_links_against_prebuilt_library"
+    test_name = name + "_test"
+    dep_name = name + "_dep"
+
+    cc_prebuilt_library_static(
+        name = dep_name,
+        static_library = "foo.a",
+        tags = ["manual"],
+    )
+
+    cc_library_static(
+        name = name,
+        srcs = ["bar.c"],
+        whole_archive_deps = [dep_name],
+        tags = ["manual"],
+    )
+
+    _cc_library_static_links_against_prebuilt_library_test(
+        name = test_name,
+        target_under_test = name,
+    )
+
+    return test_name
+
 def cc_library_static_test_suite(name):
     native.genrule(name = "hdr", cmd = "null", outs = ["f.h"], tags = ["manual"])
 
@@ -338,5 +391,6 @@ def cc_library_static_test_suite(name):
             _cc_library_static_does_not_propagate_implementation_deps(),
             _cc_library_static_does_not_propagate_implementation_whole_archive_deps(),
             _cc_library_static_does_not_propagate_implementation_dynamic_deps(),
+            _cc_library_static_links_against_prebuilt_library(),
         ] + _cc_rules_do_not_allow_absolute_includes(),
     )
