@@ -200,7 +200,7 @@ def _test_abi_linker_action():
         export_system_includes = ["export_system_includes_shared"],
         local_includes = ["local_includes_shared"],
         absolute_includes = ["absolute_includes_shared"],
-        has_stubs = True,
+        stubs_symbol_file = name + ".map.txt",
         abi_checker_symbol_file = symbol_file,
         abi_checker_exclude_symbol_versions = exclude_symbol_versions,
         abi_checker_exclude_symbol_tags = exclude_symbol_tags,
@@ -263,7 +263,6 @@ def _test_abi_linker_action_run_for_enabled():
 
     cc_library_shared(
         name = name,
-        has_stubs = False,
         abi_checker_enabled = True,
         tags = ["manual"],
     )
@@ -338,7 +337,7 @@ def _test_abi_linker_action_not_run_for_disabled():
 
     cc_library_shared(
         name = name,
-        has_stubs = True,
+        stubs_symbol_file = name + ".map.txt",
         abi_checker_enabled = False,
         tags = ["manual"],
     )

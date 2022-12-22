@@ -13,13 +13,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import argparse
 import csv
 import functools
+import re
 import statistics
 import sys
 from decimal import Decimal
 from typing import Callable
+
+from typing.io import TextIO
 
 NA = "--:--"
 
@@ -28,6 +31,12 @@ def mark_if_clean(line: dict) -> dict:
   if line['build_type'].startswith("CLEAN "):
     line["description"] = "CLEAN " + line["description"]
     line["build_type"] = line["build_type"].replace("CLEAN ", "", 1)
+  return line
+
+
+def normalize_rebuild(line: dict) -> dict:
+  line['description'] = re.sub(r'^(rebuild)-[\d+](.*)$', '\\1\\2',
+                               line['description'])
   return line
 
 
@@ -55,7 +64,7 @@ def pretty_time(t_secs: Decimal) -> str:
   return f'{as_str:>8s}'
 
 
-def write_table(out, rows):
+def write_table(out: TextIO, rows: list[list[str]]):
   def cell_width(prev, row):
     for i in range(len(row)):
       if len(prev) <= i:
@@ -71,7 +80,7 @@ def write_table(out, rows):
     out.write(fmt % tuple([str(cell) for cell in r]))
 
 
-def seconds(s, acc=Decimal(0.0)):
+def seconds(s, acc=Decimal(0.0)) -> Decimal:
   colonpos = s.find(':')
   if colonpos > 0:
     left_part = s[0:colonpos]
@@ -84,10 +93,11 @@ def seconds(s, acc=Decimal(0.0)):
     return acc
 
 
-def pretty(filename):
+def pretty(filename: str, include_rebuilds: bool):
   with open(filename) as f:
-    lines = [mark_if_clean(line) for line in csv.DictReader(f) if
-             not line['description'].startswith('rebuild-')]
+    lines = [mark_if_clean(normalize_rebuild(line)) for line in
+             csv.DictReader(f) if
+             include_rebuilds or not line['description'].startswith('rebuild-')]
 
   for line in lines:
     if line["build_result"] != "SUCCESS":
@@ -111,13 +121,22 @@ def pretty(filename):
     row = [cuj, f"m {targets}"]
     for build_type in build_types:
       lines = by_build_type.get(build_type)
-      times = [seconds(line['time']) for line in lines]
-      median = statistics.median(times)
-      row.append(NA if not lines else pretty_time(median))
+      if not lines:
+        row.append(NA)
+      else:
+        times = [seconds(line['time']) for line in lines]
+        cell = pretty_time(statistics.median(times))
+        if len(lines) > 1:
+          cell = f'{cell}[N={len(lines)}]'
+        row.append(cell)
     rows.append(row)
 
   write_table(sys.stdout, rows)
 
 
 if __name__ == "__main__":
-  pretty(sys.argv[1])
+  p = argparse.ArgumentParser()
+  p.add_argument('--include-rebuilds', default=False, action='store_true')
+  p.add_argument('summary_file')
+  options = p.parse_args()
+  pretty(options.summary_file, options.include_rebuilds)
