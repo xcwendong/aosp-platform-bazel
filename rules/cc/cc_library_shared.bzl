@@ -81,6 +81,7 @@ def cc_library_shared(
         # TODO(b/202299295): Handle data attribute.
         data = [],
         use_version_lib = False,
+        has_stubs = False,
         stubs_symbol_file = None,
         inject_bssl_hash = False,
         sdk_version = "",
@@ -288,10 +289,10 @@ def cc_library_shared(
     # explicitly disabled
     if abi_checker_enabled == False:
         abi_root = None
-    elif abi_checker_enabled == True or stubs_symbol_file:
+    elif abi_checker_enabled == True or has_stubs:
         # The logic comes from here:
         # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=2288;drc=73feba33308bf9432aea43e069ed24a2f0312f1b
-        if not abi_checker_symbol_file and stubs_symbol_file:
+        if not abi_checker_symbol_file and has_stubs and stubs_symbol_file:
             abi_checker_symbol_file = stubs_symbol_file
     else:
         abi_root = None
@@ -304,7 +305,7 @@ def cc_library_shared(
         shared = stripped_name,
         root = abi_root,
         soname = soname,
-        has_stubs = stubs_symbol_file != None,
+        has_stubs = has_stubs,
         enabled = abi_checker_enabled,
         explicitly_disabled = abi_checker_explicitly_disabled,
         symbol_file = abi_checker_symbol_file,
@@ -324,7 +325,7 @@ def cc_library_shared(
         table_of_contents = toc_name,
         output_file = soname,
         target_compatible_with = target_compatible_with,
-        has_stubs = stubs_symbol_file != None,
+        has_stubs = has_stubs,
         runtime_deps = runtime_deps,
         abi_dump = abi_dump_name,
         fdo_profile = fdo_profile,
