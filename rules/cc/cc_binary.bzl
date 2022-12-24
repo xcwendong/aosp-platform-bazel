@@ -152,6 +152,7 @@ def cc_binary(
         tidy_checks_as_errors = tidy_checks_as_errors,
         tidy_flags = tidy_flags,
         tidy_disabled_srcs = tidy_disabled_srcs,
+        tidy_timeout_srcs = tidy_timeout_srcs,
         native_coverage = native_coverage,
     )
 

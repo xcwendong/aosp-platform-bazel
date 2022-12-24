@@ -254,17 +254,25 @@ def generate_clang_tidy_actions(
             - ctx.executable._clang_tidy_sh
             - ctx.executable._clang_tidy_real
             - ctx.label._with_tidy_flags
-        flags (list[str]): list of target-specific (non-toolchain) flags passed to clang compile action
-        deps (list[Target]): list of Targets which provide headers to compilation context
+        flags (list[str]): list of target-specific (non-toolchain) flags passed
+            to clang compile action
+        deps (list[Target]): list of Targets which provide headers to
+            compilation context
         srcs (list[File]): list of srcs to which clang-tidy will be applied
-        hdrs (list[File]): list of headers used by srcs. This is used to provide explicit inputs to the action
-        language (str): must be one of ["c++", "c"]. This is used to decide what toolchain arguments are passed to the clang compile action
+        hdrs (list[File]): list of headers used by srcs. This is used to provide
+            explicit inputs to the action
+        language (str): must be one of ["c++", "c"]. This is used to decide what
+            toolchain arguments are passed to the clang compile action
         tidy_flags (list[str]): additional flags to pass to the clang-tidy tool
         tidy_checks (list[str]): list of checks for clang-tidy to perform
-        tidy_checks_as_errors (list[str]): list of checks to pass as "-warnings-as-errors" to clang-tidy
+        tidy_checks_as_errors (list[str]): list of checks to pass as
+            "-warnings-as-errors" to clang-tidy
         tidy_checks_as_errors (str): timeout to pass to clang-tidy tool
+        tidy_timeout (str): timeout in seconds after which to stop a clang-tidy
+            invocation
     Returns:
-        tidy_file_outputs: (list[File]): list of .tidy files output by the clang-tidy.sh tool
+        tidy_file_outputs: (list[File]): list of .tidy files output by the
+            clang-tidy.sh tool
     """
     toolchain = find_cpp_toolchain(ctx)
     feature_config = cc_common.configure_features(

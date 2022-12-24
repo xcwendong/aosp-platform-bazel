@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("//build/bazel/rules:sh_binary.bzl", "sh_binary")
-load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo", "android_app_certificate")
+load("//build/bazel/rules/android:android_app_certificate.bzl", "android_app_certificate")
 load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
@@ -21,7 +21,6 @@ load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
 load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
-load(":apex.bzl", "apex")
 load(":apex_info.bzl", "ApexInfo")
 load(":apex_deps_validation.bzl", "ApexDepsInfo", "apex_dep_infos_to_allowlist_strings")
 load(":apex_test_helpers.bzl", "test_apex")
@@ -628,7 +627,7 @@ def _test_apex_manifest_dependencies_requires():
             "//build/bazel/rules/apex:android-non_apex": [name + "_libfoo"],
         }),
         tags = ["manual"],
-        has_stubs = True,
+        stubs_symbol_file = name + "_lib_with_dep" + ".map.txt",
     )
 
     native.genrule(
@@ -651,7 +650,7 @@ def _test_apex_manifest_dependencies_requires():
         system_dynamic_deps = [],
         stl = "none",
         tags = ["manual"],
-        has_stubs = False,
+        stubs_symbol_file = name + "_libfoo" + ".map.txt",
     )
 
     native.genrule(
@@ -694,7 +693,7 @@ def _test_apex_manifest_dependencies_provides():
         system_dynamic_deps = [],
         stl = "none",
         tags = ["manual"],
-        has_stubs = True,
+        stubs_symbol_file = name + "_libfoo" + ".map.txt",
     )
 
     native.genrule(
@@ -740,7 +739,7 @@ def _test_apex_manifest_dependencies_selfcontained():
             "//build/bazel/rules/apex:android-non_apex": [name + "_libfoo"],
         }),
         tags = ["manual"],
-        has_stubs = True,
+        stubs_symbol_file = name + "_lib_with_dep" + ".map.txt",
     )
 
     native.genrule(
@@ -763,7 +762,7 @@ def _test_apex_manifest_dependencies_selfcontained():
         system_dynamic_deps = [],
         stl = "none",
         tags = ["manual"],
-        has_stubs = True,
+        stubs_symbol_file = name + "_libfoo" + ".map.txt",
     )
 
     native.genrule(
@@ -839,7 +838,7 @@ def _test_apex_manifest_dependencies_cc_binary():
         system_dynamic_deps = [],
         stl = "none",
         tags = ["manual"],
-        has_stubs = True,
+        stubs_symbol_file = name + "_librequires" + ".map.txt",
     )
 
     native.genrule(
@@ -862,7 +861,7 @@ def _test_apex_manifest_dependencies_cc_binary():
         system_dynamic_deps = [],
         stl = "none",
         tags = ["manual"],
-        has_stubs = True,
+        stubs_symbol_file = name + "_librequires2.map.txt",
     )
 
     native.genrule(

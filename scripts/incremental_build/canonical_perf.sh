@@ -19,7 +19,7 @@
 #
 
 readonly log_dir=$1
-if [[ ! $log_dir ]] ; then
+if [[ ! $log_dir ]]; then
   echo usage: canonical_perf.sh LOG_DIR
   echo Must be run from root of tree.
   echo LOG_DIR directory should be outside of tree, including not in out/,
@@ -29,7 +29,7 @@ fi
 
 # Pretty print the results
 function pretty() {
-    python3  "$(dirname "$0")/pretty.py" "$1"
+  python3 "$(dirname "$0")/pretty.py" "$1"
 }
 
 function clean_tree() {
@@ -43,8 +43,7 @@ mkdir -p "$log_dir"
 source build/envsetup.sh
 
 # TODO: Switch to oriole when it works
-if [[ -e vendor/google/build ]] ;
-then
+if [[ -e vendor/google/build ]]; then
   export TARGET_PRODUCT=cf_x86_64_phone
 else
   export TARGET_PRODUCT=aosp_cf_x86_64_phone
@@ -52,16 +51,17 @@ fi
 
 export TARGET_BUILD_VARIANT=eng
 
-function build()
-{
+function build() {
   date
   set -x
-  ./build/bazel/scripts/incremental_build/incremental_build.py "$@"
+  ./build/bazel/scripts/incremental_build/incremental_build.py \
+    --ignore-repo-diff \
+    --log-dir="$log_dir" \
+    "$@"
   set +x
 }
 
-function run()
-{
+function run() {
   local -r bazel_mode="${1:-}"
 
   # Clear the cache by doing a build. There are probably better ways of clearing the
@@ -70,28 +70,18 @@ function run()
   date
   file="$log_dir/output${bazel_mode:+"$bazel_mode"}.txt"
   echo "logging to $file"
-  m droid> "$file"
+  m droid >"$file"
 
   clean_tree
 
-  # Clean full build
-  build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
-    -c 0 -- droid
+  # Clean full build, then a no-change build
+  build ${bazel_mode:+"$bazel_mode"} -c 0 0 -- droid
 
-  for _ in {1..5}
-  do
-    build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
-      -c 0 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
+  build ${bazel_mode:+"$bazel_mode"} -c 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
+  build ${bazel_mode:+"$bazel_mode"} -c 'modify bionic/.*/stdio.cpp' -- libc
+  build ${bazel_mode:+"$bazel_mode"} -c 'modify .*/adb/daemon/main.cpp' -- adbd
+  build ${bazel_mode:+"$bazel_mode"} -c 'modify frameworks/.*/View.java' -- framework
 
-    build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
-      -c 'modify bionic/.*/stdio.cpp' -- libc
-
-    build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
-      -c 'modify .*/adb/daemon/main.cpp' -- adbd
-
-    build --ignore-repo-diff --log-dir="$log_dir" ${bazel_mode:+"$bazel_mode"} \
-      -c 'modify frameworks/.*/View.java' -- framework
-  done
   pretty "$log_dir/summary.csv"
 }
 

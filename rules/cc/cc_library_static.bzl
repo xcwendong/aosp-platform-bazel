@@ -284,7 +284,7 @@ def _generate_tidy_actions(ctx):
         ctx.files.tidy_disabled_srcs,
         source_extensions = C_EXTENSIONS,
     )
-    hdrs = ctx.attr.hdrs + cpp_hdrs + c_hdrs
+    hdrs = ctx.files.hdrs + cpp_hdrs + c_hdrs
     cpp_tidy_outs = generate_clang_tidy_actions(
         ctx,
         ctx.attr.copts_cpp,
