@@ -16,8 +16,9 @@ limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load(":cc_api_contribution.bzl", "VALID_API_SURFACES", "cc_api_contribution")
 load(":api_domain.bzl", "api_domain")
+load(":cc_api_contribution.bzl", "cc_api_contribution")
+load(":java_api_contribution.bzl", "java_api_contribution")
 
 # Check that a .json file is created
 def _json_output_test_impl(ctx):
@@ -25,7 +26,7 @@ def _json_output_test_impl(ctx):
     actions = analysistest.target_actions(env)
     asserts.equals(
         env,
-        expected = len(VALID_API_SURFACES),
+        expected = 7,  # union of cc and java api surfaces
         actual = len(actions),
     )
     asserts.equals(
@@ -56,18 +57,20 @@ def _json_output_test():
     )
     return test_name
 
-# Check that output contains cc_libraries information
-def _json_output_contains_cc_test_impl(ctx):
+# Check that output contains contribution information
+# e.g. cc_libraries, java_libraries
+def _json_output_contains_contributions_test_impl(ctx):
     env = analysistest.begin(ctx)
     actions = analysistest.target_actions(env)
     asserts.equals(
         env,
-        expected = len(VALID_API_SURFACES),
+        expected = 7,  # union of cc and java api surfaces
         actual = len(actions),
     )
 
-    # First element corresponds to publicapi
     output = json.decode(actions[0].content.replace("'", ""))  # Trim the surrounding '
+
+    # cc
     asserts.true(env, "cc_libraries" in output)
     cc_contributions_in_output = output.get("cc_libraries")
     asserts.equals(
@@ -89,36 +92,64 @@ def _json_output_contains_cc_test_impl(ctx):
         ),
         actual = test_contribution.get("api"),
     )
+
+    # java
+    asserts.true(env, "java_libraries" in output)
+    java_contributions_in_output = output.get("java_libraries")
+    asserts.equals(
+        env,
+        expected = 1,
+        actual = len(java_contributions_in_output),
+    )
+    test_java_contribution = java_contributions_in_output[0]
+    asserts.equals(
+        env,
+        expected = paths.join(
+            paths.dirname(ctx.build_file_path),
+            ctx.attr.expected_java_apifile,
+        ),
+        actual = test_java_contribution.get("api"),
+    )
     return analysistest.end(env)
 
-json_output_contains_cc_test = analysistest.make(
-    impl = _json_output_contains_cc_test_impl,
+json_output_contains_contributions_test = analysistest.make(
+    impl = _json_output_contains_contributions_test_impl,
     attrs = {
         "expected_cc_library_name": attr.string(),
         "expected_symbolfile": attr.string(),
+        "expected_java_apifile": attr.string(),
     },
 )
 
-def _json_output_contains_cc_test():
+def _json_output_contains_contributions_test():
     test_name = "json_output_contains_cc_test"
     subject_name = test_name + "_subject"
     cc_subject_name = subject_name + "_cc"
+    java_subject_name = subject_name + "_java"
     symbolfile = "libfoo.map.txt"
+    java_apifile = "current.txt"
     cc_api_contribution(
         name = cc_subject_name,
         api = symbolfile,
         tags = ["manual"],
     )
+    java_api_contribution(
+        name = java_subject_name,
+        api = java_apifile,
+        tags = ["manual"],
+    )
     api_domain(
         name = subject_name,
         cc_api_contributions = [cc_subject_name],
+        java_api_contributions = [java_subject_name],
         tags = ["manual"],
     )
-    json_output_contains_cc_test(
+    json_output_contains_contributions_test(
         name = test_name,
         target_under_test = subject_name,
         expected_cc_library_name = cc_subject_name,
         expected_symbolfile = symbolfile,
+        expected_java_apifile = java_apifile,
     )
     return test_name
 
@@ -127,6 +158,6 @@ def api_domain_test_suite(name):
         name = name,
         tests = [
             _json_output_test(),
-            _json_output_contains_cc_test(),
+            _json_output_contains_contributions_test(),
         ],
     )

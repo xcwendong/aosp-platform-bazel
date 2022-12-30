@@ -179,7 +179,7 @@ CcApiContributionInfo = provider(
     },
 )
 
-VALID_API_SURFACES = [
+VALID_CC_API_SURFACES = [
     "publicapi",
     "systemapi",
     "vendorapi",
@@ -187,8 +187,8 @@ VALID_API_SURFACES = [
 
 def _validate_api_surfaces(api_surfaces):
     for api_surface in api_surfaces:
-        if api_surface not in VALID_API_SURFACES:
-            fail(api_surface, " is not a valid API surface. Acceptable values: ", VALID_API_SURFACES)
+        if api_surface not in VALID_CC_API_SURFACES:
+            fail(api_surface, " is not a valid API surface. Acceptable values: ", VALID_CC_API_SURFACES)
 
 def _cc_api_contribution_impl(ctx):
     """Implemenation for the cc_api_contribution rule
@@ -229,7 +229,7 @@ cc_api_contribution = rule(
             doc = "Header contributions of the cc library. This should return a `CcApiHeaderInfo` provider",
         ),
         "api_surfaces": attr.string_list(
-            doc = "API surface(s) this library contributes to. See VALID_API_SURFACES in cc_api_contribution.bzl for valid values for API surfaces",
+            doc = "API surface(s) this library contributes to. See VALID_CC_API_SURFACES in cc_api_contribution.bzl for valid values for API surfaces",
             default = ["publicapi"],
         ),
     },

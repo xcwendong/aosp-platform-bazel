@@ -13,6 +13,7 @@
 # The output can be safely redirected to a file, it does not include
 # the noise from the build.
 
+trap 'printf "FAILED: $BASH_COMMAND (rc=%s)\n" $? >&2' ERR
 declare -r builder=build/soong/soong_ui.bash
 [[ -x ${builder} ]] || \
   { echo "current directory should be the root of the Android source tree"; exit 1; }
@@ -26,8 +27,8 @@ for a in $@; do
     mkargs+=("$a")
   fi
 done
+declare -r mkmod_file="out/soong/Android-${TARGET_PRODUCT?TARGET_PRODUCT not set}.mk"
 ${builder} --make-mode nothing >/dev/null
-declare -r mkmod_file="out/soong/Android-${TARGET_PRODUCT}.mk"
 mv ${mkmod_file} ${mkmod_file}.ref
 ${builder} --make-mode "${bazel_mode}"  nothing >/dev/null
 GOWORK=$PWD/build/bazel/mkcompare/go.work \

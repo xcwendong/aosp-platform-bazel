@@ -16,16 +16,29 @@ limitations under the License.
 
 """Bazel rules for generating the metadata of API domain contributions to an API surface"""
 
-load(":cc_api_contribution.bzl", "CcApiContributionInfo", "VALID_API_SURFACES")
+load("@bazel_skylib//lib:sets.bzl", "sets")
+load(":cc_api_contribution.bzl", "CcApiContributionInfo", "VALID_CC_API_SURFACES")
+load(":java_api_contribution.bzl", "JavaApiContributionInfo", "VALID_JAVA_API_SURFACES")
+
+def _all_api_surfaces():
+    # Returns a deduped union of cc and java api surfaces
+    api_surfaces = sets.make()
+    for api_surface in VALID_CC_API_SURFACES + VALID_JAVA_API_SURFACES:
+        sets.insert(api_surfaces, api_surface)
+    return sets.to_list(api_surfaces)
 
 def _api_domain_impl(ctx):
     """Implementation of the api_domain rule
     Currently it only supports exporting the API surface contributions of the API domain
     """
     out = []
-    for api_surface in VALID_API_SURFACES:
-        # TODO(spandandas): Add other contributions (e.g. java_api_contribution)
+    for api_surface in _all_api_surfaces():
+        # TODO(b/220938703): Add other contributions (e.g. resource_api_contribution)
+        # cc
         cc_libraries = [cc[CcApiContributionInfo] for cc in ctx.attr.cc_api_contributions if api_surface in cc[CcApiContributionInfo].api_surfaces]
+
+        # java
+        java_libraries = [java[JavaApiContributionInfo] for java in ctx.attr.java_api_contributions if api_surface in java[JavaApiContributionInfo].api_surfaces]
 
         # The contributions of an API domain are always at ver=current
         # Contributions of an API domain to previous Android SDKs will be snapshot and imported into the build graph by a separate Bazel rule
@@ -34,6 +47,7 @@ def _api_domain_impl(ctx):
             version = "current",
             api_domain = ctx.attr.name,
             cc_libraries = cc_libraries,
+            java_libraries = java_libraries,
         )
         api_surface_filestem = "-".join([api_surface, "current", ctx.attr.name])
         api_surface_file = ctx.actions.declare_file(api_surface_filestem + ".json")
@@ -46,5 +60,6 @@ api_domain = rule(
     implementation = _api_domain_impl,
     attrs = {
         "cc_api_contributions": attr.label_list(providers = [CcApiContributionInfo]),
+        "java_api_contributions": attr.label_list(providers = [JavaApiContributionInfo]),
     },
 )
