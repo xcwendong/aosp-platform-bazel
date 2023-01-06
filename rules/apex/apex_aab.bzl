@@ -243,32 +243,41 @@ def _apex_aab_impl(ctx):
     verify_toolchain_exists(ctx, "//build/bazel/rules/apex:apex_toolchain_type")
     apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
 
-    signed_apex_files = {}
-    prefixed_signed_apex_files = []
+    prefixed_apex_files = []
     apex_base_files = []
     bundle_config_file = None
     module_name = ctx.attr.mainline_module[0].label.name
     for arch in ctx.split_attr.mainline_module:
-        signed_apex = ctx.split_attr.mainline_module[arch][ApexInfo].signed_output
-        signed_apex_files[arch] = signed_apex
+        apex_info = ctx.split_attr.mainline_module[arch][ApexInfo]
+        apex_base_files.append(apex_info.base_file)
+
+        arch_subdir = "mainline_modules_%s" % arch
+
+        # A mapping of files to a prefix directory they should be copied to.
+        # These files will be accessible with the apex_files output_group.
+        mapping = {
+            apex_info.base_file: arch_subdir,
+            apex_info.signed_output: arch_subdir,
+            apex_info.symbols_used_by_apex: arch_subdir + "/ndk_apis_usedby_apex",
+            apex_info.backing_libs: arch_subdir + "/ndk_apis_backedby_apex",
+            apex_info.java_symbols_used_by_apex: arch_subdir + "/java_apis_usedby_apex",
+            # TODO(b/262267680): create licensetexts
+            # TODO(b/262267551): create shareprojects
+        }
 
         # Forward the individual files for all variants in an additional output group,
         # so dependents can easily access the multi-arch base APEX files by building
         # this target with --output_groups=apex_files.
         #
         # Copy them into an arch-specific directory, since they have the same basename.
-        prefixed_signed_apex_file = ctx.actions.declare_file(
-            "mainline_modules_" + arch + "/" + signed_apex.basename,
-        )
-        ctx.actions.run_shell(
-            inputs = [signed_apex],
-            outputs = [prefixed_signed_apex_file],
-            command = " ".join(["cp", signed_apex.path, prefixed_signed_apex_file.path]),
-        )
-        prefixed_signed_apex_files.append(prefixed_signed_apex_file)
-
-        base_file = ctx.split_attr.mainline_module[arch][ApexInfo].base_file
-        apex_base_files.append(base_file)
+        for _file, _dir in mapping.items():
+            _out = ctx.actions.declare_file(_dir + "/" + _file.basename)
+            ctx.actions.run_shell(
+                inputs = [_file],
+                outputs = [_out],
+                command = " ".join(["cp", _file.path, _out.path]),
+            )
+            prefixed_apex_files.append(_out)
 
     # Create .aab file
     bundle_config_file = build_bundle_config(ctx.actions, ctx.label.name)
@@ -283,12 +292,12 @@ def _apex_aab_impl(ctx):
         signed_files = _sign_bundle(ctx, apex_toolchain.aapt2, apex_toolchain.avbtool, module_name, bundle_file, apex_info)
         return [
             DefaultInfo(files = depset([bundle_file] + signed_files)),
-            OutputGroupInfo(apex_files = depset(prefixed_signed_apex_files), signed_files = signed_files),
+            OutputGroupInfo(apex_files = depset(prefixed_apex_files), signed_files = signed_files),
         ]
 
     return [
         DefaultInfo(files = depset([bundle_file])),
-        OutputGroupInfo(apex_files = depset(prefixed_signed_apex_files)),
+        OutputGroupInfo(apex_files = depset(prefixed_apex_files)),
     ]
 
 # apex_aab rule creates multi-arch outputs of a Mainline module, such as the

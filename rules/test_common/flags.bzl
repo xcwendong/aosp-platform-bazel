@@ -85,13 +85,23 @@ def _action_flags_test_impl(ctx):
             exclusive_with_flags or
             action.mnemonic in ctx.attr.mnemonics_with_flags
         ):
+            if action.argv == None:
+                asserts.true(
+                    env,
+                    False,
+                    "expected %s action to have arguments, but argv was None" % (
+                        action.mnemonic,
+                    ),
+                )
+                continue
             for flag in ctx.attr.expected_flags:
                 asserts.true(
                     env,
                     flag in action.argv,
-                    "%s action did not contain flag %s" % (
+                    "%s action did not contain flag %s; argv: %s" % (
                         action.mnemonic,
                         flag,
+                        action.argv,
                     ),
                 )
         elif (
@@ -102,18 +112,15 @@ def _action_flags_test_impl(ctx):
                 asserts.false(
                     env,
                     flag in action.argv,
-                    "%s action unexpectedly contained flag %s" % (
+                    "%s action unexpectedly contained flag %s; argv: %s" % (
                         action.mnemonic,
                         flag,
+                        action.argv,
                     ),
                 )
     return analysistest.end(env)
 
-def create_action_flags_test_for_config(config_settings):
-    return analysistest.make(
-        _action_flags_test_impl,
-        attrs = _action_flags_test_attrs,
-        config_settings = config_settings,
-    )
-
-action_flags_test = create_action_flags_test_for_config({})
+action_flags_test = analysistest.make(
+    _action_flags_test_impl,
+    attrs = _action_flags_test_attrs,
+)

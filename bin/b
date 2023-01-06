@@ -14,38 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-function gettop
-{
-    local TOPFILE=build/make/core/envsetup.mk
-    if [ -n "$TOP" -a -f "$TOP/$TOPFILE" ] ; then
-        # The following circumlocution ensures we remove symlinks from TOP.
-        (cd "$TOP"; PWD= /bin/pwd)
-    else
-        if [ -f $TOPFILE ] ; then
-            # The following circumlocution (repeated below as well) ensures
-            # that we record the true directory name and not one that is
-            # faked up with symlink names.
-            PWD= /bin/pwd
-        else
-            local HERE=$PWD
-            local T=
-            while [ \( ! \( -f $TOPFILE \) \) -a \( "$PWD" != "/" \) ]; do
-                \cd ..
-                T=`PWD= /bin/pwd -P`
-            done
-            \cd "$HERE"
-            if [ -f "$T/$TOPFILE" ]; then
-                echo "$T"
-            fi
-        fi
-    fi
-}
-
-T=$(gettop)
-if [[ ! $T ]] ; then
-    echo "Can not locate root of source tree. b must be run from within Android source tree." >&2
-    exit 1
-fi
+# Common script utilities
+source $(cd $(dirname $BASH_SOURCE) &> /dev/null && pwd)/../../make/shell_utils.sh
+require_top
 
 # Look for the --run-soong-tests flag and skip passing --skip-soong-tests to Soong if present
 bazel_args=""
@@ -63,13 +34,13 @@ done
 # TODO(b/262904551) - this is Darwin incompatible and should eventually be updated.
 BUILD_STARTED_TIME=`date +%s%3N`
 B_ARGS=$*
-USE_RBE=false "$T/build/soong/soong_ui.bash" --build-mode --all-modules --dir="$(pwd)" $skip_tests bp2build USE_BAZEL_ANALYSIS= --build-command="b ${B_ARGS}" --skip-metrics-upload --build-started-time-unix-millis=$BUILD_STARTED_TIME || exit 1
+USE_RBE=false "$TOP/build/soong/soong_ui.bash" --build-mode --all-modules --dir="$(pwd)" $skip_tests bp2build USE_BAZEL_ANALYSIS= --build-command="b ${B_ARGS}" --skip-metrics-upload --build-started-time-unix-millis=$BUILD_STARTED_TIME || exit 1
 
 
 # Then, run Bazel using the synthetic workspace as the --package_path.
 if [[ -z "$bazel_args" ]]; then
     # If there are no args, show help and exit.
-    "$T/build/bazel/bin/bazel" help
+    "$TOP/build/bazel/bin/bazel" help
 else
     # Else, always run with the bp2build configuration, which sets Bazel's package path to
     # the synthetic workspace.
@@ -95,8 +66,7 @@ else
     fi
 
     # Call Bazel.
-    "$T/build/bazel/bin/bazel" ${bazel_args_with_config[@]}
-    "$T/build/soong/soong_ui.bash" --upload-metrics-only
-
+    "$TOP/build/bazel/bin/bazel" ${bazel_args_with_config[@]}
+    "$TOP/build/soong/soong_ui.bash" --upload-metrics-only
 fi
 

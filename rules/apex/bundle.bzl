@@ -71,7 +71,7 @@ def _base_file(actions, name, zip2zip, arch, apex_proto_file):
     """Run zip2zip to transform the apex file the expected directory structure
     with all files that will be included in the base module of aab file."""
 
-    output_file = actions.declare_file(name + ".base")
+    output_file = actions.declare_file(name + "-base.zip")
 
     # Arguments
     args = actions.args()

@@ -26,8 +26,8 @@ def _apex_aab_test(ctx):
     for i in range(0, len(ctx.attr.expected_paths)):
         asserts.equals(
             env,
-            target_under_test.files.to_list()[i].short_path,
             ctx.attr.expected_paths[i],
+            target_under_test.files.to_list()[i].short_path,
         )
     return analysistest.end(env)
 
@@ -69,8 +69,8 @@ def _apex_aab_output_group_test(ctx):
     expected_paths = sorted(ctx.attr.expected_paths)
     asserts.equals(
         env,
-        sorted(actual_paths),
         sorted(ctx.attr.expected_paths),
+        sorted(actual_paths),
     )
     return analysistest.end(env)
 
@@ -94,13 +94,17 @@ def _test_apex_aab_apex_files_output_group():
 
     expected_paths = []
     for arch in ["arm", "arm64", "x86", "x86_64"]:
-        expected_paths.append(
-            "/".join([
-                native.package_name(),
-                "mainline_modules_" + arch,
+        paths = [
+            "/".join([native.package_name(), "mainline_modules_" + arch, basename])
+            for basename in [
                 apex_name + ".apex",
-            ]),
-        )
+                apex_name + "-base.zip",
+                "java_apis_usedby_apex/" + apex_name + "_using.xml",
+                "ndk_apis_usedby_apex/" + apex_name + "_using.txt",
+                "ndk_apis_backedby_apex/" + apex_name + "_backing.txt",
+            ]
+        ]
+        expected_paths.extend(paths)
 
     apex_aab_output_group_test(
         name = test_name,
