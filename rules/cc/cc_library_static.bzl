@@ -45,7 +45,7 @@ def _create_sdk_version_number_map():
     version_number_map = {}
     for api in api_levels.values():
         version_number_map["//build/bazel/rules/apex:min_sdk_version_" + str(api)] = [_APEX_MIN_SDK_VERSION_FLAG + str(api)]
-    version_number_map["//conditions:default"] = [_APEX_MIN_SDK_VERSION_FLAG + future_version]
+    version_number_map["//conditions:default"] = [_APEX_MIN_SDK_VERSION_FLAG + str(future_version)]
 
     return version_number_map
 
@@ -56,7 +56,7 @@ def android_apex_sdk_version_opt(version):
         return sdk_version_numbers
 
     return select({
-        "//conditions:default": [_APEX_MIN_SDK_VERSION_FLAG + parse_apex_sdk_version(version)],
+        "//conditions:default": [_APEX_MIN_SDK_VERSION_FLAG + str(parse_apex_sdk_version(version))],
     })
 
 def cc_library_static(

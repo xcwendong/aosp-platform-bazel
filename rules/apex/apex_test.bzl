@@ -19,6 +19,7 @@ load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
+load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test")
 load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load(":apex_info.bzl", "ApexInfo")
@@ -1690,6 +1691,46 @@ def _test_apex_available():
 
     return test_name
 
+def _test_apex_available_failure():
+    name = "apex_available_failure"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_lib_cc",
+        srcs = [name + "_lib.cc"],
+        tags = [
+            "manual",
+            "apex_available_checked_manual_for_testing",
+        ],
+    )
+    cc_library_shared(
+        name = name + "_lib2_cc",
+        srcs = [name + "_lib2.cc"],
+        tags = [
+            "manual",
+            "apex_available_checked_manual_for_testing",
+            # anyapex.
+            "apex_available=//apex_available:anyapex",
+        ],
+    )
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [
+            name + "_lib_cc",
+            name + "_lib2_cc",
+        ],
+        android_manifest = "AndroidManifest.xml",
+    )
+
+    expect_failure_test(
+        name = test_name,
+        target_under_test = name,
+        failure_message = "@//build/bazel/rules/apex:apex_available_failure_lib_cc" +
+                          " is a dependency of @//build/bazel/rules/apex:apex_available_failure" +
+                          " apex, but does not include the apex in its apex_available tags: []",
+    )
+    return test_name
+
 def _test_apex_available_with_base_apex():
     name = "apex_available_with_base_apex"
     test_name = name + "_test"
@@ -1873,8 +1914,9 @@ def _apex_transition_test(ctx):
 
 def _cc_compile_test_aspect_impl(target, ctx):
     transitive_march = []
-    for dep in get_dep_targets(ctx, predicate = lambda target: _MarchInfo in target):
-        transitive_march += [dep[_MarchInfo].march]
+    for attr, attr_deps in get_dep_targets(ctx.rule.attr, predicate = lambda target: _MarchInfo in target).items():
+        for dep in attr_deps:
+            transitive_march += [dep[_MarchInfo].march]
     march_values = []
     if (target.label.name).startswith("apex_transition_lib"):
         for a in target.actions:
@@ -1981,6 +2023,7 @@ def apex_test_suite(name):
             _test_apex_java_symbols_used_by_apex(),
             _test_apex_generate_notice_file(),
             _test_apex_available(),
+            _test_apex_available_failure(),
             _test_apex_available_with_base_apex(),
             _test_apex_deps_validation(),
         ] + _test_apex_transition(),

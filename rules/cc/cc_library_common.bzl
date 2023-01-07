@@ -61,7 +61,7 @@ _bionic_libs = ["libc", "libm", "libdl", "libdl_android", "linker", "linkerconfi
 # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/cc.go;l=1450;drc=9fd9129b5728602a4768e8e8e695660b683c405e
 _bootstrap_libs = ["libclang_rt.hwasan"]
 
-future_version = "10000"
+future_version = 10000
 
 CcSanitizerLibraryInfo = provider(
     "Denotes which sanitizer libraries to include",
@@ -119,7 +119,7 @@ def _create_sdk_version_features_map():
     version_feature_map = {}
     for api in api_levels.values():
         version_feature_map["//build/bazel/rules/apex:min_sdk_version_" + str(api)] = ["sdk_version_" + str(api)]
-    version_feature_map["//conditions:default"] = ["sdk_version_" + future_version]
+    version_feature_map["//conditions:default"] = ["sdk_version_" + str(future_version)]
 
     return version_feature_map
 
@@ -217,33 +217,34 @@ def parse_sdk_version(version):
         # use the version determined by the transition value.
         return sdk_version_features + ["sdk_version_apex_inherit"]
 
-    return ["sdk_version_" + parse_apex_sdk_version(version)]
+    return ["sdk_version_" + str(parse_apex_sdk_version(version))]
 
 def parse_apex_sdk_version(version):
     if version == "" or version == "current":
         return future_version
-    elif version.isdigit() and int(version) in api_levels.values():
-        return version
     elif version in api_levels.keys():
-        return str(api_levels[version])
-    elif version.isdigit() and int(version) == product_vars["Platform_sdk_version"]:
-        # For internal branch states, support parsing a finalized version number
-        # that's also still in
-        # product_vars["Platform_version_active_codenames"], but not api_levels.
-        #
-        # This happens a few months each year on internal branches where the
-        # internal master branch has a finalized API, but is not released yet,
-        # therefore the Platform_sdk_version is usually latest AOSP dessert
-        # version + 1. The generated api_levels map sets these to 9000 + i,
-        # where i is the index of the current/future version, so version is not
-        # in the api_levels.values() list, but it is a valid sdk version.
-        #
-        # See also b/234321488#comment2
-        return version
-    else:
-        fail("Unknown sdk version: %s, could not be parsed as " % version +
-             "an integer and/or is not a recognized codename. Valid api levels are:" +
-             str(api_levels))
+        return api_levels[version]
+    elif version.isdigit():
+        version = int(version)
+        if version in api_levels.values():
+            return version
+        elif version == product_vars["Platform_sdk_version"]:
+            # For internal branch states, support parsing a finalized version number
+            # that's also still in
+            # product_vars["Platform_version_active_codenames"], but not api_levels.
+            #
+            # This happens a few months each year on internal branches where the
+            # internal master branch has a finalized API, but is not released yet,
+            # therefore the Platform_sdk_version is usually latest AOSP dessert
+            # version + 1. The generated api_levels map sets these to 9000 + i,
+            # where i is the index of the current/future version, so version is not
+            # in the api_levels.values() list, but it is a valid sdk version.
+            #
+            # See also b/234321488#comment2
+            return version
+    fail("Unknown sdk version: %s, could not be parsed as " % version +
+         "an integer and/or is not a recognized codename. Valid api levels are:" +
+         str(api_levels))
 
 CPP_EXTENSIONS = ["cc", "cpp", "c++"]
 

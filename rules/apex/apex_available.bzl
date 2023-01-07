@@ -16,19 +16,23 @@ limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
-load("//build/bazel/rules/apex:cc.bzl", "CC_ATTR_ASPECTS")
+load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "CC_ATTR_ASPECTS")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
-load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubInfo", "CcStubLibrarySharedInfo")
+load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
+load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
+load(":apex_key.bzl", "ApexKeyInfo")
 
 ApexAvailableInfo = provider(
     "ApexAvailableInfo collects APEX availability metadata.",
     fields = {
         "apex_available_names": "names of APEXs that this target is available to",
         "platform_available": "whether this target is available for the platform",
+        "transitive_invalid_targets": "list of targets that had an invalid apex_available attribute",
+        "transitive_unvalidated_targets": "list of targets that were skipped in the apex_available_validation function",
     },
 )
 
-# Allowlist of APEX names that are validated with apex_available.
+# Denylist of APEX names that are validated with apex_available.
 #
 # Certain apexes are not checked because their dependencies aren't converting
 # apex_available to tags properly in the bp2build converters yet. See associated
@@ -39,73 +43,37 @@ _unchecked_apexes = [
     "com.android.media.swcodec",
 ]
 
-def _validate_apex_available(target, ctx):
+def _validate_apex_available(target, ctx, *, apex_available_tags, apex_name, base_apex_name):
     # testonly apexes aren't checked.
     if ctx.attr.testonly:
-        return
+        return "testonly"
 
     # Macro-internal manual targets aren't checked.
     if "manual" in ctx.rule.attr.tags and "apex_available_checked_manual_for_testing" not in ctx.rule.attr.tags:
-        return
+        return "manual"
 
     # prebuilt_file targets don't specify apex_available, and aren't checked.
     if PrebuiltFileInfo in target:
-        return
+        return "prebuilt"
 
     # stubs are APIs, and don't specify apex_available, and aren't checked.
     if CcStubLibrarySharedInfo in target:
-        return
-
-    # Extract the apex_available= tags from the full list of tags.
-    apex_available_tags = [
-        t.removeprefix("apex_available=")
-        for t in ctx.rule.attr.tags
-        if t.startswith("apex_available=")
-    ]
+        return "stubs"
 
     if "//apex_available:anyapex" in apex_available_tags:
-        return
-
-    apex_name = ctx.attr._apex_name[BuildSettingInfo].value
-    base_apex_name = ctx.attr._base_apex_name[BuildSettingInfo].value
+        return "//apex_available:anyapex"
 
     if apex_name in _unchecked_apexes:
         # Skipped unchecked APEXes.
-        return
+        return "unchecked_apex"
+
     elif base_apex_name not in apex_available_tags and apex_name not in apex_available_tags:
-        msg = ("the {label} {rule_kind} is a dependency of {apex_name} apex, " +
-               "but does not include the apex in its apex_available tags: {tags}").format(
-            label = ctx.label,
-            rule_kind = ctx.rule.kind,
-            apex_name = apex_name,
-            tags = apex_available_tags,
-        )
-        fail(msg)
+        return False
 
     # All good!
+    return True
 
 def _apex_available_aspect_impl(target, ctx):
-    _validate_apex_available(target, ctx)
-    return []  # aspects need to return something.
-
-apex_available_aspect = aspect(
-    implementation = _apex_available_aspect_impl,
-    attrs = {
-        "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
-        "_base_apex_name": attr.label(default = "//build/bazel/rules/apex:base_apex_name"),
-        "testonly": attr.bool(default = False),  # propagated from the apex
-    },
-    # This can lead to false negatives, where new non-cc deps are
-    # added and the checks aren't applied on them.
-    #
-    # The good thing is that we control exactly which files get included in an
-    # APEX, so this could technically be * (all edges), and then we filter for
-    # payload-contributing targets in the apex_available_aspect, perhaps by
-    # inspecting for special Providers, like ApexCcInfo.
-    attr_aspects = CC_ATTR_ASPECTS,
-)
-
-def _apex_platform_available_aspect_impl(target, ctx):
     apex_available_tags = [
         t.removeprefix("apex_available=")
         for t in ctx.rule.attr.tags
@@ -115,15 +83,23 @@ def _apex_platform_available_aspect_impl(target, ctx):
         "//apex_available:platform" in apex_available_tags or
         len(apex_available_tags) == 0
     )
+    apex_name = ctx.attr._apex_name[BuildSettingInfo].value
 
     dep_targets = get_dep_targets(
-        ctx,
+        ctx.rule.attr,
         predicate = lambda target: ApexAvailableInfo in target,
-        skipped_attributes = ["certificate", "key", "android_manifest", "applicable_licenses"],
     )
-    for target in dep_targets:
-        if target[ApexAvailableInfo].platform_available != None:
-            platform_available = platform_available and target[ApexAvailableInfo].platform_available
+    transitive_unvalidated_targets = []
+    transitive_invalid_targets = []
+    for attr, attr_targets in dep_targets.items():
+        for t in attr_targets:
+            info = t[ApexAvailableInfo]
+            transitive_unvalidated_targets.append(info.transitive_unvalidated_targets)
+            if attr in CC_ATTR_ASPECTS:
+                transitive_invalid_targets.append(info.transitive_invalid_targets)
+            if attr not in ["certificate", "key", "android_manifest", "applicable_licenses"]:
+                if info.platform_available != None:
+                    platform_available = platform_available and info.platform_available
 
     if "manual" in ctx.rule.attr.tags and "apex_available_checked_manual_for_testing" not in ctx.rule.attr.tags:
         platform_available = None
@@ -133,15 +109,36 @@ def _apex_platform_available_aspect_impl(target, ctx):
         # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/cc.go;l=3670;drc=89ff729d1d65fb0ce2945ec6b8c4777a9d78dcab
         platform_available = True
 
+    skipped_reason = _validate_apex_available(
+        target,
+        ctx,
+        apex_available_tags = apex_available_tags,
+        apex_name = apex_name,
+        base_apex_name = ctx.attr._base_apex_name[BuildSettingInfo].value,
+    )
+
     return [
         ApexAvailableInfo(
             platform_available = platform_available,
             apex_available_names = apex_available_tags,
+            transitive_unvalidated_targets = depset(
+                direct = [(ctx.label, skipped_reason)] if type(skipped_reason) == type("") else None,
+                transitive = transitive_unvalidated_targets,
+            ),
+            transitive_invalid_targets = depset(
+                direct = [(target, tuple(apex_available_tags))] if skipped_reason == False else None,
+                transitive = transitive_invalid_targets,
+            ),
         ),
     ]
 
-apex_platform_available_aspect = aspect(
-    implementation = _apex_platform_available_aspect_impl,
+apex_available_aspect = aspect(
+    implementation = _apex_available_aspect_impl,
     provides = [ApexAvailableInfo],
     attr_aspects = ["*"],
+    attrs = {
+        "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
+        "_base_apex_name": attr.label(default = "//build/bazel/rules/apex:base_apex_name"),
+        "testonly": attr.bool(default = False),  # propagated from the apex
+    },
 )

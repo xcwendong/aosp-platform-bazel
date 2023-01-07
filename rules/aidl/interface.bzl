@@ -243,6 +243,10 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
             aidl_flags_for_backend.append(
                 "--min_sdk_version={}".format(config["min_sdk_version"]),
             )
+        else:
+            aidl_flags_for_backend.append(
+                "--min_sdk_version=current",
+            )
 
         if lang == JAVA:
             java_aidl_library(

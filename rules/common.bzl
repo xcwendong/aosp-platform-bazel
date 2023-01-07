@@ -14,27 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-def get_dep_targets(ctx, *, predicate = lambda _: True, skipped_attributes = []):
+def get_dep_targets(attrs, *, predicate = lambda _: True):
     """get_dep_targets returns all targets listed in the current rule's attributes
 
     Args:
-        ctx (rule context): a rule context
+        attrs (dict[str, attr]): dictionary containing the rule's attributes.
+            This may come from `ctx.attr` if called from a rule, or
+            `ctx.rule.attr` if called from an aspect.
         predicate (function(Target) -> bool): a function used to filter out
-            unwanted targets
-        skipped_attributes (list[str]): names of attributes to skip returning
-            targets for
+            unwanted targets; if predicate(target) == False, then do not include
+            target
     Returns:
-        targets (list[Target]): list of targets under attributes not in skipped
-            attributes, and for which predicate returns True
+        targets (dict[str, list[Target]]): map of attr to list of Targets for which
+            predicate returns True
     """
-    targets = []
-    for a in dir(ctx.rule.attr):
-        if a.startswith("_") or a in skipped_attributes:
+    targets = {}
+    for a in dir(attrs):
+        if a.startswith("_"):
             # Ignore private attributes
             continue
-        value = getattr(ctx.rule.attr, a)
+        targets[a] = []
+        value = getattr(attrs, a)
         vlist = value if type(value) == type([]) else [value]
         for item in vlist:
             if type(item) == "Target" and predicate(item):
-                targets.append(item)
+                targets[a].append(item)
     return targets

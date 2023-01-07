@@ -94,26 +94,10 @@ def get_min_sdk_version(ctx):
         apex_inherit = apex_inherit,
     )
 
-def _compare_sdk_version(v1, v2):
-    max = ["current", "10000"]
-    if v1 in max and v2 not in max:
-        return 1
-    elif v2 in max and v1 not in max:
-        return -1
-    if v1.isdigit():
-        v1 = int(v1)
-    else:
-        fail("tried to parse invalid min_sdk_version: %s".format(v1))
-    if v2.isdigit():
-        v2 = int(v2)
-    else:
-        fail("tried to parse invalid min_sdk_version: %s".format(v2))
-    return v1 - v2
-
 def _validate_min_sdk_version(ctx):
     dep_min_version = get_min_sdk_version(ctx).min_sdk_version
     apex_min_version = ctx.attr._min_sdk_version[BuildSettingInfo].value
-    if dep_min_version and _compare_sdk_version(apex_min_version, dep_min_version) < 0:
+    if dep_min_version and apex_min_version < dep_min_version:
         fail("The apex %s's min_sdk_version %s cannot be lower than the dep's min_sdk_version %s" %
              (ctx.attr._apex_name[BuildSettingInfo].value, apex_min_version, dep_min_version))
 
@@ -223,6 +207,7 @@ CC_ATTR_ASPECTS = ["dynamic_deps", "deps", "shared", "src", "runtime_deps"]
 # This aspect is intended to be applied on a apex.native_shared_libs attribute
 apex_cc_aspect = aspect(
     implementation = _apex_cc_aspect_impl,
+    provides = [ApexCcInfo],
     attrs = {
         "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
         "_apex_direct_deps": attr.label(default = "//build/bazel/rules/apex:apex_direct_deps"),

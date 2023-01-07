@@ -30,7 +30,8 @@ load(
     "license_map_notice_files",
     "license_map_to_json",
 )
-load("//build/bazel/rules/apex:apex_available.bzl", "apex_available_aspect", "apex_platform_available_aspect")
+load("//build/bazel/rules:common.bzl", "get_dep_targets")
+load(":apex_available.bzl", "ApexAvailableInfo", "apex_available_aspect")
 load(":apex_key.bzl", "ApexKeyInfo")
 load(":apex_info.bzl", "ApexInfo")
 load(":bundle.bzl", "apex_zip_files")
@@ -556,6 +557,48 @@ def _generate_java_symbols_used_by_apex(ctx, apex_toolchain):
     )
     return java_symbols_used_by_apex
 
+def _validate_apex_deps(ctx):
+    transitive_deps = depset(
+        transitive = [
+            d[ApexDepsInfo].transitive_deps
+            for d in (
+                ctx.attr.native_shared_libs_32 +
+                ctx.attr.native_shared_libs_64 +
+                ctx.attr.binaries +
+                ctx.attr.prebuilts
+            )
+        ],
+    )
+    validation_files = []
+    if not ctx.attr._unsafe_disable_apex_allowed_deps_check[BuildSettingInfo].value:
+        validation_files.append(validate_apex_deps(ctx, transitive_deps, ctx.file.allowed_apex_deps_manifest))
+
+    transitive_unvalidated_targets = []
+    transitive_invalid_targets = []
+    for _, attr_deps in get_dep_targets(ctx.attr, predicate = lambda target: ApexAvailableInfo in target).items():
+        for dep in attr_deps:
+            transitive_unvalidated_targets.append(dep[ApexAvailableInfo].transitive_unvalidated_targets)
+            transitive_invalid_targets.append(dep[ApexAvailableInfo].transitive_invalid_targets)
+
+    for target, apex_available_tags in depset(transitive = transitive_invalid_targets).to_list():
+        msg = ("{label} is a dependency of {apex_name} apex, " +
+               "but does not include the apex in its apex_available tags: {tags}").format(
+            label = target.label,
+            apex_name = ctx.label,
+            tags = list(apex_available_tags),
+        )
+        fail(msg)
+
+    transitive_unvalidated_targets_output_file = ctx.actions.declare_file(ctx.attr.name + "_unvalidated_deps.txt")
+    ctx.actions.write(
+        transitive_unvalidated_targets_output_file,
+        "\n".join([
+            str(label) + ": " + str(reason)
+            for label, reason in depset(transitive = transitive_unvalidated_targets).to_list()
+        ]),
+    )
+    return transitive_deps, transitive_unvalidated_targets_output_file, validation_files
+
 # See the APEX section in the README on how to use this rule.
 def _apex_rule_impl(ctx):
     verify_toolchain_exists(ctx, "//build/bazel/rules/apex:apex_toolchain_type")
@@ -586,20 +629,7 @@ def _apex_rule_impl(ctx):
         soong_zip = apex_toolchain.soong_zip,
     ), apex_file = signed_apex, arch = arch)
 
-    transitive_deps = depset(
-        transitive = [
-            d[ApexDepsInfo].transitive_deps
-            for d in (
-                ctx.attr.native_shared_libs_32 +
-                ctx.attr.native_shared_libs_64 +
-                ctx.attr.binaries +
-                ctx.attr.prebuilts
-            )
-        ],
-    )
-    validation_files = []
-    if not ctx.attr._unsafe_disable_apex_allowed_deps_check[BuildSettingInfo].value:
-        validation_files.append(validate_apex_deps(ctx, transitive_deps, ctx.file.allowed_apex_deps_manifest))
+    transitive_apex_deps, transitive_unvalidated_targets_output_file, apex_deps_validation_files = _validate_apex_deps(ctx)
 
     return [
         DefaultInfo(files = depset([signed_apex])),
@@ -623,9 +653,10 @@ def _apex_rule_impl(ctx):
             java_coverage_files = [apexer_outputs.java_symbols_used_by_apex],
             backing_libs = depset([apexer_outputs.backing_libs]),
             installed_files = depset([apexer_outputs.installed_files]),
-            _validation = validation_files,
+            transitive_unvalidated_targets = depset([transitive_unvalidated_targets_output_file]),
+            _validation = apex_deps_validation_files,
         ),
-        ApexDepsInfo(transitive_deps = transitive_deps),
+        ApexDepsInfo(transitive_deps = transitive_apex_deps),
     ]
 
 # These are the standard aspects that should be applied on all edges that
@@ -633,7 +664,6 @@ def _apex_rule_impl(ctx):
 STANDARD_PAYLOAD_ASPECTS = [
     license_aspect,
     apex_available_aspect,
-    apex_platform_available_aspect,
     apex_deps_validation_aspect,
 ]
 
