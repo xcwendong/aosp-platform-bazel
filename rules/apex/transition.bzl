@@ -31,7 +31,6 @@ limitations under the License.
 # https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/apex.go;l=948-962;drc=539d41b686758eeb86236c0e0dcf75478acb77f3
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("//build/bazel/platforms:product_variables/product_platform.bzl", "get_platform_for_shared_lib_transition_32")
 load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
 
 def _create_apex_configuration(attr, additional = {}):
@@ -97,15 +96,28 @@ def _impl_shared_lib_transition_32(settings, attr):
     direct_deps = [str(dep) for dep in attr.native_shared_libs_32]
     direct_deps += [str(dep) for dep in attr.binaries]
 
+    old_platform = str(settings["//command_line_option:platforms"][0])
+
+    # TODO(b/249685973) This can be removed when the aab transition no
+    # longer transitions to these platforms
+    old_platform = (old_platform
+        .removesuffix("__internal_arm")
+        .removesuffix("__internal_arm64")
+        .removesuffix("__internal_x86")
+        .removesuffix("__internal_x86_64"))
+
     return _create_apex_configuration(attr, {
-        "//command_line_option:platforms": get_platform_for_shared_lib_transition_32(),
+        "//command_line_option:platforms": old_platform + "_secondary",
         "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
     })
 
 shared_lib_transition_32 = transition(
     implementation = _impl_shared_lib_transition_32,
-    inputs = [],
-    outputs = SHARED_LIB_TRANSITION_BUILD_SETTINGS,
+    inputs = ["//command_line_option:platforms"],
+    outputs = APEX_TRANSITION_BUILD_SETTINGS + [
+        "//build/bazel/rules/apex:apex_direct_deps",
+        "//command_line_option:platforms",
+    ],
 )
 
 def _impl_shared_lib_transition_64(settings, attr):
@@ -115,13 +127,17 @@ def _impl_shared_lib_transition_64(settings, attr):
     direct_deps = [str(dep) for dep in attr.native_shared_libs_64]
     direct_deps += [str(dep) for dep in attr.binaries]
 
+    # For the 64 bit transition, we don't actually change the arch, because
+    # we only read the value of native_shared_libs_64 when the target
+    # is 64-bit already
     return _create_apex_configuration(attr, {
-        "//command_line_option:platforms": "//build/bazel/platforms:android_target",
         "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
     })
 
 shared_lib_transition_64 = transition(
     implementation = _impl_shared_lib_transition_64,
     inputs = [],
-    outputs = SHARED_LIB_TRANSITION_BUILD_SETTINGS,
+    outputs = APEX_TRANSITION_BUILD_SETTINGS + [
+        "//build/bazel/rules/apex:apex_direct_deps",
+    ],
 )

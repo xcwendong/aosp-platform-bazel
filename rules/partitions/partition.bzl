@@ -16,8 +16,10 @@ limitations under the License.
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@product_config//:product_config.bzl", "product_config")
 load(":installable_info.bzl", "InstallableInfo", "installable_aspect")
+
+# TODO(b/249685973): Reenable the partition rule
+product_config = {}
 
 _IMAGE_TYPES = [
     "system",

@@ -36,8 +36,8 @@ build/soong/soong_ui.bash --make-mode \
   dist DIST_DIR=$DIST_DIR
 
 echo "Verifying libc.so..."
-LIBC_OUTPUT_FILE="$(find out/ -regex '.*/bazel-out/android_arm64.*-opt.*/bin/bionic/libc/libc.so' || echo '')"
-LIBC_STUB_OUTPUT_FILE="$(find out/ -regex '.*/bazel-out/android_arm64.*-opt.*/bin/bionic/libc/liblibc_stub_libs-current_so.so' || echo '')"
+LIBC_OUTPUT_FILE="$(find out/ -regex '.*/bazel-out/[^/]*android_arm64.*-opt.*/bin/bionic/libc/libc.so' || echo '')"
+LIBC_STUB_OUTPUT_FILE="$(find out/ -regex '.*/bazel-out/[^/]*android_arm64.*-opt.*/bin/bionic/libc/liblibc_stub_libs-current_so.so' || echo '')"
 
 if [ -z "$LIBC_OUTPUT_FILE" -a -z "$LIBC_STUB_OUTPUT_FILE" ]; then
   echo "Could not find libc.so or its stub lib at expected path."

@@ -191,7 +191,7 @@ _cc_object = rule(
         "sdk_version": attr.string(),
         "min_sdk_version": attr.string(),
         "_android_product_variables": attr.label(
-            default = Label("//build/bazel/platforms:android_target_product_vars"),
+            default = Label("//build/bazel/product_config:product_vars"),
             providers = [platform_common.TemplateVariableInfo],
         ),
     },

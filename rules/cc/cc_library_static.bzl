@@ -191,7 +191,7 @@ def cc_library_static(
             ("implementation_deps", [locals_name]),
             ("deps", [exports_name]),
             ("features", toolchain_features),
-            ("toolchains", ["//build/bazel/platforms:android_target_product_vars"]),
+            ("toolchains", ["//build/bazel/product_config:product_vars"]),
             ("target_compatible_with", target_compatible_with),
             ("linkopts", linkopts),
         ],

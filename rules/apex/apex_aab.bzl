@@ -26,25 +26,31 @@ def _arch_transition_impl(settings, attr):
     """Implementation of arch_transition.
     Four archs are included for mainline modules: x86, x86_64, arm and arm64.
     """
+    old_platform = str(settings["//command_line_option:platforms"][0])
+
+    # TODO(b/249685973) Instead of using these __internal_x86 platforms, use
+    # the mainline_modules_<arch> android products
     return {
         "x86": {
-            "//command_line_option:platforms": "//build/bazel/platforms:android_x86",
+            "//command_line_option:platforms": old_platform + "__internal_x86",
         },
         "x86_64": {
-            "//command_line_option:platforms": "//build/bazel/platforms:android_x86_64",
+            "//command_line_option:platforms": old_platform + "__internal_x86_64",
         },
         "arm": {
-            "//command_line_option:platforms": "//build/bazel/platforms:android_arm",
+            "//command_line_option:platforms": old_platform + "__internal_arm",
         },
         "arm64": {
-            "//command_line_option:platforms": "//build/bazel/platforms:android_arm64",
+            "//command_line_option:platforms": old_platform + "__internal_arm64",
         },
     }
 
 # Multi-arch transition.
 arch_transition = transition(
     implementation = _arch_transition_impl,
-    inputs = [],
+    inputs = [
+        "//command_line_option:platforms",
+    ],
     outputs = [
         "//command_line_option:platforms",
     ],

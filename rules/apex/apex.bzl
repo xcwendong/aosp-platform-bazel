@@ -72,19 +72,12 @@ def _create_file_mapping(ctx):
             for lib_file in apex_cc_info.transitive_shared_libs.to_list():
                 add_file_mapping(paths.join(directory, lib_file.basename), lib_file)
 
-    native_shared_libs_32 = []
-    if ctx.split_attr.native_shared_libs_32.values():
-        native_shared_libs_32 = ctx.split_attr.native_shared_libs_32.values()[0]
-    native_shared_libs_64 = []
-    if ctx.split_attr.native_shared_libs_64.values():
-        native_shared_libs_64 = ctx.split_attr.native_shared_libs_64.values()[0]
-
     if platforms.get_target_bitness(ctx.attr._platform_utils) == 64:
-        _add_lib_files("lib64", native_shared_libs_64)
-        if not product_vars["DeviceSecondaryArch"] == "":
-            _add_lib_files("lib", native_shared_libs_32)
+        _add_lib_files("lib64", ctx.attr.native_shared_libs_64)
+        if product_vars["DeviceSecondaryArch"] != "":
+            _add_lib_files("lib", ctx.attr.native_shared_libs_32)
     else:
-        _add_lib_files("lib", native_shared_libs_32)
+        _add_lib_files("lib", ctx.attr.native_shared_libs_32)
 
     backing_libs = []
     for lib in file_mapping.values():

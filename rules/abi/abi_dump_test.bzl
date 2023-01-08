@@ -36,22 +36,13 @@ CXA_DEMANGLE = "external/libcxxabi/external/libcxxabi/src/libc++demangle.cxa_dem
 REF_DUMPS_HOME = "build/bazel/rules/abi/abi-dumps"
 ARCH = "x86_64"
 BITNESS = 64
-CONFIG_SETTING_DEFAULT = {
-    "//command_line_option:platforms": "@//build/bazel/platforms:android_x86_64",
-}
-CONFIG_SETTING_HOST = {
-    "//command_line_option:platforms": "@//build/bazel/platforms:linux_x86_64",
-}
 CONFIG_SETTING_COVERAGE = {
-    "//command_line_option:platforms": "@//build/bazel/platforms:android_x86_64",
     "//command_line_option:collect_code_coverage": True,
 }
 CONFIG_SETTING_SKIP_ABI_CHECK = {
-    "//command_line_option:platforms": "@//build/bazel/platforms:android_x86_64",
     "@//build/bazel/flags/cc/abi:skip_abi_checks": True,
 }
 CONFIG_SETTING_IN_APEX = {
-    "//command_line_option:platforms": "@//build/bazel/platforms:android_x86_64",
     "@//build/bazel/rules/apex:in_apex": True,
 }
 
@@ -140,7 +131,7 @@ def _abi_linker_action_test_impl(ctx):
 
     return analysistest.end(env)
 
-_abi_linker_action_test = analysistest.make(
+__abi_linker_action_test = analysistest.make(
     impl = _abi_linker_action_test_impl,
     attrs = {
         "dumps": attr.string_list(),
@@ -152,8 +143,16 @@ _abi_linker_action_test = analysistest.make(
         "export_absolute_includes": attr.string_list(),
         "_platform_utils": attr.label(default = Label("//build/bazel/platforms:platform_utils")),
     },
-    config_settings = CONFIG_SETTING_DEFAULT,
 )
+
+def _abi_linker_action_test(**kwargs):
+    __abi_linker_action_test(
+        target_compatible_with = [
+            "//build/bazel/platforms/arch:x86_64",
+            "//build/bazel/platforms/os:android",
+        ],
+        **kwargs
+    )
 
 def _test_abi_linker_action():
     name = "abi_linker_action"
@@ -252,10 +251,18 @@ def _abi_linker_action_run_test_impl(ctx):
 
     return analysistest.end(env)
 
-_abi_linker_action_run_test = analysistest.make(
+__abi_linker_action_run_test = analysistest.make(
     impl = _abi_linker_action_run_test_impl,
-    config_settings = CONFIG_SETTING_DEFAULT,
 )
+
+def _abi_linker_action_run_test(**kwargs):
+    __abi_linker_action_run_test(
+        target_compatible_with = [
+            "//build/bazel/platforms/arch:x86_64",
+            "//build/bazel/platforms/os:android",
+        ],
+        **kwargs
+    )
 
 def _test_abi_linker_action_run_for_enabled():
     name = "abi_linker_action_run_for_enabled"
@@ -290,30 +297,73 @@ def _abi_linker_action_not_run_test_impl(ctx):
 
     return analysistest.end(env)
 
-_abi_linker_action_not_run_test = analysistest.make(
+__abi_linker_action_not_run_test = analysistest.make(
     impl = _abi_linker_action_not_run_test_impl,
-    config_settings = CONFIG_SETTING_DEFAULT,
 )
 
-_abi_linker_action_not_run_for_no_device_test = analysistest.make(
+def _abi_linker_action_not_run_test(**kwargs):
+    __abi_linker_action_not_run_test(
+        target_compatible_with = [
+            "//build/bazel/platforms/arch:x86_64",
+            "//build/bazel/platforms/os:android",
+        ],
+        **kwargs
+    )
+
+__abi_linker_action_not_run_for_no_device_test = analysistest.make(
     impl = _abi_linker_action_not_run_test_impl,
-    config_settings = CONFIG_SETTING_HOST,
 )
 
-_abi_linker_action_not_run_for_coverage_test = analysistest.make(
+def _abi_linker_action_not_run_for_no_device_test(**kwargs):
+    __abi_linker_action_not_run_for_no_device_test(
+        target_compatible_with = [
+            "//build/bazel/platforms/arch:x86_64",
+            "//build/bazel/platforms/os:linux",
+        ],
+        **kwargs
+    )
+
+__abi_linker_action_not_run_for_coverage_test = analysistest.make(
     impl = _abi_linker_action_not_run_test_impl,
     config_settings = CONFIG_SETTING_COVERAGE,
 )
 
-_abi_linker_action_not_run_if_skipped_test = analysistest.make(
+def _abi_linker_action_not_run_for_coverage_test(**kwargs):
+    __abi_linker_action_not_run_for_coverage_test(
+        target_compatible_with = [
+            "//build/bazel/platforms/arch:x86_64",
+            "//build/bazel/platforms/os:android",
+        ],
+        **kwargs
+    )
+
+__abi_linker_action_not_run_if_skipped_test = analysistest.make(
     impl = _abi_linker_action_not_run_test_impl,
     config_settings = CONFIG_SETTING_SKIP_ABI_CHECK,
 )
 
-_abi_linker_action_not_run_apex_no_stubs_test = analysistest.make(
+def _abi_linker_action_not_run_if_skipped_test(**kwargs):
+    __abi_linker_action_not_run_if_skipped_test(
+        target_compatible_with = [
+            "//build/bazel/platforms/arch:x86_64",
+            "//build/bazel/platforms/os:android",
+        ],
+        **kwargs
+    )
+
+__abi_linker_action_not_run_apex_no_stubs_test = analysistest.make(
     impl = _abi_linker_action_not_run_test_impl,
     config_settings = CONFIG_SETTING_IN_APEX,
 )
+
+def _abi_linker_action_not_run_apex_no_stubs_test(**kwargs):
+    __abi_linker_action_not_run_apex_no_stubs_test(
+        target_compatible_with = [
+            "//build/bazel/platforms/arch:x86_64",
+            "//build/bazel/platforms/os:android",
+        ],
+        **kwargs
+    )
 
 def _test_abi_linker_action_not_run_for_default():
     name = "abi_linker_action_not_run_for_default"
@@ -494,14 +544,22 @@ def _verify_abi_diff_action(ctx, env, action, version, is_prev_version):
     else:
         _test_arg_set_correctly(env, argv, "-target-version", "current")
 
-_abi_diff_action_test = analysistest.make(
+__abi_diff_action_test = analysistest.make(
     impl = _abi_diff_action_test_impl,
     attrs = {
         "lib_name": attr.string(),
         "_platform_utils": attr.label(default = Label("//build/bazel/platforms:platform_utils")),
     },
-    config_settings = CONFIG_SETTING_DEFAULT,
 )
+
+def _abi_diff_action_test(**kwargs):
+    __abi_diff_action_test(
+        target_compatible_with = [
+            "//build/bazel/platforms/arch:x86_64",
+            "//build/bazel/platforms/os:android",
+        ],
+        **kwargs
+    )
 
 def _test_abi_diff_action():
     name = "abi_diff_action"
@@ -547,10 +605,18 @@ def _abi_diff_action_not_run_test_impl(ctx):
 
     return analysistest.end(env)
 
-_abi_diff_action_not_run_test = analysistest.make(
+__abi_diff_action_not_run_test = analysistest.make(
     impl = _abi_diff_action_not_run_test_impl,
-    config_settings = CONFIG_SETTING_DEFAULT,
 )
+
+def _abi_diff_action_not_run_test(**kwargs):
+    __abi_diff_action_not_run_test(
+        target_compatible_with = [
+            "//build/bazel/platforms/arch:x86_64",
+            "//build/bazel/platforms/os:android",
+        ],
+        **kwargs
+    )
 
 def _test_abi_diff_action_not_run_if_no_ref_dump_found():
     name = "abi_diff_action_not_run_if_no_ref_dump_found"

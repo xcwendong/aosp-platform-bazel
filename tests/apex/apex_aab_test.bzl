@@ -49,4 +49,5 @@ def apex_aab_test(name, apex, golden, **kwargs):
             golden,
         ],
         args = args,
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
     )

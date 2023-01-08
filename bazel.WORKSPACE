@@ -29,19 +29,6 @@ make_injection_repository(
 )
 # ! WARNING ! WARNING ! WARNING !
 
-# ! WARNING ! WARNING ! WARNING !
-# This is an experimental product configuration repostory rule.
-# It currently has incrementality issues, and will not rebuild
-# when the product config is changed. Use @soong_injection//product_config
-# instead. b/237004497 tracks fixing this issue and consolidating
-# it with soong_injection.
-load("//build/bazel/product_config:product_config_repository_rule.bzl", "product_config")
-
-product_config(
-    name = "product_config",
-)
-# ! WARNING ! WARNING ! WARNING !
-
 load("//build/bazel/rules:env.bzl", "env_repository")
 
 env_repository(
