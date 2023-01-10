@@ -93,7 +93,23 @@ def get_sanitizer_lib_info(features, deps):
 def _sanitizer_deps_impl(ctx):
     if (CcSanitizerLibraryInfo in ctx.attr.dep and
         ctx.attr.dep[CcSanitizerLibraryInfo].propagate_ubsan_deps):
-        return [ctx.attr._ubsan_library[CcInfo]]
+        # To operate correctly with native cc_binary and cc_sharedLibrary,
+        # copy the linker inputs and ensure that this target is marked as the
+        # "owner". Otherwise, upstream targets may drop these linker inputs.
+        # See b/264894507.
+        libraries = [
+            lib
+            for input in ctx.attr._ubsan_library[CcInfo].linking_context.linker_inputs.to_list()
+            for lib in input.libraries
+        ]
+        new_linker_input = cc_common.create_linker_input(
+            owner = ctx.label,
+            libraries = depset(direct = libraries),
+        )
+        linking_context = cc_common.create_linking_context(
+            linker_inputs = depset(direct = [new_linker_input]),
+        )
+        return [CcInfo(linking_context = linking_context)]
     return [CcInfo()]
 
 # This rule is essentially a workaround to be able to add dependencies

@@ -182,19 +182,24 @@ else
     # Check that the Bazel synthetic workspace and other required inputs exist before handing over control to Bazel.
     verify_soong_outputs_exist
     ADDITIONAL_FLAGS+=("--bazelrc=${BAZEL_METADATA_OUT}/generated.bazelrc")
-    ADDITIONAL_FLAGS+=("--bazelrc=${ABSOLUTE_OUT_DIR}/soong/soong_injection/product_config_platforms/common.bazelrc")
-    case $(uname -s) in
-        Darwin)
-            ADDITIONAL_FLAGS+=("--bazelrc=${ABSOLUTE_OUT_DIR}/soong/soong_injection/product_config_platforms/darwin.bazelrc")
-            ;;
-        Linux)
-            ADDITIONAL_FLAGS+=("--bazelrc=${ABSOLUTE_OUT_DIR}/soong/soong_injection/product_config_platforms/linux.bazelrc")
-            ;;
-        *)
-            >&2 echo "Bazel is supported on Linux and Darwin only. Your OS is not supported for Bazel usage, based on 'uname -s': $(uname -s)"
-            exit 1
-            ;;
-    esac
+
+    # These bazelrc files are only available when bp2build has been run.
+    # Standalone bazel and queryview don't run bp2build.
+    if [[ -f "${ABSOLUTE_OUT_DIR}/soong/soong_injection/product_config_platforms/common.bazelrc" ]]; then
+        ADDITIONAL_FLAGS+=("--bazelrc=${ABSOLUTE_OUT_DIR}/soong/soong_injection/product_config_platforms/common.bazelrc")
+        case $(uname -s) in
+            Darwin)
+                ADDITIONAL_FLAGS+=("--bazelrc=${ABSOLUTE_OUT_DIR}/soong/soong_injection/product_config_platforms/darwin.bazelrc")
+                ;;
+            Linux)
+                ADDITIONAL_FLAGS+=("--bazelrc=${ABSOLUTE_OUT_DIR}/soong/soong_injection/product_config_platforms/linux.bazelrc")
+                ;;
+            *)
+                >&2 echo "Bazel is supported on Linux and Darwin only. Your OS is not supported for Bazel usage, based on 'uname -s': $(uname -s)"
+                exit 1
+                ;;
+        esac
+    fi
 fi
 
 # TODO(b/240354506): Re-enable hsperfdata file creation without causing SIGBUS errors
