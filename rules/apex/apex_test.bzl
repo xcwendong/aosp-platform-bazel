@@ -19,7 +19,7 @@ load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
-load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test")
+load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test", "target_under_test_exist_test")
 load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load(":apex_info.bzl", "ApexInfo")
@@ -1916,7 +1916,7 @@ def _cc_compile_test_aspect_impl(target, ctx):
     transitive_march = []
     for attr, attr_deps in get_dep_targets(ctx.rule.attr, predicate = lambda target: _MarchInfo in target).items():
         for dep in attr_deps:
-            transitive_march += [dep[_MarchInfo].march]
+            transitive_march.append(dep[_MarchInfo].march)
     march_values = []
     if (target.label.name).startswith("apex_transition_lib"):
         for a in target.actions:
@@ -1983,6 +1983,100 @@ def _test_apex_transition():
 
     return [test_name + "_32", test_name + "_64"]
 
+def _test_no_static_linking_for_stubs_lib():
+    name = "no_static_linking_for_stubs_lib"
+    test_name = name + "_test"
+
+    cc_library_static(
+        name = name + "_static_unavailable_to_apex",
+        tags = [
+            "apex_available_checked_manual_for_testing",
+            "manual",
+        ],
+    )
+
+    cc_library_shared(
+        name = name + "_shared",
+        deps = [name + "_static_unavailable_to_apex"],
+        tags = [
+            "apex_available=" + name,
+            "apex_available_checked_manual_for_testing",
+            "manual",
+        ],
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_shared"],
+    )
+
+    expect_failure_test(
+        name = test_name,
+        target_under_test = name,
+        failure_message = "@//build/bazel/rules/apex:no_static_linking_for_stubs_lib_static_unavailable_to_apex is " +
+                          "a dependency of @//build/bazel/rules/apex:no_static_linking_for_stubs_lib apex, " +
+                          "but does not include the apex in its apex_available tags: []",
+    )
+
+    return test_name
+
+def _test_directly_included_stubs_lib_with_indirectly_static_variant():
+    name = "directly_included_stubs_lib_with_indirectly_static_variant"
+    test_name = name + "_test"
+
+    cc_binary(
+        name = name + "bar",
+        deps = [name + "_shared_bp2build_cc_library_static"],
+        tags = [
+            "apex_available=" + name,
+            "apex_available_checked_manual_for_testing",
+            "manual",
+        ],
+    )
+
+    cc_library_shared(
+        name = name + "foo",
+        deps = [name + "_shared_bp2build_cc_library_static"],
+        tags = [
+            "apex_available=" + name,
+            "apex_available_checked_manual_for_testing",
+            "manual",
+        ],
+    )
+
+    # This target is unavailable to apex but is allowed to be required by
+    # cc_binary bar and cc_library_shared foo because its shared variant
+    # is directly in the apex
+    cc_library_static(
+        name = name + "_shared_bp2build_cc_library_static",
+        tags = [
+            "apex_available_checked_manual_for_testing",
+            "manual",
+        ],
+    )
+
+    cc_library_shared(
+        name = name + "_shared",
+        tags = [
+            "apex_available=" + name,
+            "apex_available_checked_manual_for_testing",
+            "manual",
+        ],
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_shared", name + "foo"],
+        binaries = [name + "bar"],
+    )
+
+    target_under_test_exist_test(
+        name = test_name,
+        target_under_test = name,
+    )
+
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -2026,5 +2120,7 @@ def apex_test_suite(name):
             _test_apex_available_failure(),
             _test_apex_available_with_base_apex(),
             _test_apex_deps_validation(),
+            _test_no_static_linking_for_stubs_lib(),
+            _test_directly_included_stubs_lib_with_indirectly_static_variant(),
         ] + _test_apex_transition(),
     )

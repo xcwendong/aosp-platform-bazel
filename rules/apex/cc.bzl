@@ -127,7 +127,7 @@ def _apex_cc_aspect_impl(target, ctx):
             # Mark this target as "stub-providing" exports of this APEX,
             # which the system and other APEXes can depend on, and propagate
             # this list.
-            provides += [target.label]
+            provides.append(target.label)
         else:
             # If this is not a direct dep, and stubs are available, don't
             # propagate the libraries. Mark this target as required from the
@@ -137,7 +137,7 @@ def _apex_cc_aspect_impl(target, ctx):
 
             # If a stub library is in the "provides" of the apex, it doesn't need to be in the "requires"
             if not is_apex_direct_dep(source_library, ctx):
-                requires += [target[CcStubLibrarySharedInfo].source_library.label]
+                requires.append(target[CcStubLibrarySharedInfo].source_library.label)
             return [
                 ApexCcInfo(
                     transitive_shared_libs = depset(),
@@ -202,7 +202,14 @@ def _apex_cc_aspect_impl(target, ctx):
     ]
 
 # The list of attributes in a cc dep graph where this aspect will traverse on.
-CC_ATTR_ASPECTS = ["dynamic_deps", "deps", "shared", "src", "runtime_deps"]
+CC_ATTR_ASPECTS = [
+    "dynamic_deps",
+    "deps",
+    "shared",
+    "src",
+    "runtime_deps",
+    "static_deps",
+]
 
 # This aspect is intended to be applied on a apex.native_shared_libs attribute
 apex_cc_aspect = aspect(

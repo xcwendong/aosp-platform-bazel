@@ -16,11 +16,10 @@ limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
-load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "CC_ATTR_ASPECTS")
+load("//build/bazel/rules/apex:cc.bzl", "CC_ATTR_ASPECTS")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
-load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
-load(":apex_key.bzl", "ApexKeyInfo")
+load("//build/bazel/rules/cc:cc_library_static.bzl", "CcStaticLibraryInfo")
 
 ApexAvailableInfo = provider(
     "ApexAvailableInfo collects APEX availability metadata.",
@@ -43,6 +42,9 @@ _unchecked_apexes = [
     "com.android.media.swcodec",
 ]
 
+# Validates if a target is made available as a transitive dependency of an APEX. The return
+# value is tri-state: True, False, string. Strings are used when a target is _not checked_
+# and the string itself contains the reason.
 def _validate_apex_available(target, ctx, *, apex_available_tags, apex_name, base_apex_name):
     # testonly apexes aren't checked.
     if ctx.attr.testonly:
@@ -66,6 +68,15 @@ def _validate_apex_available(target, ctx, *, apex_available_tags, apex_name, bas
     if apex_name in _unchecked_apexes:
         # Skipped unchecked APEXes.
         return "unchecked_apex"
+
+    # https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/apex.go;l=2910;drc=862c0d68fff500d7fe59bc2fcfc9c7d75596e5b5
+    # Bp2build-generated cc_library_static target from stubs-providing lib
+    # doesn't have apex_available tag.
+    # If its shared variant is directly in the apex, skip validation
+    # Otherwise, it will be invalidated.
+    direct_deps = ctx.attr._direct_deps[BuildSettingInfo].value
+    if CcStaticLibraryInfo in target and str(target.label).removesuffix("_bp2build_cc_library_static") in direct_deps:
+        return "has shared variant directly included"
 
     elif base_apex_name not in apex_available_tags and apex_name not in apex_available_tags:
         return False
@@ -139,6 +150,7 @@ apex_available_aspect = aspect(
     attrs = {
         "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
         "_base_apex_name": attr.label(default = "//build/bazel/rules/apex:base_apex_name"),
+        "_direct_deps": attr.label(default = "//build/bazel/rules/apex:apex_direct_deps"),
         "testonly": attr.bool(default = False),  # propagated from the apex
     },
 )

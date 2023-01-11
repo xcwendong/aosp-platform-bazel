@@ -3,13 +3,15 @@ set -e
 set -x
 
 TEST_PATH="${TEST_SRCDIR}"
-RUN_PATH="${TEST_SRCDIR}/${TEST_WORKSPACE}/build/bazel/rules/tradefed/"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PATH_ADDITIONS="{PATH_ADDITIONS}"
 
 # Add tradefed dependencies to PATH
 for dep in ${PATH_ADDITIONS//:/ }; do
     export PATH="${TEST_SRCDIR}/${TEST_WORKSPACE}/$dep:${PATH}"
 done
+
+export PATH="$SCRIPT_DIR:${PATH}"
 
 # Prepend the REMOTE_JAVA_HOME environment variable to the path to ensure
 # that all Java invocations throughout the test execution flow use the same
@@ -22,7 +24,7 @@ exit_code_file="$(mktemp /tmp/tf-exec-XXXXXXXXXX)"
 
 atest_tradefed.sh template/atest_local_min \
     --template:map test=atest \
-    --template:map reporters="${RUN_PATH}/result-reporters.xml" \
+    --template:map reporters="${SCRIPT_DIR}/result-reporters.xml" \
     --tests-dir "$TEST_PATH" \
     --logcat-on-failure \
     --no-enable-granular-attempts \

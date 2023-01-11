@@ -16,7 +16,7 @@ limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/cc:cc_object.bzl", "cc_object")
-load(":tradefed.bzl", "tradefed_device_test", "tradefed_deviceless_test")
+load(":tradefed.bzl", "tradefed_device_test", "tradefed_host_driven_device_test")
 load(
     "//build/bazel/rules/test_common:paths.bzl",
     "get_output_and_package_dir_based_path",
@@ -71,7 +71,7 @@ def tradefed_cc_outputs():
         expected_outputs = [
             "tradefed_test_" + name + ".sh",
             "result-reporters.xml",
-            "example_config.xml.test.config",
+            "example_config.config",
         ],
         target_compatible_with = ["//build/bazel/platforms/os:linux"],
     )
@@ -85,7 +85,7 @@ def tradefed_cc_host_outputs():
         name = target,
         tags = ["manual"],
     )
-    tradefed_deviceless_test(
+    tradefed_host_driven_device_test(
         name = name,
         tags = ["manual"],
         test = target,
@@ -100,7 +100,7 @@ def tradefed_cc_host_outputs():
         expected_outputs = [
             "tradefed_test_" + name + ".sh",
             "result-reporters.xml",
-            "example_config.xml.test.config",
+            "example_config.config",
         ],
         target_compatible_with = ["//build/bazel/platforms/os:linux"],
     )
@@ -114,7 +114,7 @@ def tradefed_cc_host_outputs_generate_test_config():
         name = target,
         tags = ["manual"],
     )
-    tradefed_deviceless_test(
+    tradefed_host_driven_device_test(
         name = name,
         tags = ["manual"],
         test = target,
@@ -133,7 +133,7 @@ def tradefed_cc_host_outputs_generate_test_config():
         expected_outputs = [
             "tradefed_test_" + name + ".sh",
             "result-reporters.xml",
-            "cc_host_generate_config.test.config",
+            "cc_host_generate_config.config",
         ],
         target_compatible_with = ["//build/bazel/platforms/os:linux"],
     )

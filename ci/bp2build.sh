@@ -79,10 +79,6 @@ done
 build/bazel/bin/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only=false -k \
   -- ${BUILD_TARGETS} ${TEST_TARGETS} "${HOST_INCOMPATIBLE_TARGETS[@]}"
 
-# Run some tests under the linux_bionic_x86_64 configuration as well
-build/bazel/bin/bazel --max_idle_secs=5 test ${FLAGS} --config=linux_bionic_x86_64 --build_tests_only=false -k \
-  -- //prebuilts/clang/host/linux-x86:cc_toolchain_features_ubsan_tests
-
 ###################
 # bp2build-progress
 ###################

@@ -46,13 +46,23 @@ def _create_apex_configuration(attr, additional = {}):
 def _impl(settings, attr):
     # Perform a transition to apply APEX specific build settings on the
     # destination target (i.e. an APEX dependency).
-    return _create_apex_configuration(attr)
+
+    # At this point, the configurable attributes native_shared_libs_32 and
+    # native_shared_libs_64 are already resolved according to the lunch target
+    direct_deps = [str(dep) for dep in attr.native_shared_libs_32]
+    direct_deps += [str(dep) for dep in attr.native_shared_libs_64]
+    direct_deps += [str(dep) for dep in attr.binaries]
+
+    return _create_apex_configuration(attr, {
+        "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
+    })
 
 APEX_TRANSITION_BUILD_SETTINGS = [
     "//build/bazel/rules/apex:apex_name",
     "//build/bazel/rules/apex:base_apex_name",
     "//build/bazel/rules/apex:in_apex",
     "//build/bazel/rules/apex:min_sdk_version",
+    "//build/bazel/rules/apex:apex_direct_deps",
 ]
 
 apex_transition = transition(
@@ -60,11 +70,6 @@ apex_transition = transition(
     inputs = [],
     outputs = APEX_TRANSITION_BUILD_SETTINGS,
 )
-
-SHARED_LIB_TRANSITION_BUILD_SETTINGS = APEX_TRANSITION_BUILD_SETTINGS + [
-    "//build/bazel/rules/apex:apex_direct_deps",
-    "//command_line_option:platforms",
-]
 
 # The following table describes how target platform of shared_lib_transition_32 and shared_lib_transition_64
 # look like when building APEXes for different primary/secondary architecture.
@@ -115,7 +120,6 @@ shared_lib_transition_32 = transition(
     implementation = _impl_shared_lib_transition_32,
     inputs = ["//command_line_option:platforms"],
     outputs = APEX_TRANSITION_BUILD_SETTINGS + [
-        "//build/bazel/rules/apex:apex_direct_deps",
         "//command_line_option:platforms",
     ],
 )
@@ -137,7 +141,5 @@ def _impl_shared_lib_transition_64(settings, attr):
 shared_lib_transition_64 = transition(
     implementation = _impl_shared_lib_transition_64,
     inputs = [],
-    outputs = APEX_TRANSITION_BUILD_SETTINGS + [
-        "//build/bazel/rules/apex:apex_direct_deps",
-    ],
+    outputs = APEX_TRANSITION_BUILD_SETTINGS,
 )

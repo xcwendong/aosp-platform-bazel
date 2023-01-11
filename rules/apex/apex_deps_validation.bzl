@@ -45,6 +45,7 @@ _IGNORED_REPOSITORIES = [
     "bazel_tools",
 ]
 _IGNORED_RULE_KINDS = [
+    "string_list_setting",
     "string_setting",
     # These rule kinds cannot be skipped by checking providers because most
     # targets have a License provider
@@ -136,6 +137,7 @@ apex_deps_validation_aspect = aspect(
     attrs = {
         "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
         "_base_apex_name": attr.label(default = "//build/bazel/rules/apex:base_apex_name"),
+        "_direct_deps": attr.label(default = "//build/bazel/rules/apex:apex_direct_deps"),
     },
     required_aspect_providers = [ApexAvailableInfo],
     provides = [ApexDepsInfo],

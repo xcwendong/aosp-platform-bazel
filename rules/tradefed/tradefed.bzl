@@ -70,7 +70,8 @@ def _get_or_generate_test_config(ctx):
 
     # Check for existing tradefed configs and if found add a symlink.
     if c:
-        out = ctx.actions.declare_file(c.basename + ".test.config")
+        config_name = c.basename.removesuffix(c.extension) + "config"
+        out = ctx.actions.declare_file(config_name)
         ctx.actions.symlink(
             output = out,
             target_file = c,
@@ -78,7 +79,7 @@ def _get_or_generate_test_config(ctx):
         return out
 
     # No existing config specified - generate from template.
-    out = ctx.actions.declare_file(ctx.attr.name + ".test.config")
+    out = ctx.actions.declare_file(ctx.attr.name + ".config")
 
     # Join extra configs together and add xml spacing indent.
     extra_configs = "\n    ".join(ctx.attr.template_configs)
@@ -168,7 +169,7 @@ def tradefed_device_test(**kwargs):
         **kwargs
     )
 
-def tradefed_deviceless_test(**kwargs):
+def tradefed_host_driven_device_test(**kwargs):
     _tradefed_test(
         host = True,
         **kwargs
