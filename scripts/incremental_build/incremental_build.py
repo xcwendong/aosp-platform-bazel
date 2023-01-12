@@ -17,7 +17,6 @@
 """
 A tool for running builds (soong or b) and measuring the time taken.
 """
-
 import datetime
 import functools
 import hashlib
@@ -31,10 +30,10 @@ from pathlib import Path
 from typing import Final
 from typing import Mapping
 
-import util
 import cuj_catalog
 import perf_metrics
 import ui
+import util
 
 MAX_RUN_COUNT: Final[int] = 5
 
@@ -74,10 +73,18 @@ def _prepare_env() -> (Mapping[str, str], str):
   return env, '\n'.join(pretty_env_str)
 
 
-def _build(user_input: ui.UserInput) -> (int, dict[str, any]):
-  if not hasattr(_build, 'logfile'):
-    _build.logfile = util.next_file(user_input.log_dir.joinpath('output.log'))
-  logfile = next(_build.logfile)
+def _build_file_sha() -> str:
+  build_file = util.get_out_dir().joinpath('soong/build.ninja')
+  if not build_file.exists():
+    return '--'
+  with open(build_file, mode="rb") as f:
+    h = hashlib.sha256()
+    for block in iter(lambda: f.read(4096), b''):
+      h.update(block)
+    return h.hexdigest()[0:8]
+
+
+def _build(user_input: ui.UserInput, logfile: Path) -> (int, dict[str, any]):
   logging.info('TIP: to see the log:\n  tail -f "%s"', logfile)
   cmd = [*user_input.build_type.value, *user_input.targets]
   logging.info('Command: %s', cmd)
@@ -90,20 +97,14 @@ def _build(user_input: ui.UserInput) -> (int, dict[str, any]):
     p = subprocess.run(cmd, check=False, cwd=util.get_top_dir(), env=env,
                        shell=False, stdout=f, stderr=f)
     elapsed_ns = time.perf_counter_ns() - start_ns
-  build_file_sha256: str
-  with open(util.get_out_dir().joinpath('soong/build.ninja'), mode="rb") as f:
-    h = hashlib.sha256()
-    for block in iter(lambda: f.read(4096), b''):
-      h.update(block)
-    build_file_sha256 = h.hexdigest()
-  build_type = user_input.build_type.name.lower()
+
   return (p.returncode, {
-      'build_type': build_type,
-      'build.ninja': build_file_sha256,
+      'build_type': user_input.build_type.name.lower(),
+      'build.ninja': _build_file_sha(),
       'targets': ' '.join(user_input.targets),
-      'log': logfile.relative_to(user_input.log_dir),
+      'log': str(logfile.relative_to(user_input.log_dir)),
       'ninja_explains': util.count_explanations(logfile),
-      'time': datetime.timedelta(microseconds=elapsed_ns / 1000)
+      'time': str(datetime.timedelta(microseconds=elapsed_ns / 1000))
   })
 
 
@@ -131,8 +132,8 @@ def main():
        `m clean && rm -rf out`
   '''))
 
+  run_dir_gen = util.next_path(user_input.log_dir.joinpath(util.RUN_DIR_PREFIX))
   clean = not util.get_out_dir().joinpath('soong/bootstrap.ninja').exists()
-  summary_csv_path: Final[Path] = user_input.log_dir.joinpath(util.SUMMARY_CSV)
   for counter, cuj_index in enumerate(user_input.chosen_cujgroups):
     cujgroup = cuj_catalog.get_cujgroups()[cuj_index]
     logging.info('START %s [%d out of %d]', cujgroup.description, counter + 1,
@@ -144,9 +145,9 @@ def main():
       run = 0
       while True:
         # build
-        (exit_code, build_info) = _build(user_input)
-        # collect perf metrics
-        perf = perf_metrics.read(user_input.log_dir)
+        d = next(run_dir_gen)
+        d.mkdir(parents=True, exist_ok=False)
+        (exit_code, build_info) = _build(user_input, d.joinpath('output.txt'))
         # if build was successful, run test
         if exit_code != 0:
           build_result = cuj_catalog.BuildResult.FAILED.name
@@ -169,7 +170,8 @@ def main():
         if clean:
           build_info['build_type'] = 'CLEAN ' + build_info['build_type']
           clean = False  # we don't clean subsequently
-        perf_metrics.write_csv_row(summary_csv_path, build_info | perf)
+
+        perf_metrics.archive_run(d, build_info)
         if util.is_ninja_dry_run() or run > MAX_RUN_COUNT or build_info[
           'ninja_explains'] == 0:
           # dry run or build has stabilized
@@ -177,15 +179,8 @@ def main():
         run += 1
       logging.info(' DONE %s', desc)
 
-  summary_cmd = util.get_summary_cmd(user_input.log_dir)
-  output = subprocess.check_output(summary_cmd, shell=True, text=True)
-  logging.info(textwrap.dedent(f'''
-  %s
-  TIPS:
-  1 To view key metrics in summary.csv:
-    %s
-  2 To view column headers:
-    %s'''), output, summary_cmd, util.get_csv_columns_cmd(user_input.log_dir))
+  perf_metrics.write_summary_csv(user_input.log_dir)
+  perf_metrics.show_summary(user_input.log_dir)
 
 
 if __name__ == '__main__':

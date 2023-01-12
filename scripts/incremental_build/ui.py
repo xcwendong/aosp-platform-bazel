@@ -109,7 +109,7 @@ def handle_user_input() -> UserInput:
                   2 To view key metrics in summary.csv:
                     {util.get_summary_cmd(default_log_dir)}
                   3 To view column headers:
-                    {util.get_csv_columns_cmd(default_log_dir)}'''))
+                    {util.get_csv_columns_cmd(default_log_dir)}''').strip())
   p.add_argument('--bazel-mode-staging', default=False, action='store_true')
   p.add_argument('--bazel-mode-dev', default=False, action='store_true')
   p.add_argument('--bazel-mode', default=False, action='store_true')

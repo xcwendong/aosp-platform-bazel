@@ -13,16 +13,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
 
-from perf_metrics import _union
+from perf_metrics import _get_column_headers
 
 
-def test_union():
-  assert _union([], []) == []
-  assert _union([1, 1], []) == [1]
-  assert _union([], [1, 1]) == [1]
-  assert _union([1], [1]) == [1]
-  assert _union([1, 2], []) == [1, 2]
-  assert _union([1, 2], [2, 1]) == [1, 2]
-  assert _union([1, 2], [3, 4]) == [1, 2, 3, 4]
-  assert _union([1, 5, 9], [3, 5, 7]) == [1, 5, 9, 3, 7]
+@pytest.mark.parametrize('rows, headers', [
+    (['a'], 'a'),
+    (['ac', 'bd'], 'abcd'),
+    (['abe', 'cde'], 'abcde'),
+    (['ab', 'ba'], 'ab'),
+    (['ac', 'abc'], 'abc'),
+], ids=lambda val: f'[{", ".join(val)}]' if isinstance(val, list) else val)
+def test_get_column_headers(rows: list[str], headers: list[str]):
+  rows = [{c: None for c in row} for row in rows]
+  headers = [c for c in headers]
+  assert _get_column_headers(rows, allow_cycles=True) == headers
+
+
+@pytest.mark.parametrize('rows', [
+    ['ab', 'ba'],
+    ['abcd', 'db'],
+], ids=lambda val: f'[{", ".join(val)}]' if isinstance(val, list) else val)
+def test_cycles(rows: list[str]):
+  rows = [{c: None for c in row} for row in rows]
+  with pytest.raises(ValueError) as e:
+    _get_column_headers(rows, allow_cycles=False)
+  assert 'event ordering has cycles' in str(e.value)

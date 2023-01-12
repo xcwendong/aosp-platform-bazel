@@ -26,10 +26,11 @@ from typing import Generator
 DEFAULT_TIMING_LOGS_DIR: Final[str] = 'timing_logs'
 INDICATOR_FILE: Final[str] = 'build/soong/soong_ui.bash'
 SUMMARY_CSV: Final[str] = 'summary.csv'
+RUN_DIR_PREFIX: Final[str] = 'run'
+BUILD_INFO_JSON: Final[str] = 'build_info.json'
 
-IMPORTANT_METRICS: list[str] = ['soong/bootstrap', 'soong_build/*.bazel',
-                                'ninja/ninja', 'bp2build/',
-                                'symlink_forest/']
+IMPORTANT_METRICS: set[str] = {'soong/bootstrap', 'soong_build/*.bazel',
+                               'ninja/ninja', 'bp2build/', 'symlink_forest/'}
 
 
 def get_csv_columns_cmd(d: Path) -> str:
@@ -53,13 +54,8 @@ def get_summary_cmd(d: Path) -> str:
       reader = csv.DictReader(r)
       headers = reader.fieldnames or []
 
-  columns: list[int] = []
-  for h in IMPORTANT_METRICS:
-    try:
-      i = headers.index(h)
-      columns.append(i)
-    except ValueError:
-      continue
+  columns: list[int] = [i for i, h in enumerate(headers) if
+                        h in IMPORTANT_METRICS]
   columns.sort()
   f = ','.join(str(i + 1) for i in columns)
   return f'cut -d, -f1-8,{f} "{summary_csv.absolute()}" | column -t -s,'
@@ -90,25 +86,25 @@ def is_interactive_shell() -> bool:
          and sys.__stderr__.isatty()
 
 
-# see _next_file_helper_test() for examples
-def _next_file_helper(filename: str) -> str:
+# see test_next_path_helper() for examples
+def _next_path_helper(basename: str) -> str:
   name = re.sub(r'(?<=-)\d+(?=(\..*)?$)', lambda d: str(int(d.group(0)) + 1),
-                filename)
-  if name == filename:
+                basename)
+  if name == basename:
     name = re.sub(r'(\..*)$', r'-1\1', name, 1)
-  if name == filename:
+  if name == basename:
     name = f'{name}-1'
   return name
 
 
-def next_file(path: Path) -> Generator[Path, None, None]:
+def next_path(path: Path) -> Generator[Path, None, None]:
   """
   :returns a new Path with an increasing number suffix to the name
   e.g. _to_file('a.txt') = a-5.txt (if a-4.txt already exists)
   """
   path.parent.mkdir(parents=True, exist_ok=True)
   while True:
-    name = _next_file_helper(path.name)
+    name = _next_path_helper(path.name)
     path = path.parent.joinpath(name)
     if not path.exists():
       yield path

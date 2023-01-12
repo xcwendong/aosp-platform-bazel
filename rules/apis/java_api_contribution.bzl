@@ -32,6 +32,11 @@ _MODULE_LIB_API = "module-libapi"
 _SYSTEM_SERVER_API = "systemserver-api"
 _INTRA_CORE_API = "intracoreapi"
 
+# _TOOLCHAIN_API is a special API surface provided by ART to compile other API domains
+# (e.g. core-lambda-stubs required to compile java files containing lambdas)
+# This is not part of go/android-api-types, and is not available to apps at runtime
+_TOOLCHAIN_API = "toolchainapi"
+
 # Java API surfaces are hierarchical.
 # This hierarchy map was created by looking at the stub definitions in frameworks/base/StubLibraries.bp
 # Key is the full api surface
@@ -50,6 +55,7 @@ _JAVA_FULLAPISURFACE_TO_PARTIALSIGNATUREFILE = {
     # TODO: Handle CorePlatformApi
     # coreapi does not have an entry here, it really is the public stubs of the 3 core modules
     # (art, conscrypt, i18n)
+    _TOOLCHAIN_API: [_TOOLCHAIN_API],
 }
 
 VALID_JAVA_API_SURFACES = _JAVA_FULLAPISURFACE_TO_PARTIALSIGNATUREFILE.keys()

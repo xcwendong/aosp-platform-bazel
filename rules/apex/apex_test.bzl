@@ -490,13 +490,13 @@ def _apex_native_libs_requires_provides_test(ctx):
     target_under_test = analysistest.target_under_test(env)
     asserts.equals(
         env,
-        sorted([t.label for t in ctx.attr.requires_native_libs]),  # expected
-        sorted(target_under_test[ApexInfo].requires_native_libs),  # actual
+        [t.label for t in ctx.attr.requires_native_libs],  # expected
+        target_under_test[ApexInfo].requires_native_libs,  # actual
     )
     asserts.equals(
         env,
-        sorted([t.label for t in ctx.attr.provides_native_libs]),
-        sorted(target_under_test[ApexInfo].provides_native_libs),
+        [t.label for t in ctx.attr.provides_native_libs],
+        target_under_test[ApexInfo].provides_native_libs,
     )
 
     # Compare the argv of the jsonmodify action that updates the apex

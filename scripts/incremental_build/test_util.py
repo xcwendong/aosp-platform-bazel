@@ -13,17 +13,23 @@
 # limitations under the License.
 import os
 
-from util import _next_file_helper
+import pytest
+
+from util import _next_path_helper
 from util import any_match
 from util import get_top_dir
 
 
-def test_next_file_helper():
-  assert _next_file_helper('output') == 'output-1'
-  assert _next_file_helper('output.txt') == 'output-1.txt'
-  assert _next_file_helper('output-1.txt') == 'output-2.txt'
-  assert _next_file_helper('output-9.txt') == 'output-10.txt'
-  assert _next_file_helper('output-10.txt') == 'output-11.txt'
+@pytest.mark.parametrize('pattern, expected', [
+    ('output', 'output-1'),
+    ('output.x', 'output-1.x'),
+    ('output.x.y', 'output-1.x.y'),
+    ('output-1', 'output-2'),
+    ('output-9', 'output-10'),
+    ('output-10', 'output-11'),
+])
+def test_next_path_helper(pattern: str, expected: str):
+  assert _next_path_helper(pattern) == expected
 
 
 def test_any_match():

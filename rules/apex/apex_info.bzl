@@ -21,6 +21,7 @@ ApexInfo = provider(
         "requires_native_libs": "Labels of native shared libs that this apex requires.",
         "unsigned_output": "Unsigned .apex file.",
         "signed_output": "Signed .apex file.",
+        "signed_compressed_output": "Signed .capex file.",
         "bundle_key_info": "APEX bundle signing public/private key pair (the value of the key: attribute).",
         "container_key_info": "Info of the container key provided as AndroidAppCertificateInfo.",
         "package_name": "APEX package name.",

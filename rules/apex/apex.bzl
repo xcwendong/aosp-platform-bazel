@@ -118,7 +118,12 @@ def _create_file_mapping(ctx):
             else:
                 _add_lib_files("lib", [dep])
 
-    return file_mapping, requires.keys(), provides.keys(), backing_libs
+    return (
+        file_mapping,
+        sorted(requires.keys(), key = lambda x: x.name),  # sort on just the name of the target, not package
+        sorted(provides.keys(), key = lambda x: x.name),
+        backing_libs,
+    )
 
 def _add_so(label):
     return label.name + ".so"
@@ -603,7 +608,9 @@ def _apex_rule_impl(ctx):
     apex_cert_info = ctx.attr.certificate[AndroidAppCertificateInfo]
     private_key = apex_cert_info.pk8
     public_key = apex_cert_info.pem
+
     signed_apex = ctx.outputs.apex_output
+    signed_capex = None
 
     _run_signapk(ctx, unsigned_apex, signed_apex, private_key, public_key, "BazelApexSigning")
 
@@ -628,6 +635,7 @@ def _apex_rule_impl(ctx):
         DefaultInfo(files = depset([signed_apex])),
         ApexInfo(
             signed_output = signed_apex,
+            signed_compressed_output = signed_capex,
             unsigned_output = unsigned_apex,
             requires_native_libs = apexer_outputs.requires_native_libs,
             provides_native_libs = apexer_outputs.provides_native_libs,
