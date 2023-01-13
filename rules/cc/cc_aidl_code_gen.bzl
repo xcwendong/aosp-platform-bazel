@@ -35,7 +35,7 @@ def _cc_aidl_code_gen_impl(ctx):
     generated_srcs, generated_hdrs, include_dirs = [], [], []
 
     for aidl_info in [d[AidlGenInfo] for d in ctx.attr.deps]:
-        stub = _compile_aidl_srcs(ctx, aidl_info, ctx.attr.lang, ctx.attr.aidl_flags)
+        stub = _compile_aidl_srcs(ctx, aidl_info, ctx.attr.lang)
         generated_srcs.extend(stub[_SOURCES])
         generated_hdrs.extend(stub[_HEADERS])
         include_dirs.extend([stub[_INCLUDE_DIR]])
@@ -104,7 +104,7 @@ def _declare_stub_files(ctx, aidl_file, direct_include_dir, lang):
 
     return ret
 
-def _compile_aidl_srcs(ctx, aidl_info, lang, aidl_flags):
+def _compile_aidl_srcs(ctx, aidl_info, lang):
     """
     Compile AIDL stub code for direct AIDL srcs
 
@@ -161,7 +161,9 @@ def _compile_aidl_srcs(ctx, aidl_info, lang, aidl_flags):
     args.add_all(aidl_info.flags)
 
     # Add flags specific for cpp and ndk lang
-    args.add_all(aidl_flags)
+    if ctx.attr.min_sdk_version != "":
+        args.add("--min_sdk_version={}".format(ctx.attr.min_sdk_version))
+
     args.add_all([
         "--ninja",
         "--lang={}".format(lang),
@@ -193,7 +195,7 @@ cc_aidl_code_gen = rule(
             mandatory = True,
             values = ["cpp", "ndk"],
         ),
-        "aidl_flags": attr.string_list(),
+        "min_sdk_version": attr.string(),
         "_aidl": attr.label(
             allow_single_file = True,
             executable = True,

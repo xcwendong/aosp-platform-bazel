@@ -45,6 +45,10 @@ _IGNORED_REPOSITORIES = [
     "bazel_tools",
 ]
 _IGNORED_RULE_KINDS = [
+    # No validation for language-agnostic aidl_library targets.
+    # aidl_library targets are included via cc_aidl_code_gen rule and
+    # apex_deps_validation aspect already validates against cc_aidl_code_gen targets
+    "aidl_library",
     "string_list_setting",
     "string_setting",
     # These rule kinds cannot be skipped by checking providers because most
@@ -147,6 +151,7 @@ _BP2BUILD_LABEL_SUFFIXES = [
     # cc rules
     "_bp2build_cc_library_static",
     "_cc_proto_lite",
+    "_aidl_code_gen",
 ]
 
 def _strip_bp2build_label_suffix(name):

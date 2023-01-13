@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//build/bazel/rules/aidl:interface.bzl", "aidl_interface")
 load("//build/bazel/rules:sh_binary.bzl", "sh_binary")
 load("//build/bazel/rules/android:android_app_certificate.bzl", "android_app_certificate")
 load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
@@ -1812,6 +1813,22 @@ def _test_apex_deps_validation():
     name = "apex_deps_validation"
     test_name = name + "_test"
 
+    aidl_interface_name = name + "_aidl_interface"
+    aidl_interface(
+        name = aidl_interface_name,
+        ndk_config = {
+            "enabled": True,
+            "min_sdk_version": "28",
+        },
+        srcs = ["Foo.aidl"],
+        tags = [
+            "manual",
+            "apex_available_checked_manual_for_testing",
+            "apex_available=" + name,
+            "apex_available=//apex_available:platform",
+        ],
+    )
+
     specific_apex_available_name = name + "_specific_apex_available"
     cc_library_shared(
         name = specific_apex_available_name,
@@ -1829,6 +1846,7 @@ def _test_apex_deps_validation():
     cc_library_shared(
         name = any_apex_available_name,
         srcs = [name + "_lib.cc"],
+        implementation_dynamic_deps = [aidl_interface_name + "-V1-ndk"],
         tags = [
             "manual",
             "apex_available_checked_manual_for_testing",
@@ -1895,6 +1913,8 @@ def _test_apex_deps_validation():
             specific_apex_available_name + "(minSdkVersion:30)",
             any_apex_available_name + "(minSdkVersion:30)",
             platform_available_but_dep_with_no_platform_available_name + "(minSdkVersion:30)",
+            aidl_interface_name + "-V1-ndk(minSdkVersion:28)",
+            "jni_headers(minSdkVersion:29)",
         ],
         tags = ["manual"],
     )

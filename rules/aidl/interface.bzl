@@ -238,15 +238,10 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
     )
 
     for lang, config in backend_configs.items():
-        aidl_flags_for_backend = []
+        # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_gen_rule.go;l=207;drc=a858ae7039b876a30002a1130f24196915a859a4
+        min_sdk_version = "current"
         if "min_sdk_version" in config:
-            aidl_flags_for_backend.append(
-                "--min_sdk_version={}".format(config["min_sdk_version"]),
-            )
-        else:
-            aidl_flags_for_backend.append(
-                "--min_sdk_version=current",
-            )
+            min_sdk_version = config["min_sdk_version"]
 
         if lang == JAVA:
             java_aidl_library(
@@ -281,7 +276,7 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
                 aidl_library = ":" + aidl_library_name,
                 dynamic_deps = dynamic_deps,
                 lang = lang,
-                aidl_flags = aidl_flags_for_backend,
+                min_sdk_version = min_sdk_version,
                 **kwargs
             )
 
@@ -298,7 +293,7 @@ def _cc_aidl_libraries(
         implementation_deps = [],
         dynamic_deps = [],
         lang = None,
-        aidl_flags = [],
+        min_sdk_version = "",
         **kwargs):
     """
     Generate AIDL stub code for cpp or ndk backend and wrap it in cc libraries (both shared and static variant)
@@ -323,7 +318,7 @@ def _cc_aidl_libraries(
         name = aidl_code_gen,
         deps = [aidl_library],
         lang = lang,
-        aidl_flags = aidl_flags,
+        min_sdk_version = min_sdk_version,
         **kwargs
     )
 
@@ -333,6 +328,7 @@ def _cc_aidl_libraries(
         implementation_deps = implementation_deps,
         deps = [aidl_code_gen],
         dynamic_deps = dynamic_deps,
+        min_sdk_version = min_sdk_version,
         **kwargs
     )
     cc_library_static(
@@ -341,5 +337,6 @@ def _cc_aidl_libraries(
         implementation_deps = implementation_deps,
         deps = [aidl_code_gen],
         dynamic_deps = dynamic_deps,
+        min_sdk_version = min_sdk_version,
         **kwargs
     )
