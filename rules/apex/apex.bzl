@@ -222,7 +222,7 @@ def _generate_canned_fs_config(ctx, filepaths):
     config_lines += ["/" + d + " 0 2000 0755" for d in sorted(apex_subdirs_set.keys())]
 
     file = ctx.actions.declare_file(ctx.attr.name + "_canned_fs_config.txt")
-    ctx.actions.write(file, "\n".join(config_lines) + "\n")
+    ctx.actions.write(file, "\n".join(sorted(config_lines)) + "\n")
 
     return file
 

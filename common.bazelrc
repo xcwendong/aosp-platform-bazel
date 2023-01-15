@@ -101,3 +101,8 @@ build --noincompatible_use_python_toolchains
 # Enable optimization compilation mode to build cc with fdo
 # https://github.com/bazelbuild/bazel/blob/de7b26acfdfcd9c36ec957305a889ac29f0da30e/src/main/java/com/google/devtools/build/lib/rules/cpp/FdoHelper.java#L55
 build --compilation_mode=opt
+
+build --incompatible_remove_rule_name_parameter=false
+
+# TODO(b/264304464): Remove when bugs with java_binary starlark impl are fixed.
+build --experimental_builtins_injection_override=-java_binary
