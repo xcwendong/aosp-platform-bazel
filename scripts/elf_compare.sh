@@ -1,4 +1,4 @@
-#! /bin/bash -u
+#! /bin/bash -eu
 
 # Compare object files the linker used to build given binary for
 # two different configurations.
@@ -14,7 +14,18 @@
 #   $ compare_elf.sh adbd out.ref out.mix
 # Note that we refer to the first of the two build directories as
 # 'reference' and to the second one as 'our'.
-
+#
+# There are two ways to specify the binaries to compare:
+# * compare_elf.sh REFDIR REFELF OURDIR OURELF
+#     Compare REFDIR/**/REFELF (i.e., the file in REFDIR whose path ends
+#     with REFELF in REFDIR) to OURDIR/**/OUROELF
+# * compare_elf.sh ELF REFDIR OURDIR
+#     This is a shortcut:
+#     if ELF ends with .so, the same as
+#          compare_elf.sh REFDIR ELF OURDIR ELF
+#     otherwise the same as
+#          compare_elf.sh REFDIR ELF OURDIR ELF.unstripped
+#
 # Overall, the process is as follows:
 #  * For each build, extract the list of the input objects and
 #    map each such object's unique configuration-independent key
@@ -22,8 +33,12 @@
 #    the ELF files
 function die() { format=$1; shift; printf "$format\n" $@; exit 1; }
 
-(($# == 3)) || die "usage: ${0##*/} ELF REFDIR OURDIR"
-declare -r elf=$1 refdir=$2 ourdir=$3
+case $# in
+  3) declare -r refelf=$1 refdir=$2 ourdir=$3
+    [[ ${ourelf:=$refelf} =~ .so$ ]] || ourelf=$ourelf.unstripped ;;
+  4) declare -r refdir=$1 refelf=$2 ourdir=$3 ourelf=$4 ;;
+  *) die "usage:\n ${0##*/} ELF REFDIR OURDIR\nor\n ${0##*/} REFDIR REFELF OURDIR OURELF" ;;
+esac
 [[ -d $refdir ]] || die "$refdir is not a build directory"
 [[ -d $ourdir ]] || die "$outdir is not a build directory"
 
@@ -57,13 +72,11 @@ declare -r comparator=$(mktemp /tmp/elfdiff.XXXXXX)
 trap 'rm -f $ourfiles $reffiles $comparator' EXIT
 
 # Initialize `ref_objects` to be objects map for ref build
-"$elf_input_files" $elf $refdir >$reffiles || exit 1
+"$elf_input_files" $refelf $refdir >$reffiles || exit 1
 . <(objects_map ref_objects $refdir <$reffiles )
 
 # Initialize `our_objects` to be objects map for our build
-mix_path=$elf
-[[ $mix_path =~ .so$ ]] || mix_path=$elf.unstripped
-"$elf_input_files" $mix_path $ourdir >$ourfiles || exit 1
+"$elf_input_files" $ourelf $ourdir >$ourfiles || exit 1
 declare -r bazel_prefix=out/bazel/output/execroot/__main__/
 . <(objects_map our_objects $ourdir $bazel_prefix <$ourfiles )
 
