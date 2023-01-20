@@ -17,74 +17,15 @@ limitations under the License.
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
-_action_flags_test_attrs = {
-    "mnemonics_with_flags": attr.string_list(
-        doc = """
-        Actions with these mnemonics will be expected to have the specified
-        flags. It is an error for this to share elements with
-        mnemonics_without_flags.
-        """,
-    ),
-    "mnemonics_without_flags": attr.string_list(
-        doc = """
-        Actions with these mnemonics will be expected NOT to have
-        the specified flags. It is an error for this to share elements with
-        mnemonics_with_flags.
-        """,
-    ),
-    "exclusive": attr.bool(
-        doc = """
-        * If true when menmonics_with_flags is specified, exclusive checks
-          that NO actions with other mnemonics have expected_flags
-        * If true when mnemonics_without_flags is specified, exclusive checks
-          that ALL actions with other mnemonics have expected_flags
-        * If false, only the specified mnemonics will be checked, whether
-          part of mnemonics_with_flags or mnemonics_without_flags
-        * It is an error for exclusive to be specified with BOTH
-          mnemonics_with_flags and mnemonics_without_flags
-        """,
-        default = True,
-    ),
-    "expected_flags": attr.string_list(doc = "The flags to be checked for"),
-}
-
-def _action_flags_test_impl(ctx):
+# Checks for the presence of a set of given flags in a set of given actions
+# exclusively. In other words, it confirms that *only* the specified actions
+# contain the specified flags.
+def _action_flags_present_only_for_mnemonic_test_impl(ctx):
     env = analysistest.begin(ctx)
-
-    if (
-        ctx.attr.exclusive and
-        len(ctx.attr.mnemonics_with_flags) > 0 and
-        len(ctx.attr.mnemonics_without_flags) > 0
-    ):
-        asserts.fail(env, """
-                     Only one of mnemonics_with_flags and
-                     mnemonics_without_flags can be specified with exclusive
-                     """)
-    if sets.length(
-        sets.intersection(
-            sets.make(ctx.attr.mnemonics_with_flags),
-            sets.make(ctx.attr.mnemonics_without_flags),
-        ),
-    ) > 0:
-        asserts.fail(env, """
-                     mnemonics_with_flags and mnemonics_without_flags must not
-                     overlap
-                     """)
-
-    exclusive_with_flags = False
-    exclusive_without_flags = False
-    if ctx.attr.exclusive:
-        if len(ctx.attr.mnemonics_with_flags) > 0:
-            exclusive_without_flags = True
-        else:
-            exclusive_with_flags = True
 
     actions = analysistest.target_actions(env)
     for action in actions:
-        if (
-            exclusive_with_flags or
-            action.mnemonic in ctx.attr.mnemonics_with_flags
-        ):
+        if action.mnemonic in ctx.attr.mnemonics:
             if action.argv == None:
                 asserts.true(
                     env,
@@ -104,10 +45,7 @@ def _action_flags_test_impl(ctx):
                         action.argv,
                     ),
                 )
-        elif (
-            exclusive_without_flags or
-            action.mnemonic in ctx.attr.mnemonics_without_flags
-        ) and action.argv != None:
+        elif action.argv != None:
             for flag in ctx.attr.expected_flags:
                 asserts.false(
                     env,
@@ -118,9 +56,58 @@ def _action_flags_test_impl(ctx):
                         action.argv,
                     ),
                 )
+
     return analysistest.end(env)
 
-action_flags_test = analysistest.make(
-    _action_flags_test_impl,
-    attrs = _action_flags_test_attrs,
+action_flags_present_only_for_mnemonic_test = analysistest.make(
+    _action_flags_present_only_for_mnemonic_test_impl,
+    attrs = {
+        "mnemonics": attr.string_list(
+            doc = """
+            Actions with these mnemonics will be expected to have the flags
+            specified in expected_flags
+            """,
+        ),
+        "expected_flags": attr.string_list(doc = "The flags to be checked for"),
+    },
+)
+
+# Checks that a given set of flags are NOT present in a given set of actions.
+# Unlike the above test, this test does NOT confirm the absence of flags
+# *exclusively*. It does not confirm that the flags are present in actions
+# other than those specified
+def _action_flags_absent_for_mnemonic_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    actions = analysistest.target_actions(env)
+    for action in actions:
+        if action.mnemonic in ctx.attr.mnemonics and action.argv != None:
+            for flag in ctx.attr.expected_absent_flags:
+                asserts.false(
+                    env,
+                    flag in action.argv,
+                    "%s action unexpectedly contained flag %s; argv: %s" % (
+                        action.mnemonic,
+                        flag,
+                        action.argv,
+                    ),
+                )
+
+    return analysistest.end(env)
+
+action_flags_absent_for_mnemonic_test = analysistest.make(
+    _action_flags_absent_for_mnemonic_test_impl,
+    attrs = {
+        "mnemonics": attr.string_list(
+            doc = """
+            Actions with these mnemonics will be expected NOT to have the flags
+            specificed in expected_flags
+            """,
+        ),
+        "expected_absent_flags": attr.string_list(
+            doc = """
+            The flags to be confirmed are absent from the actions in mnemonics
+            """,
+        ),
+    },
 )

@@ -118,6 +118,8 @@ def cc_library_static(
 
     toolchain_features = []
 
+    toolchain_features.append("pic")
+
     if is_external_directory(native.package_name()):
         toolchain_features += [
             "-non_external_compiler_flags",

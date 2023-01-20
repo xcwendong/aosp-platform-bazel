@@ -343,9 +343,7 @@ def cc_library_shared(
         tags = tags,
     )
 
-def _swap_shared_linker_input(ctx, shared_info, new_output):
-    old_library_to_link = shared_info.linker_input.libraries[0]
-
+def _create_dynamic_library_linker_input_for_file(ctx, shared_info, output):
     cc_toolchain = find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -354,7 +352,7 @@ def _swap_shared_linker_input(ctx, shared_info, new_output):
 
     new_library_to_link = cc_common.create_library_to_link(
         actions = ctx.actions,
-        dynamic_library = new_output,
+        dynamic_library = output,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
     )
@@ -363,10 +361,25 @@ def _swap_shared_linker_input(ctx, shared_info, new_output):
         owner = shared_info.linker_input.owner,
         libraries = depset([new_library_to_link]),
     )
+    return new_linker_input
+
+def _correct_cc_shared_library_linking(ctx, shared_info, new_output, static_root):
+    # we may have done some post-processing of the shared library
+    # replace the linker_input that has not been post-processed with the
+    # library that has been post-processed
+    new_linker_input = _create_dynamic_library_linker_input_for_file(ctx, shared_info, new_output)
+
+    # only export the static internal root, we include other libraries as roots
+    # that should be linked as alwayslink; however, if they remain as exports,
+    # they will be linked dynamically, not statically when they should be
+    static_root_label = str(static_root.label)
+    if static_root_label not in shared_info.exports:
+        fail("Expected %s in exports %s" % (static_root_label, shared_info.exports))
+    exports = [static_root_label]
 
     return CcSharedLibraryInfo(
         dynamic_deps = shared_info.dynamic_deps,
-        exports = shared_info.exports,
+        exports = exports,
         link_once_static_libs = shared_info.link_once_static_libs,
         linker_input = new_linker_input,
         preloaded_deps = shared_info.preloaded_deps,
@@ -436,7 +449,7 @@ def _cc_library_shared_proxy_impl(ctx):
             files = depset(direct = files),
             runfiles = ctx.runfiles(files = [ctx.outputs.output_file]),
         ),
-        _swap_shared_linker_input(ctx, ctx.attr.shared[0][CcSharedLibraryInfo], ctx.outputs.output_file),
+        _correct_cc_shared_library_linking(ctx, ctx.attr.shared[0][CcSharedLibraryInfo], ctx.outputs.output_file, ctx.attr.deps[0]),
         ctx.attr.table_of_contents[0][CcTocInfo],
         # The _only_ linker_input is the statically linked root itself. We need to propagate this
         # as cc_shared_library identifies which libraries can be linked dynamically based on the

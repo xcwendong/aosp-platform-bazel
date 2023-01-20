@@ -46,7 +46,10 @@ def _get_clang_cmd_output(ctx):
     ]
 
     toolchain = find_cpp_toolchain(ctx)
-    extra_features = ["dependency_file"]
+    extra_features = [
+        "dependency_file",
+        "bpf_compiler_flags",
+    ]
     extra_disabled_features = [
         "sdk_version_flag",
         "pie",

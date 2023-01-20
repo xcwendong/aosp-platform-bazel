@@ -75,6 +75,7 @@ def cc_binary(
     unstripped_name = name + "_unstripped"
 
     toolchain_features = []
+    toolchain_features.extend(["-pic", "pie"])
     if linkshared:
         toolchain_features.extend(["dynamic_executable", "dynamic_linker"])
     else:

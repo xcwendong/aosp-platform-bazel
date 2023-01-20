@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -49,7 +50,6 @@ func main() {
 	var hasDiff bool
 	newDifference := func() {
 		if !hasDiff {
-			fmt.Println(elfOur.path, "differs from", elfRef.path)
 			hasDiff = true
 		}
 	}
@@ -58,26 +58,41 @@ func main() {
 		newDifference()
 	}
 	if len(missing) > 0 {
+		sort.Strings(missing)
 		fmt.Print("Missing sections:\n  ", strings.Join(missing, "\n  "), "\n")
 	}
-	sep := ""
-	for _, sname := range common {
-		refSize := int64(elfRef.sectionsByName[sname].Size)
-		ourSize := int64(elfOur.sectionsByName[sname].Size)
-		if refSize == ourSize {
-			continue
+	if len(extra) > 0 {
+		sort.Strings(extra)
+		fmt.Print("Extra sections:\n  ", strings.Join(extra, "\n  "), "\n")
+	}
+	commonDiff := false
+	newCommonDifference := func(format string, args ...interface{}) {
+		if !commonDiff {
+			fmt.Print("Sections that differ:\n")
+			commonDiff = true
 		}
 		newDifference()
-		if sep == "" {
-			fmt.Print("Sections with different sizes:\n")
-			sep = " "
+		fmt.Printf(format, args...)
+	}
+	sort.Strings(common)
+	for _, sname := range common {
+		sectionRef := elfRef.sectionsByName[sname]
+		sectionOur := elfOur.sectionsByName[sname]
+		refSize := int64(sectionRef.Size)
+		ourSize := int64(sectionOur.Size)
+		if refSize != ourSize {
+			newCommonDifference("    %s:%d%+d\n", sname, refSize, ourSize-refSize)
+			continue
 		}
-		fmt.Printf("  %s%s:%d%+d\n", sep, sname, refSize, ourSize-refSize)
+		dataOur, err := sectionOur.Data()
+		maybeQuit(err)
+		dataRef, err := sectionRef.Data()
+		maybeQuit(err)
+		if bytes.Compare(dataRef, dataOur) != 0 {
+			newCommonDifference("    %s:%d(data)\n", sname, refSize)
+		}
 	}
 
-	if len(extra) > 0 {
-		fmt.Print("Missing sections:\n  ", strings.Join(extra, "\n  "), "\n")
-	}
 	if hasDiff {
 		os.Exit(1)
 	}
@@ -109,7 +124,7 @@ func elfRead(path string) *myElf {
 			fmt.Fprintf(os.Stderr, "%s: duplicate section %s, ignoring\n", res.path, s.Name)
 			continue
 		}
-		if s.Flags&elf.SHF_ALLOC != 0 {
+		if s.Flags&elf.SHF_ALLOC != 0 && s.Type != elf.SHT_NOBITS {
 			res.sectionsByName[s.Name] = s
 		}
 	}
