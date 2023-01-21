@@ -15,7 +15,21 @@
 # directory to `out`.
 
 function die() { format=$1; shift; printf >&2 "$format\n" $@; exit 1; }
-(($# >= 1)) || die "usage: ${0##*/} ELF [DIR]"
+function usage() {
+  die "usage: ${0##*/} [-v] ELF [DIR]"
+}
+
+# Delouse
+declare show_command=
+while getopts "v" opt; do
+  case $opt in
+  v) show_command=t ;;
+  *) usage ;;
+  esac
+done
+shift $(($OPTIND-1))
+(($# >= 1)) || usage
+
 declare -r elf="$1"; shift
 declare -r outdir="${1:-out}"
 [[ -d "$outdir" ]] || die "$outdir does not exist"
@@ -34,9 +48,8 @@ function zgrep_command() {
 cmdfile=$(mktemp); trap 'rm -f $cmdfile' EXIT
 zgrep_command |\
   sed -r 's| -o ([^ ]+) | -Wl,-t -o /dev/null |;s|^\[.*\]||' > $cmdfile
-
-# De-louse
-[[ -s $cmdfile ]] || die "no ELF file ending with $elf was build in $outdir"
+[[ -z "${show_command}" ]] || cat $cmdfile >&2
+[[ -s $cmdfile ]] || die "no ELF file ending with $elf was built in $outdir"
 (($(wc -l $cmdfile | cut -f1 -d ' ') == 1)) || \
   { printf >&2 "Multiple elf files ending with $elf were built in $outdir:\n";
     die "  %s" $(zgrep_command | sed -r 's|.* -o ([^ ]+) .*|\1|'); }

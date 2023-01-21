@@ -380,15 +380,17 @@ def _archive_with_prebuilt_libs(ctx, prebuilt_deps, linking_outputs, cc_toolchai
 def _cc_library_combiner_impl(ctx):
     old_owner_labels = []
     cc_infos = []
-    for dep in ctx.attr.roots:
-        old_owner_labels.append(dep.label)
-        cc_infos.append(dep[CcInfo])
     for dep in ctx.attr.deps:
         old_owner_labels.append(dep.label)
         cc_info = dep[CcInfo]
 
         # do not propagate includes, hdrs, etc, already handled by roots
         cc_infos.append(CcInfo(linking_context = cc_info.linking_context))
+
+    # we handle roots after deps to mimic Soong handling objects from whole archive deps prior to objects from the target itself
+    for dep in ctx.attr.roots:
+        old_owner_labels.append(dep.label)
+        cc_infos.append(dep[CcInfo])
 
     combined_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
 
