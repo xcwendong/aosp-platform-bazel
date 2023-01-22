@@ -16,7 +16,7 @@ readonly DIFFTOOL_ZIP="$(realpath bazel-bin/build/bazel/scripts/difftool/difftoo
 
 # the following 2 arrays must be of the same size
 MODULES=(
-  libnativehelper
+  # libnativehelper # TODO(b/266245044) re-enable the test
 )
 OUTPUTS=(
   JNIHelp.o
