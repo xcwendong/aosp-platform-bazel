@@ -241,6 +241,22 @@ def android_product(name, soong_variables):
         ],
     )
 
+    native.platform(
+        name = name + "_linux_musl_x86",
+        constraint_values = common_constraints + [
+            "@//build/bazel/platforms/arch:x86",
+            "@//build/bazel/platforms/os:linux_musl",
+        ],
+    )
+
+    native.platform(
+        name = name + "_linux_musl_x86_64",
+        constraint_values = common_constraints + [
+            "@//build/bazel/platforms/arch:x86_64",
+            "@//build/bazel/platforms/os:linux_musl",
+        ],
+    )
+
     # linux_bionic is the OS for the Linux kernel plus the Bionic libc runtime, but
     # without the rest of Android.
     native.platform(

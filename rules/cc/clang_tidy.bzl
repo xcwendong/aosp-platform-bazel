@@ -24,7 +24,7 @@ load(
     "C_COMPILE_ACTION_NAME",
 )
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
-load("@soong_injection//cc_toolchain:constants.bzl", "constants")
+load("@soong_injection//cc_toolchain:config_constants.bzl", "constants")
 
 ClangTidyInfo = provider(
     "Info provided from clang-tidy actions",
