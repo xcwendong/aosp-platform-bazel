@@ -120,7 +120,7 @@ def get_property_names(json_module):
   return get_properties(json_module).keys()
 
 
-def get_queryview_module_info(modules, banchan_mode=False):
+def get_queryview_module_info(modules, banchan_mode):
   """Returns the list of transitive dependencies of input module as built by queryview."""
   _build_with_soong("queryview", banchan_mode)
 

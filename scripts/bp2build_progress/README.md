@@ -10,23 +10,21 @@ for this branch.
 
 * `/usr/bin/dot`: turning dot graphviz files into .pngs
 
-Tip: `--use_queryview=true` runs `bp2build-progress.py` with queryview.
+Tip: `--use_queryview=true` runs `bp2build_progress.py` with queryview.
 
 ## Instructions
 
 # Generate the report for a module, e.g. adbd
 
 ```sh
-bazel run --config=bp2build --config=linux_x86_64 \
-  //build/bazel/scripts/bp2build-progress:bp2build-progress \
+b run //build/bazel/scripts/bp2build_progress:bp2build_progress \
   -- report -m <module-name>
 ```
 
 or:
 
 ```sh
-bazel run --config=bp2build --config=linux_x86_64 \
-  //build/bazel/scripts/bp2build-progress:bp2build-progress \
+b run //build/bazel/scripts/bp2build_progress:bp2build_progress \
   -- report -m <module-name> --use-queryview
 ```
 
@@ -36,8 +34,7 @@ When running in report mode, you can also write results to a proto with the flag
 # Generate the report for a module, e.g. adbd
 
 ```sh
-bazel run --config=bp2build --config=linux_x86_64 \
-  //build/bazel/scripts/bp2build-progress:bp2build-progress \
+b run //build/bazel/scripts/bp2build_progress:bp2build_progress \
   -- graph -m adbd > /tmp/graph.in && \
   dot -Tpng -o /tmp/graph.png /tmp/graph.in
 ```
@@ -45,8 +42,7 @@ bazel run --config=bp2build --config=linux_x86_64 \
 or:
 
 ```sh
-bazel run --config=bp2build --config=linux_x86_64 \
-  //build/bazel/scripts/bp2build-progress:bp2build-progress \
+b run //build/bazel/scripts/bp2build_progress:bp2build_progress \
   -- graph -m adbd --use-queryview > /tmp/graph.in && \
   dot -Tpng -o /tmp/graph.png /tmp/graph.in
 ```

@@ -106,3 +106,7 @@ build --incompatible_remove_rule_name_parameter=false
 
 # TODO(b/264304464): Remove when bugs with java_binary starlark impl are fixed.
 build --experimental_builtins_injection_override=-java_binary
+
+# Set writable bit for all bazel outputs. This makes it easy to remove
+# the output directory and its contents after a build (using `rm`).
+build --experimental_writable_outputs

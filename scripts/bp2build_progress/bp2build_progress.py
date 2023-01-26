@@ -16,21 +16,18 @@
 """A json-module-graph postprocessing script to generate a bp2build progress tracker.
 
 Usage:
-  ./bp2build-progress.py [report|graph] -m <module name>
+  b run :bp2build_progress [report|graph] -m <module name>
 
 Example:
 
   To generate a report on the `adbd` module, run:
-    bazel run --config=bp2build --config=linux_x86_64 \
-      //build/bazel/scripts/bp2build-progress:bp2build-progress \
+    b run //build/bazel/scripts/bp2build_progress:bp2build_progress \
       -- report -m <module-name>
 
   To generate a graph on the `adbd` module, run:
-    bazel run --config=bp2build --config=linux_x86_64 \
-      //build/bazel/scripts/bp2build-progress:bp2build-progress \
+    b run //build/bazel/scripts/bp2build_progress:bp2build_progress \
       -- graph -m adbd > /tmp/graph.in && \
       dot -Tpng -o /tmp/graph.png /tmp/graph.in
-
 """
 
 import argparse
@@ -48,15 +45,21 @@ import dependency_analysis
 
 
 @dataclasses.dataclass(frozen=True, order=True)
-class _ModuleInfo:
+class ModuleInfo:
   name: str
   kind: str
   dirname: str
   created_by: Optional[str]
   num_deps: int = 0
+  converted: bool = False
 
   def __str__(self):
-    return f"{self.name} [{self.kind}] [{self.dirname}]"
+    converted = " (converted)" if self.converted else ""
+    return f"{self.name} [{self.kind}] [{self.dirname}]{converted}"
+
+  def short_string(self, converted: Set[str]):
+    converted = " (c)" if self.is_converted(converted) else ""
+    return f"{self.name}{converted}"
 
   def is_converted(self, converted: Set[str]):
     return self.name in converted
@@ -72,8 +75,8 @@ class _ModuleInfo:
 
 
 @dataclasses.dataclass(frozen=True, order=True)
-class _InputModule:
-  module: _ModuleInfo
+class InputModule:
+  module: ModuleInfo
   num_deps: int = 0
   num_unconverted_deps: int = 0
 
@@ -85,50 +88,60 @@ class _InputModule:
 
 
 @dataclasses.dataclass(frozen=True)
-class _ReportData:
-  input_modules: Set[_InputModule]
-  total_deps: Set[_ModuleInfo]
-  unconverted_deps: Set[_ModuleInfo]
-  all_unconverted_modules: Dict[str, Set[_ModuleInfo]]
-  blocked_modules: Dict[_ModuleInfo, Set[str]]
+class ReportData:
+  input_modules: Set[InputModule]
+  total_deps: Set[ModuleInfo]
+  unconverted_deps: Set[str]
+  all_unconverted_modules: Dict[str, Set[ModuleInfo]]
+  blocked_modules: Dict[ModuleInfo, Set[str]]
   dirs_with_unconverted_modules: Set[str]
   kind_of_unconverted_modules: Set[str]
   converted: Set[str]
+  show_converted: bool
 
 
 # Generate a dot file containing the transitive closure of the module.
-def generate_dot_file(modules: Dict[_ModuleInfo, Set[_ModuleInfo]],
-                      converted: Set[str]):
+def generate_dot_file(modules: Dict[ModuleInfo, Set[ModuleInfo]],
+                      converted: Set[str], show_converted: bool):
   # Check that all modules in the argument are in the list of converted modules
   all_converted = lambda modules: all(
       m.is_converted(converted) for m in modules)
 
   dot_entries = []
 
-  for module, deps in modules.items():
+  for module, deps in sorted(modules.items()):
+
     if module.is_converted(converted):
-      # Skip converted modules (nodeps)
-      continue
+      if show_converted:
+        color = "dodgerblue"
+      else:
+        continue
+    elif all_converted(deps):
+      color = "yellow"
+    else:
+      color = "tomato"
 
     dot_entries.append(
         f'"{module.name}" [label="{module.name}\\n{module.kind}" color=black, style=filled, '
-        f"fillcolor={'yellow' if all_converted(deps) else 'tomato'}]")
-    dot_entries.extend(f'"{module.name}" -> "{dep.name}"' for dep in deps
-                       if not dep.is_converted(converted))
+        f"fillcolor={color}]")
+    dot_entries.extend(
+        f'"{module.name}" -> "{dep.name}"' for dep in sorted(deps)
+        if show_converted or not dep.is_converted(converted))
 
-  print("""
+  return """
 digraph mygraph {{
   node [shape=box];
 
   %s
 }}
-""" % "\n  ".join(dot_entries))
+""" % "\n  ".join(dot_entries)
 
 
 # Generate a report for each module in the transitive closure, and the blockers for each module
-def generate_report_data(modules: Dict[_ModuleInfo, Set[_ModuleInfo]],
+def generate_report_data(modules: Dict[ModuleInfo, Set[ModuleInfo]],
                          converted: Set[str],
-                         input_modules_names: Set[str]) -> _ReportData:
+                         input_modules_names: Set[str],
+                         show_converted: bool = False) -> ReportData:
   # Map of [number of unconverted deps] to list of entries,
   # with each entry being the string: "<module>: <comma separated list of unconverted modules>"
   blocked_modules = collections.defaultdict(set)
@@ -149,30 +162,36 @@ def generate_report_data(modules: Dict[_ModuleInfo, Set[_ModuleInfo]],
         dep.name for dep in deps if not dep.is_converted_or_skipped(converted))
 
     # replace deps count with transitive deps rather than direct deps count
-    module = _ModuleInfo(
+    module = ModuleInfo(
         module.name,
         module.kind,
         module.dirname,
         module.created_by,
         len(deps),
+        module.is_converted(converted),
     )
 
     for dep in unconverted_deps:
       all_unconverted_modules[dep].add(module)
 
-    unconverted_count = len(unconverted_deps)
+    if not module.is_converted_or_skipped(converted) or (
+        show_converted and not module.is_converted_or_skipped(set())):
+      if show_converted:
+        full_deps = set(f"{dep.short_string(converted)}" for dep in deps)
+        blocked_modules[module].update(full_deps)
+      else:
+        blocked_modules[module].update(unconverted_deps)
 
     if not module.is_converted_or_skipped(converted):
-      blocked_modules[module].update(unconverted_deps)
       dirs_with_unconverted_modules.add(module.dirname)
       kind_of_unconverted_modules.add(module.kind)
 
     if module.name in input_modules_names:
-      input_modules.add(_InputModule(module, len(deps), len(unconverted_deps)))
+      input_modules.add(InputModule(module, len(deps), len(unconverted_deps)))
       input_all_deps.update(deps)
       input_unconverted_deps.update(unconverted_deps)
 
-  return _ReportData(
+  return ReportData(
       input_modules=input_modules,
       total_deps=input_all_deps,
       unconverted_deps=input_unconverted_deps,
@@ -181,6 +200,7 @@ def generate_report_data(modules: Dict[_ModuleInfo, Set[_ModuleInfo]],
       dirs_with_unconverted_modules=dirs_with_unconverted_modules,
       kind_of_unconverted_modules=kind_of_unconverted_modules,
       converted=converted,
+      show_converted=show_converted,
   )
 
 
@@ -204,9 +224,15 @@ def generate_proto(report_data, file_name):
 
 def generate_report(report_data):
   report_lines = []
-  input_module_str = ", ".join(str(i) for i in sorted(report_data.input_modules))
+  input_module_str = ", ".join(
+      str(i) for i in sorted(report_data.input_modules))
 
   report_lines.append("# bp2build progress report for: %s\n" % input_module_str)
+
+  if report_data.show_converted:
+    report_lines.append(
+        "# progress report includes data both for converted and unconverted modules"
+    )
 
   total = len(report_data.total_deps)
   unconverted = len(report_data.unconverted_deps)
@@ -251,11 +277,12 @@ def generate_report(report_data):
 
   report_lines.append("\n")
   report_lines.append(
-      "Generated by: https://cs.android.com/android/platform/superproject/+/master:build/bazel/scripts/bp2build-progress/bp2build-progress.py"
+      "Generated by: https://cs.android.com/android/platform/superproject/+/master:build/bazel/scripts/bp2build_progress/bp2build_progress.py"
   )
   report_lines.append("Generated at: %s" %
                       datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S %z"))
-  print("\n".join(report_lines))
+
+  return "\n".join(report_lines)
 
 
 def adjacency_list_from_json(
@@ -263,7 +290,7 @@ def adjacency_list_from_json(
     ignore_by_name: List[str],
     top_level_modules: List[str],
     collect_transitive_dependencies: bool = True
-) -> Dict[_ModuleInfo, Set[_ModuleInfo]]:
+) -> Dict[ModuleInfo, Set[ModuleInfo]]:
 
   def filter_by_name(json):
     return json["Name"] in top_level_modules
@@ -276,7 +303,7 @@ def adjacency_list_from_json(
     name = module["Name"]
     name_to_info.setdefault(
         name,
-        _ModuleInfo(
+        ModuleInfo(
             name=name,
             created_by=module["CreatedBy"],
             kind=module["Type"],
@@ -310,7 +337,7 @@ def adjacency_list_from_queryview_xml(
     ignore_by_name: List[str],
     top_level_modules: List[str],
     collect_transitive_dependencies: bool = True
-) -> Dict[_ModuleInfo, Set[_ModuleInfo]]:
+) -> Dict[ModuleInfo, Set[ModuleInfo]]:
 
   def filter_by_name(module):
     return module.name in top_level_modules
@@ -322,7 +349,7 @@ def adjacency_list_from_queryview_xml(
     module_info = None
     name_to_info.setdefault(
         module.name,
-        _ModuleInfo(
+        ModuleInfo(
             name=module.name,
             kind=module.kind,
             dirname=module.dirname,
@@ -352,7 +379,7 @@ def get_module_adjacency_list(
     use_queryview: bool,
     ignore_by_name: List[str],
     collect_transitive_dependencies: bool = True,
-    banchan_mode: bool = False) -> Dict[_ModuleInfo, Set[_ModuleInfo]]:
+    banchan_mode: bool = False) -> Dict[ModuleInfo, Set[ModuleInfo]]:
   # The main module graph containing _all_ modules in the Soong build,
   # and the list of converted modules.
   try:
@@ -379,7 +406,7 @@ Stderr:
 
 def add_created_by_to_converted(
     converted: Set[str],
-    module_adjacency_list: Dict[_ModuleInfo, Set[_ModuleInfo]]) -> Set[str]:
+    module_adjacency_list: Dict[ModuleInfo, Set[ModuleInfo]]) -> Set[str]:
   modules_by_name = {m.name: m for m in module_adjacency_list.keys()}
 
   converted_modules = set()
@@ -430,6 +457,19 @@ def main():
       "--proto-file",
       help="Path to write proto output",
   )
+  parser.add_argument(
+      "--out-file",
+      "-o",
+      type=argparse.FileType("w"),
+      default="-",
+      help="Path to write output, if omitted, writes to stdout",
+  )
+  parser.add_argument(
+      "--show-converted",
+      "-s",
+      action="store_true",
+      help="Show bp2build-converted modules in addition to the unconverted dependencies to see full dependencies post-migration. By default converted dependencies are not shown",
+  )
   args = parser.parse_args()
 
   if len(args.module) > 1 and args.mode == "graph":
@@ -454,12 +494,16 @@ def main():
 
   converted = add_created_by_to_converted(converted, module_adjacency_list)
 
+  output_file = args.out_file
   if mode == "graph":
-    generate_dot_file(module_adjacency_list, converted)
+    dot_file = generate_dot_file(module_adjacency_list, converted,
+                                 args.show_converted)
+    output_file.write(dot_file)
   elif mode == "report":
     report_data = generate_report_data(module_adjacency_list, converted,
-                                       modules)
-    generate_report(report_data)
+                                       modules, args.show_converted)
+    report = generate_report(report_data)
+    output_file.write(report)
     if args.proto_file:
       generate_proto(report_data, args.proto_file)
   else:

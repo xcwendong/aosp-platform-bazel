@@ -80,7 +80,7 @@ build/bazel/bin/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only=false -
   -- ${BUILD_TARGETS} ${TEST_TARGETS} "${HOST_INCOMPATIBLE_TARGETS[@]}"
 
 ###################
-# bp2build-progress
+# bp2build progress
 ###################
 
 function get_soong_names_from_queryview() {
@@ -113,7 +113,7 @@ APEX_VNDK_QUERY="kind(\"apex_vndk rule\", //...)"
 
 BP2BUILD_PROGRESS_MODULES+=( $(get_soong_names_from_queryview "${APEX_QUERY}"" + ""${APEX_VNDK_QUERY}" ) )
 
-bp2build_progress_script="//build/bazel/scripts/bp2build-progress:bp2build-progress"
+bp2build_progress_script="//build/bazel/scripts/bp2build_progress:bp2build_progress"
 bp2build_progress_output_dir="${DIST_DIR}/bp2build-progress"
 mkdir -p "${bp2build_progress_output_dir}"
 
@@ -121,11 +121,11 @@ report_args=""
 for m in "${BP2BUILD_PROGRESS_MODULES[@]}"; do
   report_args="$report_args -m ""${m}"
   if [[ "${m}" =~ (media.swcodec|neuralnetworks)$ ]]; then
-    build/bazel/bin/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- graph  -m "${m}" > "${bp2build_progress_output_dir}/${m}_graph.dot"
+    build/bazel/bin/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- graph  -m "${m}" --out-file=$( realpath "${bp2build_progress_output_dir}" )"/${m}_graph.dot"
   fi
 done
 
 build/bazel/bin/bazel run ${FLAGS} --config=linux_x86_64 "${bp2build_progress_script}" -- \
   report ${report_args} \
   --proto-file=$( realpath "${bp2build_progress_output_dir}" )"/bp2build-progress.pb" \
-  > "${bp2build_progress_output_dir}/progress_report.txt"
+  --out-file=$( realpath "${bp2build_progress_output_dir}" )"/progress_report.txt" \
