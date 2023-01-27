@@ -16,7 +16,9 @@ limitations under the License.
 
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
+load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
 load("//build/bazel/rules/test_common:paths.bzl", "get_package_dir_based_path")
+load("//build/bazel/rules/test_common:flags.bzl", "action_flags_present_only_for_mnemonic_test")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 
@@ -691,6 +693,63 @@ def _cc_library_disable_fdo_optimization_if_coverage_is_enabled_test():
     )
     return test_name
 
+def _cc_library_set_defines_for_stubs():
+    name = "cc_library_set_defines_for_stubs"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_libfoo",
+        system_dynamic_deps = [],
+        stl = "none",
+        tags = ["manual"],
+        stubs_symbol_file = name + "_libfoo.map.txt",
+    )
+
+    cc_stub_suite(
+        name = name + "_libfoo_stub_libs",
+        soname = name + "_libfoo.so",
+        source_library = ":" + name + "_libfoo",
+        symbol_file = name + "_libfoo.map.txt",
+        versions = ["30", "40"],
+    )
+
+    cc_library_shared(
+        name = name + "_libbar",
+        system_dynamic_deps = [],
+        stl = "none",
+        tags = ["manual"],
+        stubs_symbol_file = name + "_libbar.map.txt",
+    )
+
+    cc_stub_suite(
+        name = name + "_libbar_stub_libs",
+        soname = name + "_libbar.so",
+        source_library = ":" + name + "_libbar",
+        symbol_file = name + "_libbar.map.txt",
+        versions = ["current"],
+    )
+
+    cc_library_shared(
+        name = name + "_lib_with_stub_deps",
+        srcs = ["foo.cpp"],
+        implementation_dynamic_deps = [
+            name + "_libfoo_stub_libs_current",
+            name + "_libbar_stub_libs_current",
+        ],
+        tags = ["manual"],
+    )
+
+    action_flags_present_only_for_mnemonic_test(
+        name = test_name,
+        target_under_test = name + "_lib_with_stub_deps__internal_root_cpp",
+        mnemonics = ["CppCompile"],
+        expected_flags = [
+            "-D__CC_LIBRARY_SET_DEFINES_FOR_STUBS_LIBFOO__API__=40",
+            "-D__CC_LIBRARY_SET_DEFINES_FOR_STUBS_LIBBAR__API__=10000",
+        ],
+    )
+    return test_name
+
 def cc_library_shared_test_suite(name):
     native.genrule(name = "cc_library_shared_hdr", cmd = "null", outs = ["cc_shared_f.h"], tags = ["manual"])
 
@@ -710,5 +769,6 @@ def cc_library_shared_test_suite(name):
             _fdo_profile_transition_correctly_set_and_unset_fdo_profile(),
             _cc_library_with_fdo_profile_link_flags(),
             _cc_library_disable_fdo_optimization_if_coverage_is_enabled_test(),
+            _cc_library_set_defines_for_stubs(),
         ],
     )
