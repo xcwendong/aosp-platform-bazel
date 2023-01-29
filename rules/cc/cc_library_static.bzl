@@ -18,7 +18,9 @@ load(
     ":cc_library_common.bzl",
     "CPP_EXTENSIONS",
     "C_EXTENSIONS",
+    "CcAndroidMkInfo",
     "check_absolute_include_dirs_disabled",
+    "create_cc_androidmk_provider",
     "create_ccinfo_for_includes",
     "get_non_header_srcs",
     "get_sanitizer_lib_info",
@@ -31,6 +33,7 @@ load(":clang_tidy.bzl", "ClangTidyInfo", "generate_clang_tidy_actions")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 
 CcStaticLibraryInfo = provider(fields = ["root_static_archive", "objects"])
 
@@ -221,9 +224,14 @@ def cc_library_static(
         target_compatible_with = target_compatible_with,
         alwayslink = alwayslink,
         static_deps = deps + implementation_deps + whole_archive_deps + implementation_whole_archive_deps,
+        androidmk_static_deps = deps + implementation_deps + stl_info.static_deps,
+        androidmk_whole_archive_deps = whole_archive_deps + implementation_whole_archive_deps,
+        androidmk_dynamic_deps = dynamic_deps + implementation_dynamic_deps + system_dynamic_deps + stl_info.shared_deps,
         exports = exports_name,
         tags = tags,
         features = toolchain_features,
+
+        # clang-tidy attributes
         tidy = tidy,
         srcs_cpp = srcs,
         srcs_c = srcs_c,
@@ -430,6 +438,11 @@ def _cc_library_combiner_impl(ctx):
         CcInfo(compilation_context = combined_info.compilation_context, linking_context = linking_context),
         CcStaticLibraryInfo(root_static_archive = output_file, objects = objects_to_link),
         get_sanitizer_lib_info(ctx.attr.features, ctx.attr.deps + ctx.attr.additional_sanitizer_deps),
+        create_cc_androidmk_provider(
+            static_deps = ctx.attr.androidmk_static_deps,
+            whole_archive_deps = ctx.attr.androidmk_whole_archive_deps,
+            dynamic_deps = ctx.attr.androidmk_dynamic_deps,
+        ),
     ]
     providers.extend(_generate_tidy_actions(ctx))
 
@@ -457,15 +470,36 @@ _cc_library_combiner = rule(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
         ),
-        # All the static deps of the lib, this is used by abi_dump_aspect to travel along the
-        # static_deps edges to create abi dump files.
-        "static_deps": attr.label_list(providers = [CcInfo]),
-        # The exported includes used by abi_dump_aspect to retrieve and use as the inputs
-        # of abi dumper binary.
+        "static_deps": attr.label_list(
+            providers = [CcInfo],
+            doc = "All the static deps of the lib. This is used by" +
+                  " abi_dump_aspect to travel along the static_deps edges" +
+                  " to create abi dump files.",
+        ),
+        "androidmk_static_deps": attr.label_list(
+            providers = [CcInfo],
+            doc = "All the whole archive deps of the lib. This is used to propagate" +
+                  " information to AndroidMk about LOCAL_STATIC_LIBRARIES.",
+        ),
+        "androidmk_whole_archive_deps": attr.label_list(
+            providers = [CcInfo],
+            doc = "All the whole archive deps of the lib. This is used to propagate" +
+                  " information to AndroidMk about LOCAL_WHOLE_STATIC_LIBRARIES.",
+        ),
+        "androidmk_dynamic_deps": attr.label_list(
+            providers = [CcInfo],
+            doc = "All the dynamic deps of the lib. This is used to propagate" +
+                  " information to AndroidMk about LOCAL_SHARED_LIBRARIES." +
+                  " The attribute name is prefixed with androidmk to avoid" +
+                  " collision with the dynamic_deps attribute used in APEX" +
+                  " aspects' propagation.",
+        ),
         "exports": attr.label(providers = [CcInfo]),
         "_cc_toolchain": attr.label(
             default = Label("@local_config_cc//:toolchain"),
             providers = [cc_common.CcToolchainInfo],
+            doc = "The exported includes used by abi_dump_aspect to retrieve" +
+                  " and use as the inputs of abi dumper binary.",
         ),
         "alwayslink": attr.bool(
             doc = """At link time, whether these libraries should be wrapped in
@@ -525,7 +559,7 @@ _cc_library_combiner = rule(
         ),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
-    provides = [CcInfo],
+    provides = [CcInfo, CcAndroidMkInfo],
     fragments = ["cpp"],
 )
 

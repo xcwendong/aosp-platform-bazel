@@ -84,6 +84,17 @@ def _validate_apex_available(target, ctx, *, apex_available_tags, apex_name, bas
     # All good!
     return True
 
+_IGNORED_ATTRS = [
+    "certificate",
+    "key",
+    "android_manifest",
+    "applicable_licenses",
+    "androidmk_static_deps",
+    "androidmk_whole_archive_deps",
+    "androidmk_dynamic_deps",
+    "androidmk_deps",
+]
+
 def _apex_available_aspect_impl(target, ctx):
     apex_available_tags = [
         t.removeprefix("apex_available=")
@@ -108,7 +119,7 @@ def _apex_available_aspect_impl(target, ctx):
             transitive_unvalidated_targets.append(info.transitive_unvalidated_targets)
             if attr in CC_ATTR_ASPECTS:
                 transitive_invalid_targets.append(info.transitive_invalid_targets)
-            if attr not in ["certificate", "key", "android_manifest", "applicable_licenses"]:
+            if attr not in _IGNORED_ATTRS:
                 if info.platform_available != None:
                     platform_available = platform_available and info.platform_available
 

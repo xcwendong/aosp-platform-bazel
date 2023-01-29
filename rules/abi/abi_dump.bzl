@@ -83,14 +83,14 @@ def _abi_dump_aspect_impl(target, ctx):
 
 abi_dump_aspect = aspect(
     implementation = _abi_dump_aspect_impl,
-    attr_aspects = ["static_deps"],
+    attr_aspects = ["static_deps", "whole_archive_deps"],
     attrs = {
         "_skip_abi_checks": attr.label(
             default = "//build/bazel/flags/cc/abi:skip_abi_checks",
         ),
         # Need this in order to call _abi_diff_enabled in the aspects code.
-        "_in_apex": attr.label(
-            default = "//build/bazel/rules/apex:in_apex",
+        "_within_apex": attr.label(
+            default = "//build/bazel/rules/apex:within_apex",
         ),
         "_abi_dumper": attr.label(
             allow_files = True,
@@ -344,7 +344,7 @@ def _abi_diff_enabled(ctx, lib_name, is_aspect):
         return False
     if ctx.coverage_instrumented():
         return False
-    if ctx.attr._in_apex[BuildSettingInfo].value:
+    if ctx.attr._within_apex[BuildSettingInfo].value:
         if not is_aspect and not ctx.attr.has_stubs:
             return False
 
@@ -388,8 +388,8 @@ abi_dump = rule(
         "_skip_abi_checks": attr.label(
             default = "//build/bazel/flags/cc/abi:skip_abi_checks",
         ),
-        "_in_apex": attr.label(
-            default = "//build/bazel/rules/apex:in_apex",
+        "_within_apex": attr.label(
+            default = "//build/bazel/rules/apex:within_apex",
         ),
         # TODO(b/254625084): For the following tools we need to support darwin as well.
         "_abi_dumper": attr.label(

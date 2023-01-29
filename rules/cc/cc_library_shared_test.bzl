@@ -17,6 +17,7 @@ limitations under the License.
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
+load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
 load("//build/bazel/rules/test_common:paths.bzl", "get_package_dir_based_path")
 load("//build/bazel/rules/test_common:flags.bzl", "action_flags_present_only_for_mnemonic_test")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
@@ -750,6 +751,59 @@ def _cc_library_set_defines_for_stubs():
     )
     return test_name
 
+def _cc_library_shared_provides_androidmk_info():
+    name = "cc_library_shared_provides_androidmk_info"
+    dep_name = name + "_static_dep"
+    whole_archive_dep_name = name + "_whole_archive_dep"
+    dynamic_dep_name = name + "_dynamic_dep"
+    test_name = name + "_test"
+
+    cc_library_static(
+        name = dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_static(
+        name = whole_archive_dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_shared(
+        name = dynamic_dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_shared(
+        name = name,
+        srcs = ["foo.cc"],
+        deps = [dep_name],
+        whole_archive_deps = [whole_archive_dep_name],
+        dynamic_deps = [dynamic_dep_name],
+        tags = ["manual"],
+    )
+    android_test_name = test_name + "_android"
+    linux_test_name = test_name + "_linux"
+    target_provides_androidmk_info_test(
+        name = android_test_name,
+        target_under_test = name,
+        expected_static_libs = [dep_name, "libc++demangle"],
+        expected_whole_static_libs = [whole_archive_dep_name],
+        expected_shared_libs = [dynamic_dep_name, "libc++"],
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
+    )
+    target_provides_androidmk_info_test(
+        name = linux_test_name,
+        target_under_test = name,
+        expected_static_libs = [dep_name],
+        expected_whole_static_libs = [whole_archive_dep_name],
+        expected_shared_libs = [dynamic_dep_name, "libc++"],
+        target_compatible_with = ["//build/bazel/platforms/os:linux"],
+    )
+    return [
+        android_test_name,
+        linux_test_name,
+    ]
+
 def cc_library_shared_test_suite(name):
     native.genrule(name = "cc_library_shared_hdr", cmd = "null", outs = ["cc_shared_f.h"], tags = ["manual"])
 
@@ -770,5 +824,5 @@ def cc_library_shared_test_suite(name):
             _cc_library_with_fdo_profile_link_flags(),
             _cc_library_disable_fdo_optimization_if_coverage_is_enabled_test(),
             _cc_library_set_defines_for_stubs(),
-        ],
+        ] + _cc_library_shared_provides_androidmk_info(),
     )

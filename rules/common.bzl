@@ -40,3 +40,15 @@ def get_dep_targets(attrs, *, predicate = lambda _: True):
             if type(item) == "Target" and predicate(item):
                 targets[a].append(item)
     return targets
+
+_BP2BUILD_LABEL_SUFFIXES = [
+    # cc rules
+    "_bp2build_cc_library_static",
+    "_cc_proto_lite",
+    "_aidl_code_gen",
+]
+
+def strip_bp2build_label_suffix(name):
+    for suffix in _BP2BUILD_LABEL_SUFFIXES:
+        name = name.removesuffix(suffix)
+    return name

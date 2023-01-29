@@ -16,7 +16,7 @@ limitations under the License.
 
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo", "android_app_certificate_with_default_cert")
-load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "apex_cc_aspect")
+load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "ApexCcMkInfo", "apex_cc_aspect")
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition", "shared_lib_transition_32", "shared_lib_transition_64")
 load("//build/bazel/rules/cc:stripped_cc_common.bzl", "StrippedCcBinaryInfo")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
@@ -33,7 +33,7 @@ load(
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
 load(":apex_available.bzl", "ApexAvailableInfo", "apex_available_aspect")
 load(":apex_key.bzl", "ApexKeyInfo")
-load(":apex_info.bzl", "ApexInfo")
+load(":apex_info.bzl", "ApexInfo", "ApexMkInfo")
 load(":bundle.bzl", "apex_zip_files")
 load(":apex_deps_validation.bzl", "ApexDepsInfo", "apex_deps_validation_aspect", "validate_apex_deps")
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
@@ -54,6 +54,7 @@ def _create_file_mapping(ctx):
     file_mapping = {}
     requires = {}
     provides = {}
+    make_modules_to_install = {}
 
     def add_file_mapping(installed_path, bazel_file):
         if installed_path in file_mapping and file_mapping[installed_path] != bazel_file:
@@ -71,6 +72,11 @@ def _create_file_mapping(ctx):
                 provides[lib] = True
             for lib_file in apex_cc_info.transitive_shared_libs.to_list():
                 add_file_mapping(paths.join(directory, lib_file.basename), lib_file)
+
+            # For bundled builds.
+            apex_cc_mk_info = dep[ApexCcMkInfo]
+            for mk_module in apex_cc_mk_info.make_modules_to_install.to_list():
+                make_modules_to_install[mk_module] = True
 
     if platforms.get_target_bitness(ctx.attr._platform_utils) == 64:
         _add_lib_files("lib64", ctx.attr.native_shared_libs_64)
@@ -123,6 +129,7 @@ def _create_file_mapping(ctx):
         sorted(requires.keys(), key = lambda x: x.name),  # sort on just the name of the target, not package
         sorted(provides.keys(), key = lambda x: x.name),
         backing_libs,
+        sorted(make_modules_to_install),
     )
 
 def _add_so(label):
@@ -324,7 +331,7 @@ def _run_apexer(ctx, apex_toolchain):
     pubkey = apex_key_info.public_key
     android_jar = apex_toolchain.android_jar
 
-    file_mapping, requires_native_libs, provides_native_libs, backing_libs = _create_file_mapping(ctx)
+    file_mapping, requires_native_libs, provides_native_libs, backing_libs, make_modules_to_install = _create_file_mapping(ctx)
     canned_fs_config = _generate_canned_fs_config(ctx, file_mapping.keys())
     file_contexts = _generate_file_contexts(ctx)
     full_apex_manifest_json = _add_apex_manifest_information(ctx, apex_toolchain, requires_native_libs, provides_native_libs)
@@ -452,6 +459,7 @@ def _run_apexer(ctx, apex_toolchain):
         symbols_used_by_apex = _generate_symbols_used_by_apex(ctx, apex_toolchain, staging_dir),
         java_symbols_used_by_apex = _generate_java_symbols_used_by_apex(ctx, apex_toolchain),
         installed_files = _generate_installed_files_list(ctx, file_mapping),
+        make_modules_to_install = make_modules_to_install,
     )
 
 # Sign a file with signapk.
@@ -658,6 +666,7 @@ def _apex_rule_impl(ctx):
             _validation = apex_deps_validation_files,
         ),
         ApexDepsInfo(transitive_deps = transitive_apex_deps),
+        ApexMkInfo(make_modules_to_install = apexer_outputs.make_modules_to_install),
     ]
 
 # These are the standard aspects that should be applied on all edges that
@@ -693,13 +702,13 @@ _apex = rule(
 
         # Attributes that contribute to the payload.
         "native_shared_libs_32": attr.label_list(
-            providers = [ApexCcInfo, RuleLicensedDependenciesInfo],
+            providers = [ApexCcInfo, ApexCcMkInfo, RuleLicensedDependenciesInfo],
             aspects = [apex_cc_aspect] + STANDARD_PAYLOAD_ASPECTS,
             cfg = shared_lib_transition_32,
             doc = "The libs compiled for 32-bit",
         ),
         "native_shared_libs_64": attr.label_list(
-            providers = [ApexCcInfo, RuleLicensedDependenciesInfo],
+            providers = [ApexCcInfo, ApexCcMkInfo, RuleLicensedDependenciesInfo],
             aspects = [apex_cc_aspect] + STANDARD_PAYLOAD_ASPECTS,
             cfg = shared_lib_transition_64,
             doc = "The libs compiled for 64-bit",
@@ -708,7 +717,7 @@ _apex = rule(
             providers = [
                 # The dependency must produce _all_ of the providers in _one_ of these lists.
                 [ShBinaryInfo, RuleLicensedDependenciesInfo],  # sh_binary
-                [StrippedCcBinaryInfo, CcInfo, ApexCcInfo, RuleLicensedDependenciesInfo],  # cc_binary (stripped)
+                [StrippedCcBinaryInfo, CcInfo, ApexCcInfo, ApexCcMkInfo, RuleLicensedDependenciesInfo],  # cc_binary (stripped)
             ],
             cfg = apex_transition,
             aspects = [apex_cc_aspect] + STANDARD_PAYLOAD_ASPECTS,

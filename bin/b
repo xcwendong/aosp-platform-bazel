@@ -18,6 +18,13 @@
 source $(cd $(dirname $BASH_SOURCE) &> /dev/null && pwd)/../../make/shell_utils.sh
 require_top
 
+if [[ -z ${OUT_DIR+x} ]]; then
+	PROFILE_OUT=$TOP/out
+else
+	PROFILE_OUT=$OUT_DIR
+fi
+mkdir -p $PROFILE_OUT
+
 # Look for the --run-soong-tests flag and skip passing --skip-soong-tests to Soong if present
 bazel_args=""
 skip_tests="--skip-soong-tests"
@@ -66,7 +73,8 @@ else
     fi
 
     # Call Bazel.
-    "$TOP/build/bazel/bin/bazel" ${bazel_args_with_config[@]}
+    "$TOP/build/bazel/bin/bazel" ${bazel_args_with_config[@]} --profile=$PROFILE_OUT/bazel_metrics-profile
+    "$TOP/build/bazel/bin/bazel" analyze-profile $PROFILE_OUT/bazel_metrics-profile > $PROFILE_OUT/analyzed_bazel_profile.txt
+    rm $PROFILE_OUT/bazel_metrics-profile
     "$TOP/build/soong/soong_ui.bash" --upload-metrics-only
 fi
-

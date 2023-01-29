@@ -201,5 +201,6 @@ def cc_binary(
         tags = tags,
         unstripped = unstripped_name,
         testonly = generate_cc_test,
+        androidmk_deps = [root_name],
         **strip
     )

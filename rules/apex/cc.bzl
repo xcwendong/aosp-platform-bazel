@@ -27,6 +27,41 @@ ApexCcInfo = provider(
     },
 )
 
+ApexCcMkInfo = provider(
+    "AndroidMk data about CC targets in APEXes",
+    fields = {
+        "make_modules_to_install": "List of module names that should be installed into the system, along with this APEX",
+    },
+)
+
+# Special libraries that are installed to the bootstrap subdirectory. Bionic
+# libraries are assumed to be provided by the system, and installed automatically
+# as a symlink to the runtime APEX.
+#
+# This list is from https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/cc.go;l=1439-1452;drc=9c667416ded33b93a44c5f1894ea23cae6699a17
+#
+# NOTE: Keep this list in sync with the Soong list.
+#
+# See cc/binary.go#install for more information.
+def _installed_to_bootstrap(label):
+    label = str(label)
+
+    # hwasan
+    if label == "@//prebuilts/clang/host/linux-x86:libclang_rt.hwasan":
+        return True
+
+    # bionic libs
+    if label in [
+        "@//bionic/libc:libc",
+        "@//bionic/libm:libm",
+        "@//bionic/libdl:libdl",
+        "@//bionic/libdl_android:libdl_android",
+        "@//bionic/linker:linker",
+    ]:
+        return True
+
+    return False
+
 # Return True if this target provides stubs.
 #
 # There is no need to check versions of stubs any more, see aosp/1609533.
@@ -113,6 +148,7 @@ def _apex_cc_aspect_impl(target, ctx):
 
     provides = []
     requires = []
+    make_modules_to_install = []
 
     # The APEX manifest records the stub-providing libs (ABI-stable) in its
     # direct and transitive deps.
@@ -137,12 +173,18 @@ def _apex_cc_aspect_impl(target, ctx):
 
             # If a stub library is in the "provides" of the apex, it doesn't need to be in the "requires"
             if not is_apex_direct_dep(source_library, ctx):
-                requires.append(target[CcStubLibrarySharedInfo].source_library.label)
+                requires.append(source_library.label)
+                if not _installed_to_bootstrap(source_library.label):
+                    # It's sufficient to pass the make module name, not the fully qualified bazel label.
+                    make_modules_to_install.append(source_library.label.name)
             return [
                 ApexCcInfo(
                     transitive_shared_libs = depset(),
                     requires_native_libs = depset(direct = requires),
                     provides_native_libs = depset(direct = provides),
+                ),
+                ApexCcMkInfo(
+                    make_modules_to_install = depset(direct = make_modules_to_install),
                 ),
             ]
 
@@ -199,6 +241,12 @@ def _apex_cc_aspect_impl(target, ctx):
                 transitive = [info[ApexCcInfo].provides_native_libs for info in transitive_deps],
             ),
         ),
+        ApexCcMkInfo(
+            make_modules_to_install = depset(
+                [],
+                transitive = [info[ApexCcMkInfo].make_modules_to_install for info in transitive_deps],
+            ),
+        ),
     ]
 
 # The list of attributes in a cc dep graph where this aspect will traverse on.
@@ -209,12 +257,13 @@ CC_ATTR_ASPECTS = [
     "src",
     "runtime_deps",
     "static_deps",
+    "whole_archive_deps",
 ]
 
 # This aspect is intended to be applied on a apex.native_shared_libs attribute
 apex_cc_aspect = aspect(
     implementation = _apex_cc_aspect_impl,
-    provides = [ApexCcInfo],
+    provides = [ApexCcInfo, ApexCcMkInfo],
     attrs = {
         "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
         "_apex_direct_deps": attr.label(default = "//build/bazel/rules/apex:apex_direct_deps"),

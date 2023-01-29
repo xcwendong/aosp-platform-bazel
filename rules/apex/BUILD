@@ -28,9 +28,16 @@ string_setting(
 )
 
 bool_setting(
-    name = "in_apex",
+    name = "within_apex",
     build_setting_default = False,
     visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "in_apex",
+    flag_values = {
+        ":within_apex": "True",
+    },
 )
 
 config_setting(
@@ -46,7 +53,7 @@ config_setting(
         constants.ArchVariantToConstraints["android"],
     ],
     flag_values = {
-        ":in_apex": "True",
+        ":within_apex": "True",
     },
 )
 
@@ -56,7 +63,7 @@ config_setting(
         constants.ArchVariantToConstraints["android"],
     ],
     flag_values = {
-        ":in_apex": "False",
+        ":within_apex": "False",
     },
 )
 
@@ -66,7 +73,7 @@ config_setting(
         constants.ArchVariantToConstraints["linux_bionic"],
     ],
     flag_values = {
-        ":in_apex": "True",
+        ":within_apex": "True",
     },
 )
 
@@ -76,7 +83,7 @@ config_setting(
         constants.ArchVariantToConstraints["linux_bionic"],
     ],
     flag_values = {
-        ":in_apex": "False",
+        ":within_apex": "False",
     },
 )
 

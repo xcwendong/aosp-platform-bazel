@@ -19,7 +19,7 @@ load(":apex_info.bzl", "ApexInfo")
 load(":apex_available.bzl", "ApexAvailableInfo")
 load(":apex_key.bzl", "ApexKeyInfo")
 load(":cc.bzl", "get_min_sdk_version")
-load("//build/bazel/rules:common.bzl", "get_dep_targets")
+load("//build/bazel/rules:common.bzl", "get_dep_targets", "strip_bp2build_label_suffix")
 load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
 
 ApexDepsInfo = provider(
@@ -61,6 +61,12 @@ _IGNORED_PROVIDERS = [
     ApexKeyInfo,
     ProtoInfo,
 ]
+_IGNORED_ATTRS = [
+    "androidmk_static_deps",
+    "androidmk_whole_archive_deps",
+    "androidmk_dynamic_deps",
+    "androidmk_deps",
+]
 
 def _should_skip_apex_dep(target, ctx):
     # Ignore Bazel-specific targets like platform/os/arch constraints,
@@ -76,7 +82,9 @@ def _should_skip_apex_dep(target, ctx):
 
 def _apex_dep_validation_aspect_impl(target, ctx):
     transitive_deps = []
-    for _, attr_deps in get_dep_targets(ctx.rule.attr, predicate = lambda target: ApexDepsInfo in target).items():
+    for attr, attr_deps in get_dep_targets(ctx.rule.attr, predicate = lambda target: ApexDepsInfo in target).items():
+        if attr in _IGNORED_ATTRS:
+            continue
         for dep in attr_deps:
             transitive_deps.append(dep[ApexDepsInfo].transitive_deps)
 
@@ -147,18 +155,6 @@ apex_deps_validation_aspect = aspect(
     provides = [ApexDepsInfo],
 )
 
-_BP2BUILD_LABEL_SUFFIXES = [
-    # cc rules
-    "_bp2build_cc_library_static",
-    "_cc_proto_lite",
-    "_aidl_code_gen",
-]
-
-def _strip_bp2build_label_suffix(name):
-    for suffix in _BP2BUILD_LABEL_SUFFIXES:
-        name = name.removesuffix(suffix)
-    return name
-
 def _min_sdk_version_string(version):
     if version.apex_inherit:
         return "apex_inherit"
@@ -168,7 +164,7 @@ def _min_sdk_version_string(version):
 
 def _apex_dep_to_string(apex_dep_info):
     return "{name}(minSdkVersion:{min_sdk_version})".format(
-        name = _strip_bp2build_label_suffix(apex_dep_info.label.name),
+        name = strip_bp2build_label_suffix(apex_dep_info.label.name),
         min_sdk_version = _min_sdk_version_string(apex_dep_info.min_sdk_version),
     )
 

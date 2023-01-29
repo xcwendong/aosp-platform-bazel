@@ -16,6 +16,9 @@ limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":cc_binary.bzl", "cc_binary")
+load(":cc_library_shared.bzl", "cc_library_shared")
+load(":cc_library_static.bzl", "cc_library_static")
+load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
 
 def strip_test_assert_flags(env, strip_action, strip_flags):
     # Extract these flags from strip_action (for example):
@@ -245,6 +248,59 @@ def _cc_binary_empty_suffix():
     )
     return test_name
 
+def _cc_binary_provides_androidmk_info():
+    name = "cc_binary_provides_androidmk_info"
+    dep_name = name + "_static_dep"
+    whole_archive_dep_name = name + "_whole_archive_dep"
+    dynamic_dep_name = name + "_dynamic_dep"
+    test_name = name + "_test"
+
+    cc_library_static(
+        name = dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_static(
+        name = whole_archive_dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_shared(
+        name = dynamic_dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_binary(
+        name = name,
+        srcs = ["foo.cc"],
+        deps = [dep_name],
+        whole_archive_deps = [whole_archive_dep_name],
+        dynamic_deps = [dynamic_dep_name],
+        tags = ["manual"],
+    )
+    android_test_name = test_name + "_android"
+    linux_test_name = test_name + "_linux"
+    target_provides_androidmk_info_test(
+        name = android_test_name,
+        target_under_test = name,
+        expected_static_libs = [dep_name, "libc++demangle", "libunwind"],
+        expected_whole_static_libs = [whole_archive_dep_name],
+        expected_shared_libs = [dynamic_dep_name, "libc++", "libc", "libdl", "libm"],
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
+    )
+    target_provides_androidmk_info_test(
+        name = linux_test_name,
+        target_under_test = name,
+        expected_static_libs = [dep_name],
+        expected_whole_static_libs = [whole_archive_dep_name],
+        expected_shared_libs = [dynamic_dep_name, "libc++"],
+        target_compatible_with = ["//build/bazel/platforms/os:linux"],
+    )
+    return [
+        android_test_name,
+        linux_test_name,
+    ]
+
 def cc_binary_test_suite(name):
     native.test_suite(
         name = name,
@@ -256,5 +312,5 @@ def cc_binary_test_suite(name):
             _cc_binary_strip_all(),
             _cc_binary_suffix(),
             _cc_binary_empty_suffix(),
-        ],
+        ] + _cc_binary_provides_androidmk_info(),
     )

@@ -17,6 +17,7 @@ limitations under the License.
 """A macro to handle shared library stripping."""
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load(":cc_library_common.bzl", "CcAndroidMkInfo")
 
 CcUnstrippedInfo = provider(
     "Provides unstripped binary/shared library",
@@ -188,7 +189,12 @@ def _stripped_binary_impl(ctx):
         ctx.attr.src[DebugPackageInfo],
         ctx.attr.src[OutputGroupInfo],
         StrippedCcBinaryInfo(),  # a marker for dependents
-        CcUnstrippedInfo(unstripped = ctx.attr.unstripped),
+        CcUnstrippedInfo(
+            unstripped = ctx.attr.unstripped,
+        ),
+    ] + [
+        d[CcAndroidMkInfo]
+        for d in ctx.attr.androidmk_deps
     ]
 
     out_file = stripped_impl(ctx, suffix = ctx.attr.suffix)
@@ -208,6 +214,9 @@ stripped_binary = rule(
         runtime_deps = attr.label_list(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
+        ),
+        androidmk_deps = attr.label_list(
+            providers = [CcAndroidMkInfo],
         ),
         suffix = attr.string(),
         unstripped = attr.label(

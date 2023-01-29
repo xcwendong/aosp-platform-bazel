@@ -39,7 +39,7 @@ def _create_apex_configuration(attr, additional = {}):
     return dicts.add({
         "//build/bazel/rules/apex:apex_name": attr.name,  # Name of the APEX
         "//build/bazel/rules/apex:base_apex_name": attr.base_apex_name,  # Name of the base APEX, if exists
-        "//build/bazel/rules/apex:in_apex": True,  # Building a APEX
+        "//build/bazel/rules/apex:within_apex": True,  # Building a APEX
         "//build/bazel/rules/apex:min_sdk_version": str(min_sdk_version),
     }, additional)
 
@@ -60,7 +60,7 @@ def _impl(settings, attr):
 APEX_TRANSITION_BUILD_SETTINGS = [
     "//build/bazel/rules/apex:apex_name",
     "//build/bazel/rules/apex:base_apex_name",
-    "//build/bazel/rules/apex:in_apex",
+    "//build/bazel/rules/apex:within_apex",
     "//build/bazel/rules/apex:min_sdk_version",
     "//build/bazel/rules/apex:apex_direct_deps",
 ]

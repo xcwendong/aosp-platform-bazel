@@ -43,7 +43,7 @@ CONFIG_SETTING_SKIP_ABI_CHECK = {
     "@//build/bazel/flags/cc/abi:skip_abi_checks": True,
 }
 CONFIG_SETTING_IN_APEX = {
-    "@//build/bazel/rules/apex:in_apex": True,
+    "@//build/bazel/rules/apex:within_apex": True,
 }
 
 def _abi_linker_action_test_impl(ctx):
