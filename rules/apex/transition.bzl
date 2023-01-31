@@ -34,13 +34,11 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
 
 def _create_apex_configuration(attr, additional = {}):
-    min_sdk_version = parse_apex_sdk_version(attr.min_sdk_version)
-
     return dicts.add({
         "//build/bazel/rules/apex:apex_name": attr.name,  # Name of the APEX
         "//build/bazel/rules/apex:base_apex_name": attr.base_apex_name,  # Name of the base APEX, if exists
         "//build/bazel/rules/apex:within_apex": True,  # Building a APEX
-        "//build/bazel/rules/apex:min_sdk_version": str(min_sdk_version),
+        "//build/bazel/rules/apex:min_sdk_version": attr.min_sdk_version,
     }, additional)
 
 def _impl(settings, attr):

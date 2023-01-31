@@ -14,12 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("//build/bazel/product_variables:constants.bzl", "constants")
-load(
-    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
-    "CPP_COMPILE_ACTION_NAME",
-    "C_COMPILE_ACTION_NAME",
-)
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
@@ -132,11 +126,14 @@ sanitizer_deps = rule(
     },
 )
 
+def sdk_version_feature_from_parsed_version(version):
+    return "sdk_version_" + str(version)
+
 def _create_sdk_version_features_map():
     version_feature_map = {}
     for api in api_levels.values():
-        version_feature_map["//build/bazel/rules/apex:min_sdk_version_" + str(api)] = ["sdk_version_" + str(api)]
-    version_feature_map["//conditions:default"] = ["sdk_version_" + str(future_version)]
+        version_feature_map["//build/bazel/rules/apex:min_sdk_version_" + str(api)] = [sdk_version_feature_from_parsed_version(api)]
+    version_feature_map["//conditions:default"] = [sdk_version_feature_from_parsed_version(future_version)]
 
     return version_feature_map
 
@@ -232,9 +229,9 @@ def is_external_directory(package_name):
 def parse_sdk_version(version):
     if version == "apex_inherit":
         # use the version determined by the transition value.
-        return sdk_version_features + ["sdk_version_apex_inherit"]
+        return sdk_version_features + [sdk_version_feature_from_parsed_version("apex_inherit")]
 
-    return ["sdk_version_" + str(parse_apex_sdk_version(version))]
+    return [sdk_version_feature_from_parsed_version(parse_apex_sdk_version(version))]
 
 def parse_apex_sdk_version(version):
     if version == "" or version == "current":

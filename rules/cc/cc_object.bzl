@@ -14,11 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":cc_library_common.bzl",
     "get_includes_paths",
     "is_external_directory",
     "parse_sdk_version",
+    "sdk_version_feature_from_parsed_version",
     "system_dynamic_deps_defaults",
 )
 load(":cc_constants.bzl", "constants")
@@ -78,7 +80,11 @@ def _cc_object_impl(ctx):
         extra_features.append("non_external_compiler_flags")
         extra_disabled_features.append("external_compiler_flags")
 
-    if ctx.attr.min_sdk_version:
+    apex_min_sdk_version = ctx.attr._apex_min_sdk_version[BuildSettingInfo].value
+    if ctx.attr.crt and apex_min_sdk_version:
+        extra_disabled_features.append("sdk_version_default")
+        extra_features += parse_sdk_version(apex_min_sdk_version)
+    elif ctx.attr.min_sdk_version:
         extra_disabled_features.append("sdk_version_default")
         extra_features += parse_sdk_version(ctx.attr.min_sdk_version)
 
@@ -190,9 +196,13 @@ _cc_object = rule(
         "linker_script": attr.label(allow_single_file = True),
         "sdk_version": attr.string(),
         "min_sdk_version": attr.string(),
+        "crt": attr.bool(default = False),
         "_android_product_variables": attr.label(
             default = Label("//build/bazel/product_config:product_vars"),
             providers = [platform_common.TemplateVariableInfo],
+        ),
+        "_apex_min_sdk_version": attr.label(
+            default = "//build/bazel/rules/apex:min_sdk_version",
         ),
     },
     toolchains = ["//prebuilts/clang/host/linux-x86:nocrt_toolchain"],

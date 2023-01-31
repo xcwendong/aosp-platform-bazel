@@ -16,6 +16,7 @@ limitations under the License.
 
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "CcStubLibrariesInfo")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
+load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 ApexCcInfo = provider(
@@ -107,7 +108,10 @@ def get_min_sdk_version(ctx):
     min_sdk_version = None
     apex_inherit = False
     if hasattr(ctx.rule.attr, "min_sdk_version"):
-        min_sdk_version = ctx.rule.attr.min_sdk_version
+        if ctx.rule.attr.min_sdk_version == "apex_inherit":
+            apex_inherit = True
+        elif ctx.rule.attr.min_sdk_version:
+            min_sdk_version = parse_apex_sdk_version(ctx.rule.attr.min_sdk_version)
     else:
         # min_sdk_version in cc targets are represented as features
         for f in ctx.rule.attr.features:
@@ -117,7 +121,7 @@ def get_min_sdk_version(ctx):
                 if sdk_version == "apex_inherit":
                     apex_inherit = True
                 elif min_sdk_version == None:
-                    min_sdk_version = sdk_version
+                    min_sdk_version = int(sdk_version)
                 else:
                     fail(
                         "found more than one sdk_version feature on {target}; features = {features}",
@@ -131,7 +135,7 @@ def get_min_sdk_version(ctx):
 
 def _validate_min_sdk_version(ctx):
     dep_min_version = get_min_sdk_version(ctx).min_sdk_version
-    apex_min_version = ctx.attr._min_sdk_version[BuildSettingInfo].value
+    apex_min_version = parse_apex_sdk_version(ctx.attr._min_sdk_version[BuildSettingInfo].value)
     if dep_min_version and apex_min_version < dep_min_version:
         fail("The apex %s's min_sdk_version %s cannot be lower than the dep's min_sdk_version %s" %
              (ctx.attr._apex_name[BuildSettingInfo].value, apex_min_version, dep_min_version))
