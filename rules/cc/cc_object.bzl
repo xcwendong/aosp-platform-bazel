@@ -14,15 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":cc_library_common.bzl",
     "get_includes_paths",
     "is_external_directory",
     "parse_sdk_version",
+    "sdk_version_feature_from_parsed_version",
     "system_dynamic_deps_defaults",
 )
 load(":cc_constants.bzl", "constants")
-load(":stl.bzl", "stl_deps")
+load(":stl.bzl", "stl_info_from_attr")
 
 # "cc_object" module copts, taken from build/soong/cc/object.go
 _CC_OBJECT_COPTS = ["-fno-addrsig"]
@@ -78,9 +80,20 @@ def _cc_object_impl(ctx):
         extra_features.append("non_external_compiler_flags")
         extra_disabled_features.append("external_compiler_flags")
 
-    if ctx.attr.min_sdk_version:
+    apex_min_sdk_version = ctx.attr._apex_min_sdk_version[BuildSettingInfo].value
+    if ctx.attr.crt and apex_min_sdk_version:
         extra_disabled_features.append("sdk_version_default")
-        extra_features.append("sdk_version_" + parse_sdk_version(ctx.attr.min_sdk_version))
+        extra_features += parse_sdk_version(apex_min_sdk_version)
+    elif ctx.attr.min_sdk_version:
+        extra_disabled_features.append("sdk_version_default")
+        extra_features += parse_sdk_version(ctx.attr.min_sdk_version)
+
+    # Disable coverage for cc object because we link cc objects below and
+    # clang will link extra lib behind the scene to support profiling if coverage
+    # is enabled, so the symbols of the extra lib will be loaded into the generated
+    # object file. When later we link a shared library that depends on more than
+    # one such cc objects it will fail due to the duplicated symbols problem.
+    extra_disabled_features.append("coverage")
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -91,7 +104,7 @@ def _cc_object_impl(ctx):
 
     compilation_contexts = []
     deps_objects = []
-    for obj in ctx.attr.deps:
+    for obj in ctx.attr.objs:
         compilation_contexts.append(obj[CcInfo].compilation_context)
         deps_objects.append(obj[CcObjectInfo].objects)
     for includes_dep in ctx.attr.includes_deps:
@@ -100,7 +113,7 @@ def _cc_object_impl(ctx):
     product_variables = ctx.attr._android_product_variables[platform_common.TemplateVariableInfo]
     asflags = [ctx.expand_make_variables("asflags", flag, product_variables.variables) for flag in ctx.attr.asflags]
 
-    srcs_c, srcs_as, private_hdrs = split_srcs_hdrs(ctx.files.srcs)
+    srcs_c, srcs_as, private_hdrs = split_srcs_hdrs(ctx.files.srcs + ctx.files.srcs_as)
 
     (compilation_context, compilation_outputs_c) = cc_common.compile(
         name = ctx.label.name,
@@ -137,7 +150,7 @@ def _cc_object_impl(ctx):
 
     objects_to_link = cc_common.merge_compilation_outputs(compilation_outputs = deps_objects + [compilation_outputs_c, compilation_outputs_as])
 
-    user_link_flags = []
+    user_link_flags = [] + ctx.attr.linkopts
     user_link_flags.extend(_CC_OBJECT_LINKOPTS)
     additional_inputs = []
 
@@ -171,19 +184,25 @@ _cc_object = rule(
     implementation = _cc_object_impl,
     attrs = {
         "srcs": attr.label_list(allow_files = constants.all_dot_exts),
+        "srcs_as": attr.label_list(allow_files = constants.all_dot_exts),
         "hdrs": attr.label_list(allow_files = constants.hdr_dot_exts),
         "absolute_includes": attr.string_list(),
         "local_includes": attr.string_list(),
         "copts": attr.string_list(),
         "asflags": attr.string_list(),
-        "deps": attr.label_list(providers = [CcInfo, CcObjectInfo]),
+        "linkopts": attr.string_list(),
+        "objs": attr.label_list(providers = [CcInfo, CcObjectInfo]),
         "includes_deps": attr.label_list(providers = [CcInfo]),
         "linker_script": attr.label(allow_single_file = True),
         "sdk_version": attr.string(),
         "min_sdk_version": attr.string(),
+        "crt": attr.bool(default = False),
         "_android_product_variables": attr.label(
-            default = Label("//build/bazel/platforms:android_target_product_vars"),
+            default = Label("//build/bazel/product_config:product_vars"),
             providers = [platform_common.TemplateVariableInfo],
+        ),
+        "_apex_min_sdk_version": attr.label(
+            default = "//build/bazel/rules/apex:min_sdk_version",
         ),
     },
     toolchains = ["//prebuilts/clang/host/linux-x86:nocrt_toolchain"],
@@ -195,8 +214,10 @@ def cc_object(
         copts = [],
         hdrs = [],
         asflags = [],
+        linkopts = [],
         srcs = [],
         srcs_as = [],
+        objs = [],
         deps = [],
         native_bridge_supported = False,  # TODO: not supported yet.
         stl = "",
@@ -209,16 +230,21 @@ def cc_object(
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
 
-    stl = stl_deps(stl, False)
+    stl_info = stl_info_from_attr(stl, False)
+    linkopts = linkopts + stl_info.linkopts
+    copts = copts + stl_info.cppflags
 
     _cc_object(
         name = name,
         hdrs = hdrs,
         asflags = asflags,
         copts = _CC_OBJECT_COPTS + copts,
-        srcs = srcs + srcs_as,
-        deps = deps,
-        includes_deps = stl.static + stl.shared + system_dynamic_deps,
+        linkopts = linkopts,
+        # TODO(b/261996812): we shouldn't need to have both srcs and srcs_as as inputs here
+        srcs = srcs,
+        srcs_as = srcs_as,
+        objs = objs,
+        includes_deps = stl_info.static_deps + stl_info.shared_deps + system_dynamic_deps + deps,
         sdk_version = sdk_version,
         min_sdk_version = min_sdk_version,
         **kwargs

@@ -14,8 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":cc_library_common.bzl", "is_external_directory")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "unittest", skylib_asserts = "asserts")
+load("//build/bazel/rules/test_common:asserts.bzl", roboleaf_asserts = "asserts")
+load(":cc_library_common.bzl", "CcAndroidMkInfo", "is_external_directory")
+
+asserts = skylib_asserts + roboleaf_asserts
 
 def _is_external_directory_test(ctx):
     env = unittest.begin(ctx)
@@ -104,6 +107,50 @@ def _is_external_directory_tests():
             expected_value = test_case.expected_value,
         )
     return test_cases.keys()
+
+def _target_provides_androidmk_info_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    target_under_test = analysistest.target_under_test(env)
+    mkinfo = target_under_test[CcAndroidMkInfo]
+    asserts.list_equals(
+        env,
+        ctx.attr.expected_static_libs,
+        mkinfo.local_static_libs,
+        "expected static_libs to be %s, but got %s" % (
+            ctx.attr.expected_static_libs,
+            mkinfo.local_static_libs,
+        ),
+    )
+    asserts.list_equals(
+        env,
+        ctx.attr.expected_whole_static_libs,
+        mkinfo.local_whole_static_libs,
+        "expected whole_static_libs to be %s, but got %s" % (
+            ctx.attr.expected_whole_static_libs,
+            mkinfo.local_whole_static_libs,
+        ),
+    )
+    asserts.list_equals(
+        env,
+        ctx.attr.expected_shared_libs,
+        mkinfo.local_shared_libs,
+        "expected shared_libs to be %s, but got %s" % (
+            ctx.attr.expected_shared_libs,
+            mkinfo.local_shared_libs,
+        ),
+    )
+
+    return analysistest.end(env)
+
+target_provides_androidmk_info_test = analysistest.make(
+    _target_provides_androidmk_info_test_impl,
+    attrs = {
+        "expected_static_libs": attr.string_list(),
+        "expected_whole_static_libs": attr.string_list(),
+        "expected_shared_libs": attr.string_list(),
+    },
+)
 
 def cc_library_common_test_suites(name):
     native.test_suite(

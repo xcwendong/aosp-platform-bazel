@@ -1,7 +1,6 @@
-load("//build/bazel/rules/android:android_binary.bzl", "android_binary")
+load("//build/bazel/rules/android:rules.bzl", "android_binary", "android_library")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
-load("@rules_android//rules:rules.bzl", "android_library")
 
 android_binary(
     name = "app",
@@ -34,6 +33,7 @@ android_library(
     srcs = [
         "Jni.java",
         "MainActivity.java",
+        "some_kotlin.kt",
     ],
     manifest = "AndroidManifest.xml",
     resource_files = glob(["res/**"]),

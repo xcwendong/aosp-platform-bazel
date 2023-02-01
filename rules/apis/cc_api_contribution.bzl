@@ -17,6 +17,7 @@ limitations under the License.
 """Bazel rules for exporting API contributions of CC libraries"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:sets.bzl", "sets")
 load("//build/bazel/rules/cc:cc_constants.bzl", "constants")
 
 """A Bazel provider that encapsulates the headers presented to an API surface"""
@@ -37,13 +38,19 @@ def _cc_api_header_impl(ctx):
     root = paths.dirname(ctx.build_file_path)
     if ctx.attr.include_dir:
         root = paths.join(root, ctx.attr.include_dir)
+    info = CcApiHeaderInfo(
+        name = ctx.label.name,
+        root = root,
+        headers = headers_filepath,
+        system = ctx.attr.system,
+        arch = ctx.attr.arch,
+    )
+
+    # TODO: Use depset for CcApiHeaderInfoList to optimize merges in `_cc_api_contribution_impl`
     return [
-        CcApiHeaderInfo(
-            name = ctx.label.name,
-            root = root,
-            headers = headers_filepath,
-            system = ctx.attr.system,
-            arch = ctx.attr.arch,
+        info,
+        CcApiHeaderInfoList(
+            headers_list = [info],
         ),
     ]
 
@@ -81,26 +88,126 @@ cc_api_headers = rule(
     },
 )
 
+"""List container for multiple CcApiHeaderInfo providers"""
+CcApiHeaderInfoList = provider(
+    fields = {
+        "headers_list": "List of CcApiHeaderInfo providers presented by a target",
+    },
+)
+
+def _cc_api_library_headers_impl(ctx):
+    hdrs_info = []
+    for hdr in ctx.attr.hdrs:
+        for hdr_info in hdr[CcApiHeaderInfoList].headers_list:
+            hdrs_info.append(hdr_info)
+
+    return [
+        CcApiHeaderInfoList(
+            headers_list = hdrs_info,
+        ),
+    ]
+
+_cc_api_library_headers = rule(
+    implementation = _cc_api_library_headers_impl,
+    attrs = {
+        "hdrs": attr.label_list(
+            mandatory = True,
+            providers = [CcApiHeaderInfoList],
+        ),
+    },
+)
+
+# Internal header library targets created by cc_api_library_headers macro
+# Bazel does not allow target name to end with `/`
+def _header_target_name(name, include_dir):
+    return name + "_" + paths.normalize(include_dir)
+
+def cc_api_library_headers(
+        name,
+        hdrs = [],
+        export_includes = [],
+        export_system_includes = [],
+        arch = None,
+        deps = [],
+        **kwargs):
+    header_deps = []
+    for include in export_includes:
+        _name = _header_target_name(name, include)
+
+        # export_include = "." causes the following error in glob
+        # Error in glob: segment '.' not permitted
+        # Normalize path before globbing
+        fragments = [include, "**/*.h"]
+        normpath = paths.normalize(paths.join(*fragments))
+
+        cc_api_headers(
+            name = _name,
+            include_dir = include,
+            hdrs = native.glob([normpath]),
+            system = False,
+            arch = arch,
+        )
+        header_deps.append(_name)
+
+    for system_include in export_system_includes:
+        _name = _header_target_name(name, system_include)
+        cc_api_headers(
+            name = _name,
+            include_dir = system_include,
+            hdrs = native.glob([paths.join(system_include, "**/*.h")]),
+            system = True,
+            arch = arch,
+        )
+        header_deps.append(_name)
+
+    # deps should be exported
+    header_deps.extend(deps)
+
+    _cc_api_library_headers(
+        name = name,
+        hdrs = header_deps,
+        **kwargs
+    )
+
 """A Bazel provider that encapsulates the contributions of a CC library to an API surface"""
 CcApiContributionInfo = provider(
     fields = {
         "name": "Name of the cc library",
         "api": "Path of map.txt describing the stable APIs of the library. Path is relative to workspace root",
         "headers": "metadata of the header files of the cc library",
+        "api_surfaces": "API surface(s) this library contributes to",
     },
 )
+
+VALID_CC_API_SURFACES = [
+    "publicapi",
+    "module-libapi",  # API surface provided by platform and mainline modules to other mainline modules
+    "vendorapi",
+]
+
+def _validate_api_surfaces(api_surfaces):
+    for api_surface in api_surfaces:
+        if api_surface not in VALID_CC_API_SURFACES:
+            fail(api_surface, " is not a valid API surface. Acceptable values: ", VALID_CC_API_SURFACES)
 
 def _cc_api_contribution_impl(ctx):
     """Implemenation for the cc_api_contribution rule
     This rule does not have any build actions, but returns a `CcApiContributionInfo` provider object"""
     api_filepath = ctx.file.api.path
-    headers = [header[CcApiHeaderInfo] for header in ctx.attr.hdrs]
+    hdrs_info = sets.make()
+    for hdr in ctx.attr.hdrs:
+        for hdr_info in hdr[CcApiHeaderInfoList].headers_list:
+            sets.insert(hdrs_info, hdr_info)
+
     name = ctx.attr.library_name or ctx.label.name
+    _validate_api_surfaces(ctx.attr.api_surfaces)
+
     return [
         CcApiContributionInfo(
             name = name,
             api = api_filepath,
-            headers = headers,
+            headers = sets.to_list(hdrs_info),
+            api_surfaces = ctx.attr.api_surfaces,
         ),
     ]
 
@@ -113,13 +220,17 @@ cc_api_contribution = rule(
         ),
         "api": attr.label(
             mandatory = True,
-            allow_single_file = [".map.txt"],
+            allow_single_file = [".map.txt", ".map"],
             doc = ".map.txt file of the library",
         ),
         "hdrs": attr.label_list(
             mandatory = False,
-            providers = [CcApiHeaderInfo],
+            providers = [CcApiHeaderInfoList],
             doc = "Header contributions of the cc library. This should return a `CcApiHeaderInfo` provider",
+        ),
+        "api_surfaces": attr.string_list(
+            doc = "API surface(s) this library contributes to. See VALID_CC_API_SURFACES in cc_api_contribution.bzl for valid values for API surfaces",
+            default = ["publicapi"],
         ),
     },
 )

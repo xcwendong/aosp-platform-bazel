@@ -1,0 +1,7 @@
+load(":tradefed_test.bzl", "tradefed_test_suite")
+
+exports_files(
+    glob(["*.tpl"]),
+)
+
+tradefed_test_suite(name = "tradefed_tests")

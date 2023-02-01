@@ -29,18 +29,11 @@ make_injection_repository(
 )
 # ! WARNING ! WARNING ! WARNING !
 
-# ! WARNING ! WARNING ! WARNING !
-# This is an experimental product configuration repostory rule.
-# It currently has incrementality issues, and will not rebuild
-# when the product config is changed. Use @soong_injection//product_config
-# instead. b/237004497 tracks fixing this issue and consolidating
-# it with soong_injection.
-load("//build/bazel/product_config:product_config_repository_rule.bzl", "product_config")
+load("//build/bazel/rules:env.bzl", "env_repository")
 
-product_config(
-    name = "product_config",
+env_repository(
+    name = "env",
 )
-# ! WARNING ! WARNING ! WARNING !
 
 load("//build/bazel_common_rules/workspace:external.bzl", "import_external_repositories")
 
@@ -58,9 +51,13 @@ local_repository(
     path = "external/bazelbuild-rules_android",
 )
 
+local_repository(
+    name = "rules_license",
+    path = "external/bazelbuild-rules_license",
+)
+
 register_toolchains(
     "//prebuilts/build-tools:py_toolchain",
-    "//prebuilts/clang/host/linux-x86:all",
 
     # For Starlark Android rules
     "//prebuilts/sdk:android_default_toolchain",
@@ -99,7 +96,7 @@ bind(
 # cut the dependency from test rules to the external repo.
 local_repository(
     name = "remote_coverage_tools",
-    path = "build/bazel/rules/coverage/remote_coverage_tools",
+    path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
 )
 
 # The following 2 repositories contain prebuilts that are necessary to the Java Rules.
@@ -122,3 +119,29 @@ local_repository(
 )
 
 register_toolchains("@local_jdk//:all")
+
+local_repository(
+    name = "kotlin_maven_interface",
+    path = "build/bazel/rules/kotlin/maven_interface",
+)
+
+local_repository(
+    name = "rules_kotlin",
+    path = "external/bazelbuild-kotlin-rules",
+    repo_mapping = {
+        "@maven": "@kotlin_maven_interface",
+        "@bazel_platforms": "@platforms",
+    },
+)
+
+new_local_repository(
+    name = "kotlinc",
+    build_file = "@rules_kotlin//bazel:kotlinc.BUILD",
+    path = "external/kotlinc",
+)
+
+register_toolchains("@rules_kotlin//toolchains/kotlin_jvm:kt_jvm_toolchain")
+
+load("//prebuilts/clang/host/linux-x86:cc_toolchain_config.bzl", "cc_register_toolchains")
+
+cc_register_toolchains()

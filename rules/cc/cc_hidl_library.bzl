@@ -92,9 +92,11 @@ def cc_hidl_library(
         "//system/core/libutils:libutils",
     ]
     implementation_dynamic_deps = [
-        "//system/logging/liblog:liblog",
         "//system/core/libcutils:libcutils",
-    ]
+    ] + select({
+        "//build/bazel/rules/apex:android-in_apex": ["//system/logging/liblog:liblog_stub_libs_current"],
+        "//conditions:default": ["//system/logging/liblog:liblog"],
+    })
 
     for dep in dynamic_deps:
         # Break up something like: //system/libhidl/transport/base/1.0:android.hidl.base@1.0

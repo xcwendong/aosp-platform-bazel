@@ -21,19 +21,20 @@ def _apex_aab_test(ctx):
     target_under_test = analysistest.target_under_test(env)
     asserts.true(
         env,
-        len(target_under_test.files.to_list()) == 1,
+        len(target_under_test.files.to_list()) == len(ctx.attr.expected_paths),
     )
-    asserts.equals(
-        env,
-        target_under_test.files.to_list()[0].short_path,
-        ctx.attr.expected_path,
-    )
+    for i in range(0, len(ctx.attr.expected_paths)):
+        asserts.equals(
+            env,
+            ctx.attr.expected_paths[i],
+            target_under_test.files.to_list()[i].short_path,
+        )
     return analysistest.end(env)
 
 apex_aab_test = analysistest.make(
     _apex_aab_test,
     attrs = {
-        "expected_path": attr.string(mandatory = True),
+        "expected_paths": attr.string_list(mandatory = True),
     },
 )
 
@@ -53,7 +54,7 @@ def _test_apex_aab_generates_aab():
     apex_aab_test(
         name = test_name,
         target_under_test = name,
-        expected_path = "/".join([native.package_name(), apex_name, apex_name + ".aab"]),
+        expected_paths = ["/".join([native.package_name(), apex_name, apex_name + ".aab"])],
     )
 
     return test_name
@@ -68,8 +69,8 @@ def _apex_aab_output_group_test(ctx):
     expected_paths = sorted(ctx.attr.expected_paths)
     asserts.equals(
         env,
-        sorted(actual_paths),
         sorted(ctx.attr.expected_paths),
+        sorted(actual_paths),
     )
     return analysistest.end(env)
 
@@ -93,18 +94,49 @@ def _test_apex_aab_apex_files_output_group():
 
     expected_paths = []
     for arch in ["arm", "arm64", "x86", "x86_64"]:
-        expected_paths.append(
-            "/".join([
-                native.package_name(),
-                "mainline_modules_" + arch,
+        paths = [
+            "/".join([native.package_name(), "mainline_modules_" + arch, basename])
+            for basename in [
                 apex_name + ".apex",
-            ]),
-        )
+                apex_name + "-base.zip",
+                "java_apis_usedby_apex/" + apex_name + "_using.xml",
+                "ndk_apis_usedby_apex/" + apex_name + "_using.txt",
+                "ndk_apis_backedby_apex/" + apex_name + "_backing.txt",
+            ]
+        ]
+        expected_paths.extend(paths)
 
     apex_aab_output_group_test(
         name = test_name,
         target_under_test = name,
         expected_paths = expected_paths,
+    )
+
+    return test_name
+
+def _test_apex_aab_generates_aab_and_apks():
+    name = "apex_aab_apks"
+    test_name = name + "_test"
+    apex_name = name + "_apex"
+
+    test_apex(name = apex_name, package_name = "com.google.android." + apex_name)
+
+    apex_aab(
+        name = name,
+        mainline_module = apex_name,
+        dev_sign_bundle = "//build/make/tools/releasetools:sign_apex",
+        dev_keystore = "//build/bazel/rules/apex/testdata:dev-keystore",
+        tags = ["manual"],
+    )
+
+    apex_aab_test(
+        name = test_name,
+        target_under_test = name,
+        expected_paths = [
+            "/".join([native.package_name(), apex_name, apex_name + ".aab"]),
+            "/".join([native.package_name(), apex_name, apex_name + ".apks"]),
+            "/".join([native.package_name(), apex_name, apex_name + ".cert_info.txt"]),
+        ],
     )
 
     return test_name
@@ -115,5 +147,6 @@ def apex_aab_test_suite(name):
         tests = [
             _test_apex_aab_generates_aab(),
             _test_apex_aab_apex_files_output_group(),
+            _test_apex_aab_generates_aab_and_apks(),
         ],
     )

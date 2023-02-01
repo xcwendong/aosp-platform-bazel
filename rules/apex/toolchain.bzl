@@ -29,6 +29,12 @@ ApexToolchainInfo = provider(
         "apex_compression_tool",
         "soong_zip",
         "jsonmodify",
+        "manifest_fixer",
+        "gen_ndk_usedby_apex",
+        "readelf",
+        "gen_java_usedby_apex",
+        "dexdeps",
+        "notice_generator",
     ],
 )
 
@@ -47,6 +53,12 @@ def _apex_toolchain_impl(ctx):
             apex_compression_tool = ctx.attr.apex_compression_tool,
             soong_zip = ctx.file.soong_zip,
             jsonmodify = ctx.attr.jsonmodify,
+            manifest_fixer = ctx.attr.manifest_fixer,
+            gen_ndk_usedby_apex = ctx.attr.gen_ndk_usedby_apex,
+            readelf = ctx.attr.readelf,
+            gen_java_usedby_apex = ctx.attr.gen_java_usedby_apex,
+            dexdeps = ctx.attr.dexdeps,
+            notice_generator = ctx.attr.notice_generator,
         ),
     )
     return [toolchain_info]
@@ -69,5 +81,11 @@ apex_toolchain = rule(
         # soong_zip to compress APEX files. avbtool is also used in apex_compression tool
         # and has been added to apex toolchain previously.
         "soong_zip": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
+        "manifest_fixer": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "gen_ndk_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
+        "readelf": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = True),
+        "gen_java_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
+        "dexdeps": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "notice_generator": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
     },
 )

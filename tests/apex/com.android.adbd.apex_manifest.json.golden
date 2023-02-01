@@ -8,12 +8,12 @@
     "libadbconnection_client.so"
   ],
   "requireNativeLibs": [
-    "libc.so",
-    "libdl.so",
-    "libm.so",
-    "liblog.so",
     "libadbd_auth.so",
     "libadbd_fs.so",
+    "libc.so",
+    "libdl.so",
+    "liblog.so",
+    "libm.so",
     "libselinux.so"
   ]
 }

@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("//build/bazel/rules/apex:apex.bzl", "ApexInfo")
+load("//build/bazel/rules/apex:apex_info.bzl", "ApexInfo")
 
 InstallableInfo = provider(
     "If a target provides InstallableInfo, it means it can be installed on a partition image.",
     fields = {
-        "files": "A dictionary mapping from the path to the file to install to the path it should have in the partition.",
+        "files": "A dictionary mapping from a path in the partition to the path to the file to install there.",
     },
 )
 
@@ -27,7 +27,7 @@ def _installable_aspect_impl(target, ctx):
     installed_files = {}
     if ApexInfo in target:
         apex = target[ApexInfo].signed_output
-        installed_files[apex] = "/system/apex/" + apex.basename
+        installed_files["/system/apex/" + apex.basename] = apex
 
     if not installed_files:
         return []

@@ -250,7 +250,7 @@ def _cc_interface_dep_test_impl(ctx):
     return analysistest.end(env)
 
 def _find_dep(package_root, name, deps):
-    full_name = "//" + package_root + ":" + name
+    full_name = "@//" + package_root + ":" + name
     for lists in deps.to_list():
         for dep in lists[0]:
             if dep.startswith(full_name):

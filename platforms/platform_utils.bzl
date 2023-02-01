@@ -87,6 +87,14 @@ def _is_target_linux_or_android(utils):
     """Returns if the target platform is linux with any variation of libc, or android."""
     return _is_target_linux(utils) or _is_target_android(utils)
 
+def _is_target_bionic(utils):
+    """Returns if the target platform uses the Bionic libc"""
+    return _is_target_linux_bionic(utils) or _is_target_android(utils)
+
+def _is_target_linux_bionic(utils):
+    """Returns if the target platform runs (non-Android) Linux and uses the Bionic libc"""
+    return _get_platform_info(utils).target_linux_bionic_constraint
+
 def _is_target_x86(utils):
     """Returns if the target platform is 32-bit x86."""
     return _get_platform_info(utils).target_x86_constraint

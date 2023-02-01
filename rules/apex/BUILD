@@ -1,7 +1,13 @@
+load("@env//:env.bzl", "env")
+load("//build/bazel/flags:common.bzl", "is_env_true")
+load("//build/bazel/product_variables:constants.bzl", "constants")
 load("//build/bazel/rules/apex:toolchain.bzl", "apex_toolchain")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_list_setting", "string_setting")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting", "string_list_setting", "string_setting")
+load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 load(":apex_test.bzl", "apex_test_suite")
 load(":apex_aab_test.bzl", "apex_aab_test_suite")
+load(":apex_key_test.bzl", "apex_key_test_suite")
+load("@env//:env.bzl", "env")
 
 string_setting(
     name = "apex_name",
@@ -9,10 +15,75 @@ string_setting(
     visibility = ["//visibility:public"],
 )
 
+string_setting(
+    name = "base_apex_name",
+    build_setting_default = "",
+    visibility = ["//visibility:public"],
+)
+
+string_setting(
+    name = "override_apex_manifest_default_version",
+    build_setting_default = env.get("OVERRIDE_APEX_MANIFEST_DEFAULT_VERSION", ""),
+    visibility = ["//visibility:public"],
+)
+
+bool_setting(
+    name = "within_apex",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "in_apex",
+    flag_values = {
+        ":within_apex": "True",
+    },
+)
+
 config_setting(
     name = "non_apex",
     flag_values = {
         ":apex_name": "",
+    },
+)
+
+config_setting(
+    name = "android-in_apex",
+    constraint_values = [
+        constants.ArchVariantToConstraints["android"],
+    ],
+    flag_values = {
+        ":within_apex": "True",
+    },
+)
+
+config_setting(
+    name = "android-non_apex",
+    constraint_values = [
+        constants.ArchVariantToConstraints["android"],
+    ],
+    flag_values = {
+        ":within_apex": "False",
+    },
+)
+
+config_setting(
+    name = "linux_bionic-in_apex",
+    constraint_values = [
+        constants.ArchVariantToConstraints["linux_bionic"],
+    ],
+    flag_values = {
+        ":within_apex": "True",
+    },
+)
+
+config_setting(
+    name = "linux_bionic-non_apex",
+    constraint_values = [
+        constants.ArchVariantToConstraints["linux_bionic"],
+    ],
+    flag_values = {
+        ":within_apex": "False",
     },
 )
 
@@ -28,22 +99,50 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+string_setting(
+    name = "min_sdk_version",
+    build_setting_default = "",
+    visibility = ["//visibility:public"],
+)
+
+[
+    config_setting(
+        name = "min_sdk_version_" + str(api),
+        flag_values = {
+            ":min_sdk_version": str(api),
+        },
+    )
+    for api in api_levels.values()
+]
+
+bool_flag(
+    name = "unsafe_disable_apex_allowed_deps_check",
+    build_setting_default = is_env_true(env.get("UNSAFE_DISABLE_APEX_ALLOWED_DEPS_CHECK")),
+    visibility = ["//visibility:public"],
+)
+
 toolchain_type(name = "apex_toolchain_type")
 
 apex_toolchain(
     name = "apex_toolchain",
-    aapt2 = "//prebuilts/sdk/tools:linux/bin/aapt2",
+    aapt2 = "//frameworks/base/tools/aapt2",
     android_jar = "//prebuilts/sdk/current:public/android.jar",
     apex_compression_tool = "//system/apex/tools:apex_compression_tool",
     apexer = "//system/apex/apexer",
     avbtool = "//external/avb:avbtool",
     conv_apex_manifest = "//system/apex/apexer:conv_apex_manifest",
+    dexdeps = "//dalvik/tools/dexdeps",  # tool input for gen_java_usedby_apex
     e2fsdroid = "//external/e2fsprogs/contrib/android:e2fsdroid",
+    gen_java_usedby_apex = "//build/soong/scripts:gen_java_usedby_apex.sh",
+    gen_ndk_usedby_apex = "//build/soong/scripts:gen_ndk_usedby_apex.sh",
     jsonmodify = "//build/soong/scripts:jsonmodify",
+    manifest_fixer = "//build/soong/scripts:manifest_fixer",
     mke2fs = "//external/e2fsprogs/misc:mke2fs",
+    notice_generator = "//build/bazel/compliance/cmd:bazel_notice_gen",
+    readelf = "//prebuilts/clang/host/linux-x86:llvm-readelf",
     resize2fs = "//external/e2fsprogs/resize:resize2fs",
     sefcontext_compile = "//external/selinux/libselinux:sefcontext_compile",
-    soong_zip = "//prebuilts/build-tools:linux-x86/bin/soong_zip",
+    soong_zip = "//build/soong/zip/cmd:soong_zip",
 )
 
 toolchain(
@@ -65,4 +164,14 @@ apex_test_suite(
 
 apex_aab_test_suite(
     name = "apex_aab_tests",
+)
+
+apex_key_test_suite(
+    name = "apex_key_tests",
+)
+
+filegroup(
+    name = "signapk_deploy_jar",
+    srcs = ["//build/make/tools/signapk:signapk_deploy.jar"],
+    visibility = ["//visibility:public"],
 )

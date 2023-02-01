@@ -1,4 +1,4 @@
-load("@soong_injection//cc_toolchain:constants.bzl", "constants")
+load("@soong_injection//cc_toolchain:config_constants.bzl", "constants")
 
 # This test requires bp2build to run and the generated BUILD files in the source tree.
 sh_test(

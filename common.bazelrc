@@ -1,22 +1,9 @@
-# Platforms and toolchains for AOSP.
-#
-# Set default target platform for builds to rely on product config's arch and os variables
-build --platforms //build/bazel/platforms:android_target
-build --platform_mappings=build/bazel/platforms/platform_mappings
-
-# Configs to group/simplify target platform specific flags.
-build:android_x86_64 --platforms=//build/bazel/platforms:android_x86_64
-build:android_x86 --platforms=//build/bazel/platforms:android_x86
-build:android_arm64 --platforms=//build/bazel/platforms:android_arm64
-build:android_arm --platforms=//build/bazel/platforms:android_arm
-
-build:linux_x86_64 --platforms=//build/bazel/platforms:linux_x86_64
-
 # Use the target platform (android_x86, android_arm) in the bazel-out/ output
 # directory name fragment instead of the CPU (darwin, k8). This avoids
 # thrashing the output directory when switching between top level target
 # --platforms values.
 build --experimental_platform_in_output_dir
+build --platform_mappings=build/bazel/platforms/platform_mappings
 
 # Use toolchain resolution to find the cc toolchain.
 build --incompatible_enable_cc_toolchain_resolution
@@ -38,7 +25,7 @@ build --experimental_strict_action_env
 build --experimental_allow_unresolved_symlinks
 
 # Enable usage of experimental cc-related build APIs
-build --experimental_cc_shared_library
+common --experimental_cc_shared_library
 build --experimental_starlark_cc_import
 
 # Do not tokenize copts, other than strings that consist of a single Make
@@ -56,11 +43,14 @@ build --proto_compiler=//external/protobuf:aprotoc
 # are a long term goal.
 build --strategy=CppCompile=standalone
 
-# Enable use of the interface_deps attribute in native cc rules
-build --experimental_cc_interface_deps
+# Enable use of the implementation_deps attribute in native cc rules
+build --experimental_cc_implementation_deps
 
 # Use the llvm_coverage_map_format feature to turn on native code coverage.
 build --experimental_use_llvm_covmap
+
+# Always emit the stdout of failing tests as they should be emphasized. (b/247516541)
+test --test_output=errors
 
 # Enable building targets in //external:__subpackages__.
 common --experimental_sibling_repository_layout
@@ -73,39 +63,34 @@ common --show_progress_rate_limit=0.05
 common --color=yes
 common --curses=yes
 
-# Show the full set of flags for observability and debuggability.
-common --announce_rc
-
-# Run bazel query from the workspace, without cd'ing into out/soong/queryview
-# Note that this hardcodes the output dir. It will not work if $OUT_DIR != out.
-common:queryview --package_path=%workspace%/out/soong/queryview
-
-# Run bazel query from the workspace, without cd'ing into out/soong/workspace
-# Note that this hardcodes the output dir. It will not work if $OUT_DIR != out.
-common:bp2build --package_path=%workspace%/out/soong/workspace
-
 # Configurations specific to CI builds, generally to improve signal-to-noise ratio in server logs.
 common:ci --color=no
 common:ci --curses=no
 common:ci --show_progress_rate_limit=5
 common:ci --noshow_loading_progress
+# Show the full set of flags for observability and debuggability.
+common:ci --announce_rc
 build:ci --verbose_failures
+# Log apexer verbosely on CI (it has a noisy but useful output)
+build:ci --//build/bazel/rules/apex:apexer_verbose
 test:ci --keep_going
-test:ci --test_output=errors
 
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
 
+# Get rid no-op "affected by Starlark transition" config when label-based flag
+# (i.e. //command_line_option:fdo_profile) is set back to None
+build --experimental_output_directory_naming_scheme=diff_against_baseline
+common --experimental_google_legacy_api
 build --android_sdk=//prebuilts/sdk:android_sdk
-build --experimental_enable_android_migration_apis
-build --experimental_google_legacy_api
-build --incompatible_java_common_parameters
+common --experimental_enable_android_migration_apis
+common --incompatible_java_common_parameters
 build --android_databinding_use_v3_4_args
 build --experimental_android_databinding_v2
 build --define=android_incremental_dexing_tool=d8_dexbuilder
 build --define=android_dexmerger_tool=d8_dexmerger
 build --nouse_workers_with_dexbuilder
-# TODO(b/240761789): This flag should be abandonned in favor of platform/toolchain resolution.
+# TODO(b/240761789): This flag should be abandoned in favor of platform/toolchain resolution.
 build --fat_apk_cpu=k8
 
 # TODO(b/199038020): Use a python_toolchain when we have Starlark rules_python.
@@ -113,14 +98,16 @@ build --fat_apk_cpu=k8
 build --python_top=//prebuilts/build-tools:python3
 build --noincompatible_use_python_toolchains
 
-# Developer instance for result storage. This only works if you have access
-# to the Bazel GCP project. Follow the GCP gcloud client's auth instructions to
-# use --google_default_credentials.
-build:results --remote_instance_name=projects/bazel-untrusted/instances/default_instance
-build:results --project_id=bazel-untrusted
-build:results --remote_timeout=600
-build:results --google_default_credentials
-build:results --test_summary=detailed
-build:results --bes_backend=buildeventservice.googleapis.com
-build:results --bes_results_url=https://source.cloud.google.com/results/invocations
-build:results --show_progress_rate_limit=5
+# Enable optimization compilation mode to build cc with fdo
+# https://github.com/bazelbuild/bazel/blob/de7b26acfdfcd9c36ec957305a889ac29f0da30e/src/main/java/com/google/devtools/build/lib/rules/cpp/FdoHelper.java#L55
+build --compilation_mode=opt
+
+common --incompatible_remove_rule_name_parameter=false
+
+# TODO(b/264304464): Remove when bugs with java_binary starlark impl are fixed.
+
+common --experimental_builtins_injection_override=-java_binary
+
+# Set writable bit for all bazel outputs. This makes it easy to remove
+# the output directory and its contents after a build (using `rm`).
+build --experimental_writable_outputs

@@ -31,6 +31,7 @@ _arch_variant_to_constraints = {
     "arm64": "//build/bazel/platforms/arch:arm64",
     "x86": "//build/bazel/platforms/arch:x86",
     "x86_64": "//build/bazel/platforms/arch:x86_64",
+    "riscv64": "//build/bazel/platforms/arch:riscv64",
     "android": "//build/bazel/platforms/os:android",
     "darwin": "//build/bazel/platforms/os:darwin",
     "linux": "//build/bazel/platforms/os:linux",

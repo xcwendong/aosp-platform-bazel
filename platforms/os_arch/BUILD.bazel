@@ -15,6 +15,14 @@ config_setting(
 )
 
 config_setting(
+    name = "android_riscv64",
+    constraint_values = [
+        "//build/bazel/platforms/arch:riscv64",
+        "//build/bazel/platforms/os:android",
+    ],
+)
+
+config_setting(
     name = "android_x86",
     constraint_values = [
         "//build/bazel/platforms/arch:x86",

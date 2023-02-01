@@ -46,8 +46,6 @@ readonly -a EXCLUDE_FILES=(
   "*.img"
   #(TODO: b/222588241) all .build_info.pb files are different
   "*.build_info.pb"
-  #(TODO: b/222588061) base/root/apex_manifest.pb
-  "apex_manifest.pb"
   #(TODO: b/222587792) base/manifest/AndroidManifest.xml
   # two bytes are different, prebuilt has 0x20, bazel built has 0x1f
   "AndroidManifest.xml"

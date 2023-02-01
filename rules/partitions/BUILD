@@ -6,6 +6,7 @@ partition_toolchain(
     name = "partition_toolchain",
     build_image = "@make_injection//:host/linux-x86/bin/build_image",
     mkuserimg_mke2fs = "@make_injection//:host/linux-x86/bin/mkuserimg_mke2fs",
+    tags = ["manual"],
 )
 
 toolchain(
@@ -14,6 +15,7 @@ toolchain(
         "//build/bazel/platforms/arch:x86_64",
         "//build/bazel/platforms/os:linux",
     ],
+    tags = ["manual"],
     target_compatible_with = [
         "//build/bazel/platforms/os:android",
     ],

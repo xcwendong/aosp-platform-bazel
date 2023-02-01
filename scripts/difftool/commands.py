@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License."""
-
 """Helper functions and types for command processing for difftool."""
 
 
@@ -52,7 +51,8 @@ def parse_flag_groups(args, custom_flag_group=None):
   group abiding by the above convention, or None to use non-custom logic.
   This may be required to accurately parse arg groups. For example, `-a b` may
   be either a one-arg group `-a` followed by a positonal group `b`, or a two-arg
-  group `-a b`."""
+  group `-a b`.
+  """
   flag_groups = []
 
   i = 0
@@ -72,7 +72,7 @@ def parse_flag_groups(args, custom_flag_group=None):
 
     # Look for a two-arg group if there are at least 2 elements left.
     if i < len(args) - 1:
-      g = two_arg_group(args[i], args[i+1])
+      g = two_arg_group(args[i], args[i + 1])
       if g is not None:
         flag_groups += [g]
         i += 2
@@ -107,7 +107,8 @@ def two_arg_group(a, b):
 
   Returns:
     A tuple of the two args without hyphens if they belong to a single
-    flag, or None if they do not. """
+    flag, or None if they do not.
+  """
   if a.startswith("-") and (not b.startswith("-")):
     return (remove_hyphens(a), b)
   else:
@@ -122,7 +123,8 @@ def one_arg_group(x):
 
   Returns:
     A tuple of `(key, value)` of the flag group, if the arg comprises a
-    complete flag group, or None if it does not."""
+    complete flag group, or None if it does not.
+  """
   tokens = x.split("=")
   if len(tokens) == 2:
     return (remove_hyphens(tokens[0]), tokens[1])
@@ -142,4 +144,3 @@ def flag_repr(x):
     return f"-{x[0]} {x[1]}"
   else:
     return x
-

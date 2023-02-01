@@ -35,7 +35,7 @@ def _symlink_aidl_srcs(ctx, srcs, strip_import_prefix):
     for src in srcs:
         src_path = src.short_path
 
-        if not src_path.startswith(workspace_root_strip_import_prefix):
+        if not paths.normalize(src_path).startswith(paths.normalize(workspace_root_strip_import_prefix)):
             fail(".aidl file '%s' is not under the specified strip prefix '%s'" %
                  (src_path, workspace_root_strip_import_prefix))
 
@@ -73,6 +73,9 @@ def _aidl_library_rule_impl(ctx):
             transitive_include_dirs = depset(
                 direct = [include_path],
                 transitive = transitive_include_dirs,
+                # build with preorder so that transitive_include_dirs.to_list()
+                # return direct include path in the first element
+                order = "preorder",
             ),
             flags = ctx.attr.flags,
         ),

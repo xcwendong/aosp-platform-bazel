@@ -15,10 +15,9 @@
 # limitations under the License.
 """A tool to print human-readable metrics information regarding the last build.
 
-By default, the consumed file will be $OUT_DIR/soong_build_metrics.pb. You may pass
-in a different file instead using the metrics_file flag.
+By default, the consumed file will be $OUT_DIR/soong_build_metrics.pb. You may
+pass in a different file instead using the metrics_file flag.
 """
-
 
 import argparse
 import json
@@ -36,6 +35,7 @@ class Event(object):
     start_time_relative_ns: Time since the epoch that the event started
     duration_ns: Duration of this event, including time spent in children.
   """
+
   def __init__(self, name):
     self.name = name
     self.children = list()
@@ -63,7 +63,8 @@ def _get_proto_output_file():
 
   This corresponds to soong/ui/metrics/metrics_proto/metrics.proto.
   """
-  return os.getenv("ANDROID_BUILD_TOP") + "/build/soong/ui/metrics/metrics_proto/metrics.proto"
+  return os.getenv("ANDROID_BUILD_TOP"
+                  ) + "/build/soong/ui/metrics/metrics_proto/metrics.proto"
 
 
 def _get_default_output_file():
@@ -71,12 +72,18 @@ def _get_default_output_file():
   out_dir = os.getenv("OUT_DIR")
   if not out_dir:
     out_dir = "out"
-  return os.path.join(os.getenv("ANDROID_BUILD_TOP"), out_dir, "soong_build_metrics.pb")
+  build_top = os.getenv("ANDROID_BUILD_TOP")
+  if not build_top:
+    raise Exception(
+        "$ANDROID_BUILD_TOP not found in environment. Have you run lunch?")
+  return os.path.join(build_top, out_dir, "soong_build_metrics.pb")
 
 
 def _make_nested_events(root_event, event):
   """Splits the event into its '.' separated name parts, and adds Event objects for it to the
-  synthetic root_event event."""
+
+  synthetic root_event event.
+  """
   node = root_event
   for sub_event in event["description"].split("."):
     node = node.get_or_add_child(sub_event)
@@ -98,11 +105,12 @@ def _write_events(out, events, indent=""):
 
 def _write_event(out, event, indent=""):
   "Writes an event. See _write_events for args."
-  out.write("%(start)9s  %(duration)9s  %(indent)s%(name)s\n" % {
-        "start": _format_ns(event.start_time_relative_ns),
-        "duration": _format_ns(event.duration_ns),
-        "indent": indent,
-        "name": event.name,
+  out.write(
+      "%(start)9s  %(duration)9s  %(indent)s%(name)s\n" % {
+          "start": _format_ns(event.start_time_relative_ns),
+          "duration": _format_ns(event.duration_ns),
+          "indent": indent,
+          "name": event.name,
       })
   _write_events(out, event.children, indent + "  ")
 
@@ -112,13 +120,27 @@ def _format_ns(duration_ns):
   return "%.02fs" % (duration_ns / 1_000_000_000)
 
 
+def _save_file(data, file):
+  f = open(file, "wb")
+  f.write(data)
+  f.close()
+
+
 def main():
   # Parse args
   parser = argparse.ArgumentParser(description="")
-  parser.add_argument("metrics_file", nargs="?",
-                      default=_get_default_output_file(),
-                      help="The soong_metrics file created as part of the last build. " +
-                      "Defaults to out/soong_build_metrics.pb")
+  parser.add_argument(
+      "metrics_file",
+      nargs="?",
+      default=_get_default_output_file(),
+      help="The soong_metrics file created as part of the last build. " +
+      "Defaults to out/soong_build_metrics.pb")
+  parser.add_argument(
+      "--save-proto-output-file",
+      nargs="?",
+      default="",
+      help="(Optional) The file to save the output of the printproto command to."
+  )
   args = parser.parse_args()
 
   # Check the metrics file
@@ -129,7 +151,8 @@ def main():
   # Check the proto definition file
   proto_file = _get_proto_output_file()
   if not os.path.exists(proto_file):
-    raise Exception("$ANDROID_BUILD_TOP not found in environment. Have you run lunch?")
+    raise Exception(
+        "$ANDROID_BUILD_TOP not found in environment. Have you run lunch?")
 
   # Load the metrics file from the out dir
   cmd = r"""printproto --proto2 --raw_protocol_buffer --json \
@@ -137,6 +160,10 @@ def main():
               --message=soong_build_metrics.SoongBuildMetrics --multiline \
               --proto=""" + proto_file + " " + metrics_file
   json_out = subprocess.check_output(cmd, shell=True)
+
+  if args.save_proto_output_file != "":
+    _save_file(json_out, args.save_proto_output_file)
+
   build_output = json.loads(json_out)
 
   # Bail if there are no events

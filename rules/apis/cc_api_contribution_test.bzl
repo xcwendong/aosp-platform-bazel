@@ -15,7 +15,7 @@ limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load(":cc_api_contribution.bzl", "CcApiContributionInfo", "CcApiHeaderInfo", "cc_api_contribution", "cc_api_headers")
+load(":cc_api_contribution.bzl", "CcApiContributionInfo", "CcApiHeaderInfo", "CcApiHeaderInfoList", "cc_api_contribution", "cc_api_headers", "cc_api_library_headers")
 
 def _empty_include_dir_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -67,6 +67,56 @@ def _nonempty_include_dir_test():
         name = test_name,
         target_under_test = subject_name,
         expected_include_dir = include_dir,
+    )
+    return test_name
+
+def _api_library_headers_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    asserts.true(env, CcApiHeaderInfoList in target_under_test)
+    headers_list = target_under_test[CcApiHeaderInfoList].headers_list
+    actual_includes = sorted([headers.root for headers in headers_list if not headers.system])
+    actual_system_includes = sorted([headers.root for headers in headers_list if headers.system])
+    asserts.equals(env, ctx.attr.expected_includes, actual_includes)
+    asserts.equals(env, ctx.attr.expected_system_includes, actual_system_includes)
+    return analysistest.end(env)
+
+api_library_headers_test = analysistest.make(
+    impl = _api_library_headers_test_impl,
+    attrs = {
+        "expected_includes": attr.string_list(),
+        "expected_system_includes": attr.string_list(),
+    },
+)
+
+def _api_library_headers_test():
+    test_name = "api_library_headers_test"
+    subject_name = test_name + "_subject"
+    cc_api_library_headers(
+        name = subject_name,
+        hdrs = [],
+        export_includes = ["include1", "include2"],
+        export_system_includes = ["system_include1"],
+        deps = [":other_api_library_headers", "other_api_headers"],
+        tags = ["manual"],
+    )
+    cc_api_library_headers(
+        name = "other_api_library_headers",
+        hdrs = [],
+        export_includes = ["otherinclude1"],
+        tags = ["manual"],
+    )
+    cc_api_headers(
+        name = "other_api_headers",
+        hdrs = [],
+        include_dir = "otherinclude2",
+        tags = ["manual"],
+    )
+    api_library_headers_test(
+        name = test_name,
+        target_under_test = subject_name,
+        expected_includes = ["build/bazel/rules/apis/include1", "build/bazel/rules/apis/include2", "build/bazel/rules/apis/otherinclude1", "build/bazel/rules/apis/otherinclude2"],
+        expected_system_includes = ["build/bazel/rules/apis/system_include1"],
     )
     return test_name
 
@@ -152,14 +202,93 @@ def _nonempty_library_name_preferred_test():
     )
     return test_name
 
+def _api_surfaces_attr_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    asserts.equals(env, ctx.attr.expected_api_surfaces, target_under_test[CcApiContributionInfo].api_surfaces)
+    return analysistest.end(env)
+
+api_surfaces_attr_test = analysistest.make(
+    impl = _api_surfaces_attr_test_impl,
+    attrs = {
+        "expected_api_surfaces": attr.string_list(),
+    },
+)
+
+def _api_surfaces_attr_test():
+    test_name = "api_surfaces_attr_test"
+    subject_name = test_name + "_subject"
+    cc_api_contribution(
+        name = subject_name,
+        api = "libfoo.map.txt",
+        api_surfaces = ["publicapi", "module-libapi"],
+        tags = ["manual"],
+    )
+    api_surfaces_attr_test(
+        name = test_name,
+        target_under_test = subject_name,
+        expected_api_surfaces = ["publicapi", "module-libapi"],
+    )
+    return test_name
+
+def _api_headers_contribution_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    asserts.equals(env, ctx.attr.expected_include_dirs, [hdr_info.root for hdr_info in target_under_test[CcApiContributionInfo].headers])
+    return analysistest.end(env)
+
+api_headers_contribution_test = analysistest.make(
+    impl = _api_headers_contribution_test_impl,
+    attrs = {
+        "expected_include_dirs": attr.string_list(),
+    },
+)
+
+def _api_headers_contribution_test():
+    test_name = "api_headers_contribution_test"
+    subject_name = test_name + "_subject"
+    cc_api_contribution(
+        name = subject_name,
+        api = ":libfoo.map.txt",
+        hdrs = [
+            subject_name + "_headers",
+            subject_name + "_library_headers",
+        ],
+        tags = ["manual"],
+    )
+    cc_api_headers(
+        name = subject_name + "_headers",
+        hdrs = [],
+        include_dir = "dir1",
+        tags = ["manual"],
+    )
+    cc_api_library_headers(
+        name = subject_name + "_library_headers",
+        export_includes = ["dir2", "dir3"],
+        tags = ["manual"],
+    )
+    api_headers_contribution_test(
+        name = test_name,
+        target_under_test = subject_name,
+        expected_include_dirs = [
+            "build/bazel/rules/apis/dir1",
+            "build/bazel/rules/apis/dir2",
+            "build/bazel/rules/apis/dir3",
+        ],
+    )
+    return test_name
+
 def cc_api_test_suite(name):
     native.test_suite(
         name = name,
         tests = [
             _empty_include_dir_test(),
             _nonempty_include_dir_test(),
+            _api_library_headers_test(),
             _api_path_is_relative_to_workspace_root_test(),
             _empty_library_name_gets_label_name_test(),
             _nonempty_library_name_preferred_test(),
+            _api_surfaces_attr_test(),
+            _api_headers_contribution_test(),
         ],
     )
