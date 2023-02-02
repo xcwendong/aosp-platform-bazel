@@ -788,7 +788,7 @@ def _cc_library_shared_provides_androidmk_info():
         target_under_test = name,
         expected_static_libs = [dep_name, "libc++demangle"],
         expected_whole_static_libs = [whole_archive_dep_name],
-        expected_shared_libs = [dynamic_dep_name, "libc++"],
+        expected_shared_libs = [dynamic_dep_name, "libc++", "libc", "libdl", "libm"],
         target_compatible_with = ["//build/bazel/platforms/os:android"],
     )
     target_provides_androidmk_info_test(

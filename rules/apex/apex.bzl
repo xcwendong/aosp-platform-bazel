@@ -586,12 +586,16 @@ def _validate_apex_deps(ctx):
             transitive_unvalidated_targets.append(dep[ApexAvailableInfo].transitive_unvalidated_targets)
             transitive_invalid_targets.append(dep[ApexAvailableInfo].transitive_invalid_targets)
 
-    for target, apex_available_tags in depset(transitive = transitive_invalid_targets).to_list():
-        msg = ("{label} is a dependency of {apex_name} apex, " +
-               "but does not include the apex in its apex_available tags: {tags}").format(
-            label = target.label,
+    invalid_targets = depset(transitive = transitive_invalid_targets).to_list()
+    if len(invalid_targets) > 0:
+        invalid_targets_msg = "\n    ".join([
+            "{label}; apex_available tags: {tags}".format(label = target.label, tags = list(apex_available_tags))
+            for target, apex_available_tags in invalid_targets
+        ])
+        msg = ("`{apex_name}` apex has transitive dependencies that do not include the apex in " +
+               "their apex_available tags:\n    {invalid_targets_msg}").format(
             apex_name = ctx.label,
-            tags = list(apex_available_tags),
+            invalid_targets_msg = invalid_targets_msg,
         )
         fail(msg)
 

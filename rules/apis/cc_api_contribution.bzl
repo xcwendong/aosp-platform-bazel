@@ -181,7 +181,7 @@ CcApiContributionInfo = provider(
 
 VALID_CC_API_SURFACES = [
     "publicapi",
-    "systemapi",
+    "module-libapi",  # API surface provided by platform and mainline modules to other mainline modules
     "vendorapi",
 ]
 

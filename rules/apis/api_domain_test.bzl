@@ -26,7 +26,7 @@ def _json_output_test_impl(ctx):
     actions = analysistest.target_actions(env)
     asserts.equals(
         env,
-        expected = 8,  # union of cc and java api surfaces
+        expected = 9,  # union of cc and java api surfaces
         actual = len(actions),
     )
     asserts.equals(
@@ -64,7 +64,7 @@ def _json_output_contains_contributions_test_impl(ctx):
     actions = analysistest.target_actions(env)
     asserts.equals(
         env,
-        expected = 8,  # union of cc and java api surfaces
+        expected = 9,  # union of cc and java api surfaces
         actual = len(actions),
     )
 

@@ -221,13 +221,13 @@ def _api_surfaces_attr_test():
     cc_api_contribution(
         name = subject_name,
         api = "libfoo.map.txt",
-        api_surfaces = ["publicapi", "systemapi"],
+        api_surfaces = ["publicapi", "module-libapi"],
         tags = ["manual"],
     )
     api_surfaces_attr_test(
         name = test_name,
         target_under_test = subject_name,
-        expected_api_surfaces = ["publicapi", "systemapi"],
+        expected_api_surfaces = ["publicapi", "module-libapi"],
     )
     return test_name
 

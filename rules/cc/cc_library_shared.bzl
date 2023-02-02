@@ -187,7 +187,8 @@ def cc_library_shared(
         implementation_dynamic_deps = implementation_dynamic_deps + stl_info.shared_deps,
         implementation_whole_archive_deps = implementation_whole_archive_deps,
         system_dynamic_deps = system_dynamic_deps,
-        deps = deps + whole_archive_deps,
+        deps = deps,
+        whole_archive_deps = whole_archive_deps + extra_archive_deps,
         features = features,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
@@ -255,7 +256,7 @@ def cc_library_shared(
         static_deps = ["//:__subpackages__"] + [shared_root_name, imp_deps_stub, deps_stub],
         dynamic_deps = shared_dynamic_deps,
         additional_linker_inputs = additional_linker_inputs,
-        roots = [shared_root_name, imp_deps_stub, deps_stub] + whole_archive_deps + extra_archive_deps,
+        roots = [shared_root_name, imp_deps_stub, deps_stub],
         features = features,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
@@ -333,9 +334,6 @@ def cc_library_shared(
         shared = stripped_name,
         shared_debuginfo = unstripped_name,
         deps = [shared_root_name],
-        androidmk_static_deps = deps + stl_info.static_deps,
-        androidmk_whole_archive_deps = whole_archive_deps,
-        androidmk_dynamic_deps = dynamic_deps + stl_info.shared_deps,
         features = features,
         table_of_contents = toc_name,
         output_file = soname,
@@ -459,16 +457,12 @@ def _cc_library_shared_proxy_impl(ctx):
         # as cc_shared_library identifies which libraries can be linked dynamically based on the
         # linker_inputs of the roots
         ctx.attr.deps[0][CcInfo],
+        ctx.attr.deps[0][CcAndroidMkInfo],
         CcStubLibrariesInfo(has_stubs = ctx.attr.has_stubs),
         ctx.attr.shared[0][OutputGroupInfo],
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
         CcUnstrippedInfo(unstripped = shared_debuginfo[0]),
         ctx.attr.abi_dump[AbiDiffInfo],
-        create_cc_androidmk_provider(
-            static_deps = ctx.attr.androidmk_static_deps,
-            whole_archive_deps = ctx.attr.androidmk_whole_archive_deps,
-            dynamic_deps = ctx.attr.androidmk_dynamic_deps,
-        ),
     ]
 
 _cc_library_shared_proxy = rule(

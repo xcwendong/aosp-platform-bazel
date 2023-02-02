@@ -127,8 +127,8 @@ def _target_provides_androidmk_info_test_impl(ctx):
         ctx.attr.expected_whole_static_libs,
         mkinfo.local_whole_static_libs,
         "expected whole_static_libs to be %s, but got %s" % (
-            ctx.attr.expected_static_libs,
-            mkinfo.local_static_libs,
+            ctx.attr.expected_whole_static_libs,
+            mkinfo.local_whole_static_libs,
         ),
     )
     asserts.list_equals(
@@ -136,8 +136,8 @@ def _target_provides_androidmk_info_test_impl(ctx):
         ctx.attr.expected_shared_libs,
         mkinfo.local_shared_libs,
         "expected shared_libs to be %s, but got %s" % (
-            ctx.attr.expected_static_libs,
-            mkinfo.local_static_libs,
+            ctx.attr.expected_shared_libs,
+            mkinfo.local_shared_libs,
         ),
     )
 

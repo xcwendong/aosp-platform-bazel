@@ -29,8 +29,9 @@ _PUBLIC_API = "publicapi"
 _SYSTEM_API = "systemapi"
 _TEST_API = "testapi"
 _MODULE_LIB_API = "module-libapi"
-_SYSTEM_SERVER_API = "systemserver-api"
+_SYSTEM_SERVER_API = "system-serverapi"
 _INTRA_CORE_API = "intracoreapi"
+_CORE_PLATFORM_API = "core_platformapi"
 
 # _TOOLCHAIN_API is a special API surface provided by ART to compile other API domains
 # (e.g. core-lambda-stubs required to compile java files containing lambdas)
@@ -52,7 +53,14 @@ _JAVA_FULLAPISURFACE_TO_PARTIALSIGNATUREFILE = {
     # [<hide>, --show-single-annotation libcore.api.IntraCoreApi"]
     # conscrypt and icu4j use similar droidoc_options
     _INTRA_CORE_API: [_PUBLIC_API, _INTRA_CORE_API],
-    # TODO: Handle CorePlatformApi
+    # CorePlatformApi does not extend PublicApi
+    # Each core module is at different stages of transition
+    # The status quo in Soong today is
+    # 1. conscrypt - Still provides CorePlatformApis
+    # 2. i18n - APIs have migrated to Public API surface
+    # 3. art - APIs have migrated to ModuleLib API suface
+    # This layering complexity will be handled by the build orchestrator and not by API export.
+    _CORE_PLATFORM_API: [_CORE_PLATFORM_API],
     # coreapi does not have an entry here, it really is the public stubs of the 3 core modules
     # (art, conscrypt, i18n)
     _TOOLCHAIN_API: [_TOOLCHAIN_API],
