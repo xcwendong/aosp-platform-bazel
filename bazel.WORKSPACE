@@ -136,7 +136,7 @@ local_repository(
 
 new_local_repository(
     name = "kotlinc",
-    build_file = "@rules_kotlin//bazel:kotlinc.BUILD",
+    build_file = "//build/bazel/rules/kotlin:kotlinc.BUILD",
     path = "external/kotlinc",
 )
 
