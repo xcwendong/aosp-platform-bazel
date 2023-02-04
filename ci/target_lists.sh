@@ -29,6 +29,21 @@ BUILD_TARGETS_LIST=(
   -//external/e2fsprogs/resize:all
   -//external/e2fsprogs/debugfs:all
   -//external/e2fsprogs/e2fsck:all
+
+  # TODO(b/266459895): remove these after re-enabling libunwindstack
+  -//bionic/libc/malloc_debug:libc_malloc_debug
+  -//bionic/libfdtrack:libfdtrack
+  -//frameworks/av/services/mediacodec:mediaswcodec
+  -//frameworks/av/media/codec2/hidl/1.0/utils:libcodec2_hidl@1.0
+  -//frameworks/native/opengl/libs:libEGL
+  -//frameworks/av/media/module/bqhelper:libstagefright_bufferqueue_helper_novndk
+  -//frameworks/native/opengl/libs:libGLESv2
+  -//frameworks/av/media/codec2/hidl/1.1/utils:libcodec2_hidl@1.1
+  -//frameworks/av/media/module/codecserviceregistrant:libmedia_codecserviceregistrant
+  -//frameworks/av/media/codec2/hidl/1.2/utils:libcodec2_hidl@1.2
+  -//system/unwinding/libunwindstack:all
+  -//system/core/libutils:libutils_test
+  -//system/core/libutils:libutilscallstack
 )
 BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
 

@@ -128,14 +128,19 @@ def aidl_interface(
     if is_config_enabled(ndk_config):
         enabled_backend_configs[NDK] = ndk_config
 
-    # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=329;drc=e88d9a9b14eafb064a234d555a5cd96de97ca9e2
-    # only vintf is allowed currently
-    if stability != None and stability in ["vintf"]:
-        aidl_flags.append("--stability=" + stability)
+    if stability != None:
+        if unstable == True:
+            fail("stability must be unset when unstable is true")
+        if stability == "vintf":
+            aidl_flags.append("--stability=" + stability)
 
-        # TODO(b/245738285): Add support for vintf stability in java backend
-        if JAVA in enabled_backend_configs:
-            enabled_backend_configs.pop(JAVA)
+            # TODO(b/245738285): Add support for vintf stability in java backend
+            if JAVA in enabled_backend_configs:
+                enabled_backend_configs.pop(JAVA)
+        else:
+            # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=329;drc=e88d9a9b14eafb064a234d555a5cd96de97ca9e2
+            # only vintf is allowed currently
+            fail("stability must be unset or \"vintf\"")
 
     # next_version will be the last specified version + 1.
     # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=791?q=system%2Ftools%2Faidl%2Fbuild%2Faidl_interface.go
