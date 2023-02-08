@@ -14,12 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test")
+load(
+    "//build/bazel/rules/test_common:args.bzl",
+    "get_all_args_with_prefix",
+    "get_single_arg_with_prefix",
+)
+load("//build/bazel/rules/aidl:interface.bzl", "aidl_interface")
 load(":cc_library_static.bzl", "cc_library_static")
 load(":clang_tidy.bzl", "generate_clang_tidy_actions")
-load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test")
-load("//build/bazel/rules/test_common:args.bzl", "get_all_args_with_prefix", "get_single_arg_with_prefix")
 
 _PACKAGE_HEADER_FILTER = "^build/bazel/rules/cc/"
 _DEFAULT_GLOBAL_CHECKS = [

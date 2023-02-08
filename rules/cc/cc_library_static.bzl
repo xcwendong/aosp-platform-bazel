@@ -30,6 +30,7 @@ load(
 )
 load(":stl.bzl", "stl_info_from_attr")
 load(":clang_tidy.bzl", "ClangTidyInfo", "generate_clang_tidy_actions")
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
@@ -85,6 +86,7 @@ def cc_library_static(
         tidy_flags = None,
         tidy_disabled_srcs = None,
         tidy_timeout_srcs = None,
+        tidy_gen_header_filter = None,
         native_coverage = True):
     "Bazel macro to correspond with the cc_library_static Soong module."
 
@@ -244,6 +246,7 @@ def cc_library_static(
         tidy_checks_as_errors = tidy_checks_as_errors,
         tidy_disabled_srcs = tidy_disabled_srcs,
         tidy_timeout_srcs = tidy_timeout_srcs,
+        tidy_gen_header_filter = tidy_gen_header_filter,
     )
 
 def _generate_tidy_actions(ctx):
@@ -256,6 +259,13 @@ def _generate_tidy_actions(ctx):
     tidy_timeout = ctx.attr._tidy_timeout[BuildSettingInfo].value
     if tidy_timeout != "":
         disabled_srcs.extend(ctx.attr.tidy_timeout_srcs)
+
+    if ctx.attr.tidy_gen_header_filter:
+        if ctx.attr.tidy_flags:
+            fail("tidy_flags cannot be set when also using tidy_gen_header_filter")
+        tidy_flags = ["-header-filter=" + paths.join(ctx.genfiles_dir.path, ctx.label.package) + ".*"]
+    else:
+        tidy_flags = ctx.attr.tidy_flags
 
     cpp_srcs, cpp_hdrs = get_non_header_srcs(
         ctx.files.srcs_cpp,
@@ -275,7 +285,7 @@ def _generate_tidy_actions(ctx):
         cpp_srcs,
         hdrs,
         "c++",
-        ctx.attr.tidy_flags,
+        tidy_flags,
         ctx.attr.tidy_checks,
         ctx.attr.tidy_checks_as_errors,
         tidy_timeout,
@@ -287,7 +297,7 @@ def _generate_tidy_actions(ctx):
         c_srcs,
         hdrs,
         "c",
-        ctx.attr.tidy_flags,
+        tidy_flags,
         ctx.attr.tidy_checks,
         ctx.attr.tidy_checks_as_errors,
         tidy_timeout,
@@ -522,6 +532,7 @@ _cc_library_combiner = rule(
         "tidy_flags": attr.string_list(),
         "tidy_disabled_srcs": attr.label_list(allow_files = True),
         "tidy_timeout_srcs": attr.label_list(allow_files = True),
+        "tidy_gen_header_filter": attr.bool(),
         "_clang_tidy_sh": attr.label(
             default = Label("@//prebuilts/clang/host/linux-x86:clang-tidy.sh"),
             allow_single_file = True,

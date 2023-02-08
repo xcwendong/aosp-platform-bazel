@@ -327,21 +327,32 @@ def _cc_aidl_libraries(
         **kwargs
     )
 
-    cc_library_shared(
-        name = name,
+    if hasattr(kwargs, "tidy_checks_as_errors"):
+        fail("tidy_checks_as_errors cannot be overriden for aidl_interface cc_libraries")
+    tidy_checks_as_errors = [
+        "*",
+        "-clang-analyzer-deadcode.DeadStores",  # b/253079031
+        "-clang-analyzer-cplusplus.NewDeleteLeaks",  # b/253079031
+        "-clang-analyzer-optin.performance.Padding",  # b/253079031
+    ]
+
+    shared_arguments_with_kwargs = dict(
+        kwargs,
         srcs = [":" + aidl_code_gen],
         implementation_deps = implementation_deps,
         deps = [aidl_code_gen],
         dynamic_deps = dynamic_deps,
         min_sdk_version = min_sdk_version,
-        **kwargs
+        tidy = True,
+        tidy_checks_as_errors = tidy_checks_as_errors,
+        tidy_gen_header_filter = True,
+    )
+
+    cc_library_shared(
+        name = name,
+        **shared_arguments_with_kwargs
     )
     cc_library_static(
         name = name + "_bp2build_cc_library_static",
-        srcs = [":" + aidl_code_gen],
-        implementation_deps = implementation_deps,
-        deps = [aidl_code_gen],
-        dynamic_deps = dynamic_deps,
-        min_sdk_version = min_sdk_version,
-        **kwargs
+        **shared_arguments_with_kwargs
     )

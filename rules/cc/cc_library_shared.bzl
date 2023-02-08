@@ -101,6 +101,7 @@ def cc_library_shared(
         tidy_flags = None,
         tidy_disabled_srcs = None,
         tidy_timeout_srcs = None,
+        tidy_gen_header_filter = None,
         **kwargs):
     "Bazel macro to correspond with the cc_library_shared Soong module."
 
@@ -199,6 +200,7 @@ def cc_library_shared(
         tidy_flags = tidy_flags,
         tidy_disabled_srcs = tidy_disabled_srcs,
         tidy_timeout_srcs = tidy_timeout_srcs,
+        tidy_gen_header_filter = tidy_gen_header_filter,
     )
 
     sanitizer_deps_name = name + "_sanitizer_deps"
