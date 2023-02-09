@@ -192,17 +192,21 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
   return acc
 
 
+def get_build_info_and_perf(d: Path) -> dict[str, any]:
+  perf = read_pbs(d)
+  with open(d.joinpath(util.BUILD_INFO_JSON), 'r') as f:
+    build_info = json.load(f)
+    return build_info | perf
+
+
 def write_summary_csv(log_dir: Path):
   rows: list[dict[str, any]] = []
   dirs = glob.glob(f'{util.RUN_DIR_PREFIX}*', root_dir=log_dir)
   dirs.sort(key=lambda x: int(x[1 + len(util.RUN_DIR_PREFIX):]))
   for d in dirs:
     d = log_dir.joinpath(d)
-    perf = read_pbs(d)
-    with open(d.joinpath(util.BUILD_INFO_JSON), 'r') as f:
-      build_info = json.load(f)
-      row = build_info | perf
-      rows.append(row)
+    row = get_build_info_and_perf(d)
+    rows.append(row)
 
   headers: list[str] = _get_column_headers(rows, allow_cycles=False)
 
@@ -230,9 +234,9 @@ def show_summary(log_dir: Path):
 
 def main():
   p = argparse.ArgumentParser(
-      formatter_class=argparse.RawTextHelpFormatter,
-      description='read archived perf metrics from [LOG_DIR] and '
-                  f'summarize them into {util.SUMMARY_CSV}')
+    formatter_class=argparse.RawTextHelpFormatter,
+    description='read archived perf metrics from [LOG_DIR] and '
+                f'summarize them into {util.SUMMARY_CSV}')
   default_log_dir = util.get_out_dir().joinpath(util.DEFAULT_TIMING_LOGS_DIR)
   p.add_argument('-l', '--log-dir', type=Path, default=default_log_dir,
                  help=textwrap.dedent('''

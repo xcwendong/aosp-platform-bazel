@@ -60,8 +60,8 @@ def _prepare_env() -> (Mapping[str, str], str):
     return soong_ui_ninja_args
 
   overrides: Mapping[str, str] = {
-      'NINJA_ARGS': get_soong_build_ninja_args(),
-      'SOONG_UI_NINJA_ARGS': get_soong_ui_ninja_args()
+    'NINJA_ARGS': get_soong_build_ninja_args(),
+    'SOONG_UI_NINJA_ARGS': get_soong_ui_ninja_args()
   }
   env = {**os.environ, **overrides}
   if not os.environ.get('TARGET_BUILD_PRODUCT'):
@@ -89,7 +89,30 @@ def _build(user_input: ui.UserInput, logfile: Path) -> (int, dict[str, any]):
   cmd = [*user_input.build_type.value, *user_input.targets]
   logging.info('Command: %s', cmd)
   env, env_str = _prepare_env()
+  ninja_log_file = util.get_out_dir().joinpath('.ninja_log')
+
+  def get_action_count() -> int:
+    with open(ninja_log_file, 'r') as ninja_log:
+      # subtracting 1 to account for "# ninja log v5" in the first line
+      return sum(1 for _ in ninja_log) - 1
+
+  def recompact_ninja_log():
+    subprocess.run([
+      util.get_top_dir().joinpath(
+        'prebuilts/build-tools/linux-x86/bin/ninja'),
+      '-f',
+      util.get_out_dir().joinpath(
+        f'combined-{env.get("TARGET_PRODUCT", "aosp_arm")}.ninja'),
+      '-t', 'recompact'],
+      check=False, cwd=util.get_top_dir(), shell=False,
+      stdout=f, stderr=f)
+
   with open(logfile, mode='w') as f:
+    if ninja_log_file.exists():
+      recompact_ninja_log()
+      action_count_before = get_action_count()
+    else:
+      action_count_before = 0
     f.write(f'Command: {cmd}\n')
     f.write(f'Environment Variables:\n{textwrap.indent(env_str, "  ")}\n\n\n')
     f.flush()
@@ -97,14 +120,16 @@ def _build(user_input: ui.UserInput, logfile: Path) -> (int, dict[str, any]):
     p = subprocess.run(cmd, check=False, cwd=util.get_top_dir(), env=env,
                        shell=False, stdout=f, stderr=f)
     elapsed_ns = time.perf_counter_ns() - start_ns
+    action_count_after = get_action_count()
 
   return (p.returncode, {
-      'build_type': user_input.build_type.name.lower(),
-      'build.ninja': _build_file_sha(),
-      'targets': ' '.join(user_input.targets),
-      'log': str(logfile.relative_to(user_input.log_dir)),
-      'ninja_explains': util.count_explanations(logfile),
-      'time': str(datetime.timedelta(microseconds=elapsed_ns / 1000))
+    'build_type': user_input.build_type.name.lower(),
+    'build.ninja': _build_file_sha(),
+    'targets': ' '.join(user_input.targets),
+    'log': str(logfile.relative_to(user_input.log_dir)),
+    'ninja_explains': util.count_explanations(logfile),
+    'actions': action_count_after - action_count_before,
+    'time': str(datetime.timedelta(microseconds=elapsed_ns / 1000))
   })
 
 
@@ -162,8 +187,8 @@ def main():
         # summarize
         log_desc = desc if run == 0 else f'rebuild-{run} after {desc}'
         build_info = {
-                         'description': log_desc,
-                         'build_result': build_result
+                       'description': log_desc,
+                       'build_result': build_result
                      } | build_info
         logging.info('%s after %s: %s',
                      build_info["build_result"], build_info["time"], log_desc)

@@ -52,6 +52,17 @@ TEST_TARGETS_LIST=(
 )
 TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
 
+HOST_ONLY_TEST_TARGETS_LIST=(
+  # Test both unstripped and stripped versions of a host native unit test
+  //system/core/libcutils:libcutils_test
+  //system/core/libcutils:libcutils_test_unstripped
+  # TODO(b/268186228): adb_test fails only on CI
+  -//packages/modules/adb:adb_test
+  # TODO(b/268185249): libbase_test asserts on the Soong basename of the test
+  -//system/libbase:libbase_test
+)
+HOST_ONLY_TEST_TARGETS="${HOST_ONLY_TEST_TARGETS_LIST[@]}"
+
 HOST_INCOMPATIBLE_TARGETS=(
   # TODO(b/216626461): add support for host_ldlibs
   -//packages/modules/adb:all
