@@ -166,7 +166,7 @@ def main():
     for cujstep in cujgroup.steps:
       desc = f'{cujstep.verb} {cujgroup.description}'
       logging.info('START %s', desc)
-      cujstep.action()
+      cujstep.apply_change()
       run = 0
       while True:
         # build

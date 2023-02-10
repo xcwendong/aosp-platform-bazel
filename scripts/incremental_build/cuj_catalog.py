@@ -24,7 +24,7 @@ import textwrap
 import uuid
 from enum import Enum
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 from typing import TypeAlias
 
 import util
@@ -45,14 +45,24 @@ class BuildResult(Enum):
 
 
 Action: TypeAlias = Callable[[], None]
-Verify: TypeAlias = Callable[[UserInput], None]
+Verifier: TypeAlias = Callable[[UserInput], None]
 
 
-def verify_symlink_forest_has_only_symlink_leaves(user_input: UserInput):
+def skip_when_soong_only(func: Verifier):
+  """A decorator for Verifiers that are not applicable to soong-only builds"""
+
+  def wrapper(user_input: UserInput):
+    if user_input.build_type == BuildType.SOONG_ONLY:
+      return
+    return func(user_input)
+
+  return wrapper
+
+
+@skip_when_soong_only
+def verify_symlink_forest_has_only_symlink_leaves(_: UserInput):
   """Verifies that symlink forest has only symlinks or directories but no
   files except for merged BUILD.bazel files"""
-  if user_input.build_type == BuildType.SOONG_ONLY:
-    return
 
   def helper(d: Path):
     for child in os.scandir(d):
@@ -61,20 +71,21 @@ def verify_symlink_forest_has_only_symlink_leaves(user_input: UserInput):
         continue
       if child_path.is_file() and child.name != 'BUILD.bazel':
         # only "merged" BUILD.bazel files expected
-        raise f'{child_path} is an unexpected file'
+        raise AssertionError(f'{child_path} is an unexpected file')
       if child_path.is_dir():
         helper(child_path)
 
   helper(InWorkspace.ws_counterpart(util.get_top_dir()))
+  logging.info('VERIFIED Symlink Forest has no real files except BUILD.bazel')
 
 
 @dataclasses.dataclass(frozen=True)
 class CujStep:
   verb: str
   """a human-readable description"""
-  action: Action
+  apply_change: Action
   """user action(s) that are performed prior to a build attempt"""
-  verify: Verify = verify_symlink_forest_has_only_symlink_leaves
+  verify: Verifier = verify_symlink_forest_has_only_symlink_leaves
   """post-build assertions, i.e. tests.
   Should raise `Exception` for failures.
   """
@@ -84,8 +95,8 @@ class CujStep:
 class CujGroup:
   """A sequence of steps to be performed, such that at the end of all steps the
   initial state of the source tree is attained.
-  NO attempt is made to achieve atomicity programmatically.
-  It is left as user responsibility.
+  NO attempt is made to achieve atomicity programmatically. It is left as the
+  responsibility of the user.
   """
   description: str
   steps: list[CujStep]
@@ -94,8 +105,8 @@ class CujGroup:
     if len(self.steps) < 2:
       return f'{self.steps[0].verb} {self.description}'
     return ' '.join(
-        [f'({chr(ord("a") + i)}) {step.verb} {self.description}' for i, step in
-         enumerate(self.steps)])
+      [f'({chr(ord("a") + i)}) {step.verb} {self.description}' for i, step in
+       enumerate(self.steps)])
 
 
 class InWorkspace(Enum):
@@ -110,32 +121,32 @@ class InWorkspace(Enum):
   @staticmethod
   def ws_counterpart(src_path: Path) -> Path:
     return util.get_out_dir().joinpath('soong/workspace').joinpath(
-        de_src(src_path))
+      de_src(src_path))
 
-  def verify(self, src_path: Path) -> Verify:
-    ws_path = InWorkspace.ws_counterpart(src_path)
-
-    def under_symlink() -> bool:
-      return any(p for p in ws_path.parents if
-                 p.is_relative_to(util.get_out_dir()) and p.is_symlink())
-
-    def f(user_input: UserInput):
-      if user_input.build_type == BuildType.SOONG_ONLY:
-        return  # ignore
+  def verifier(self, src_path: Path) -> Verifier:
+    @skip_when_soong_only
+    def f(_: UserInput):
+      ws_path = InWorkspace.ws_counterpart(src_path)
+      actual: Optional[InWorkspace] = None
       if ws_path.is_symlink():
         actual = InWorkspace.SYMLINK
         if not ws_path.exists():
           logging.warning('Dangling symlink %s', ws_path)
       elif not ws_path.exists():
         actual = InWorkspace.OMISSION
-      elif under_symlink():
-        actual = InWorkspace.UNDER_SYMLINK
       else:
-        actual = InWorkspace.NOT_UNDER_SYMLINK
+        for p in ws_path.parents:
+          if not p.is_relative_to(util.get_out_dir()):
+            actual = InWorkspace.NOT_UNDER_SYMLINK
+            break
+          if p.is_symlink():
+            actual = InWorkspace.UNDER_SYMLINK
+            break
 
       if self != actual:
         raise AssertionError(
-            f'{ws_path} expected {self.name} but got {actual.name}')
+          f'{ws_path} expected {self.name} but got {actual.name}')
+      logging.info(f'VERIFIED {de_src(ws_path)} {self.name}')
 
     return f
 
@@ -169,8 +180,8 @@ def modify_revert(file: Path, text: str = '//BOGUS line\n') -> CujGroup:
       f.truncate()
 
   return CujGroup(de_src(file), [
-      CujStep('modify', add_line),
-      CujStep('revert', revert)
+    CujStep('modify', add_line),
+    CujStep('revert', revert)
   ])
 
 
@@ -190,8 +201,8 @@ def create_delete(file: Path, ws: InWorkspace,
   def create():
     if file.exists():
       raise RuntimeError(
-          f'File {file} already exists. Interrupted an earlier run?\n'
-          'TIP: `repo status` and revert changes!!!')
+        f'File {file} already exists. Interrupted an earlier run?\n'
+        'TIP: `repo status` and revert changes!!!')
     file.parent.mkdir(parents=True, exist_ok=True)
     file.touch(exist_ok=False)
     with open(file, mode="w") as f:
@@ -204,19 +215,19 @@ def create_delete(file: Path, ws: InWorkspace,
       file.unlink(missing_ok=False)
 
   return CujGroup(de_src(file), [
-      CujStep('create', create, ws.verify(file)),
-      CujStep('delete', delete, InWorkspace.OMISSION.verify(file)),
+    CujStep('create', create, ws.verifier(file)),
+    CujStep('delete', delete, InWorkspace.OMISSION.verifier(file)),
   ])
 
 
-def create_delete_bp(d: Path) -> CujGroup:
+def create_delete_bp(bp_file: Path) -> CujGroup:
   """
   This is basically the same as "create_delete" but with canned content for
   an Android.bp file.
   """
   return create_delete(
-      d, InWorkspace.SYMLINK,
-      'filegroup { name: "test-bogus-filegroup", srcs: ["**/*.md"] }')
+    bp_file, InWorkspace.SYMLINK,
+    'filegroup { name: "test-bogus-filegroup", srcs: ["**/*.md"] }')
 
 
 def delete_restore(original: Path, ws: InWorkspace) -> CujGroup:
@@ -228,24 +239,24 @@ def delete_restore(original: Path, ws: InWorkspace) -> CujGroup:
   restores it
   """
   tempdir = Path(tempfile.gettempdir())
-  copied = tempdir.joinpath(f'{original.name}-{uuid.uuid4()}.bak')
   if tempdir.is_relative_to(util.get_top_dir()):
     raise SystemExit(f'Temp dir {tempdir} is under source tree')
   if tempdir.is_relative_to(util.get_out_dir()):
     raise SystemExit(f'Temp dir {tempdir} is under '
                      f'OUT dir {util.get_out_dir()}')
+  copied = tempdir.joinpath(f'{original.name}-{uuid.uuid4()}.bak')
 
   def move_to_tempdir_to_mimic_deletion():
-    logging.warning('MOVING %s TO %s', original, copied)
+    logging.warning('MOVING %s TO %s', de_src(original), copied)
     original.rename(copied)
 
   return CujGroup(de_src(original), [
-      CujStep('delete',
-              move_to_tempdir_to_mimic_deletion,
-              InWorkspace.OMISSION.verify(original)),
-      CujStep('restore',
-              lambda: copied.rename(original),
-              ws.verify(original))
+    CujStep('delete',
+            move_to_tempdir_to_mimic_deletion,
+            InWorkspace.OMISSION.verifier(original)),
+    CujStep('restore',
+            lambda: copied.rename(original),
+            ws.verifier(original))
   ])
 
 
@@ -255,24 +266,26 @@ def replace_link_with_dir(p: Path):
   create_file, delete_file, *tail = cd.steps
   assert len(tail) == 0
 
+  # an Android.bp is always a symlink in the workspace and thus its parent
+  # will be a directory in the workspace
   create_dir, delete_dir, *tail = create_delete_bp(
-      p.joinpath('Android.bp')).steps
+    p.joinpath('Android.bp')).steps
   assert len(tail) == 0
 
   def replace_it():
-    delete_file.action()
-    create_dir.action()
+    delete_file.apply_change()
+    create_dir.apply_change()
 
   return CujGroup(cd.description, [
-      create_file,
-      CujStep(f'{de_src(p)}/Android.bp instead of',
-              replace_it,
-              create_dir.verify),
-      delete_dir
+    create_file,
+    CujStep(f'{de_src(p)}/Android.bp instead of',
+            replace_it,
+            create_dir.verify),
+    delete_dir
   ])
 
 
-def _sequence(a: Verify, b: Verify) -> Verify:
+def _sequence(a: Verifier, b: Verifier) -> Verifier:
   def f(user_input: UserInput):
     a(user_input)
     b(user_input)
@@ -283,7 +296,7 @@ def _sequence(a: Verify, b: Verify) -> Verify:
 def _with_kept_build_file_verifications(
     template: CujGroup, curated_file: Path, curated_content) -> CujGroup:
   ws_file = util.get_out_dir().joinpath('soong/workspace').joinpath(
-      curated_file.with_name('BUILD.bazel'))
+    curated_file.with_name('BUILD.bazel'))
 
   def verify_merged(user_input: UserInput):
     if user_input.build_type == BuildType.SOONG_ONLY:
@@ -351,7 +364,7 @@ def create_delete_unkept_build_file(buildfile) -> CujGroup:
   def verify(user_input: UserInput):
     if user_input.build_type == BuildType.SOONG_ONLY:
       return
-    InWorkspace.OMISSION.verify(buildfile)
+    InWorkspace.OMISSION.verifier(buildfile)(user_input)
     generated = InWorkspace.ws_counterpart(buildfile.with_name('BUILD.bazel'))
     with open(generated, "r") as f:
       for line in f:
@@ -359,8 +372,8 @@ def create_delete_unkept_build_file(buildfile) -> CujGroup:
           raise AssertionError(f'{buildfile} merged in {generated}')
 
   return CujGroup(de_src(buildfile), [
-      CujStep('create', create_files, _sequence(create_bp.verify, verify)),
-      delete_bp
+    CujStep('create', create_files, _sequence(create_bp.verify, verify)),
+    delete_bp
   ])
 
 
@@ -392,74 +405,74 @@ def get_cujgroups() -> list[CujGroup]:
   leaf package free: {de_src(leaf_pkg_free)} has neither Android.bp nor sub-dirs
   '''))
   android_bp_cujs = [
-      modify_revert(src('Android.bp')),
+    modify_revert(src('Android.bp')),
 
-      *[create_delete_bp(d.joinpath('Android.bp')) for d in
-        [ancestor, pkg_free, leaf_pkg_free]]
+    *[create_delete_bp(d.joinpath('Android.bp')) for d in
+      [ancestor, pkg_free, leaf_pkg_free]]
   ]
   bazel_file_cujs = [
-      # needs ShouldKeepExistingBuildFileForDir(pkg_free) = false
-      *[create_delete(d.joinpath('BUILD.bazel'), InWorkspace.OMISSION) for d in
-        [ancestor,
-         pkg_free,
-         leaf_pkg_free
-         ]],
-      # for pkg and leaf_pkg, BUILD.bazel will be created
-      # but BUILD will be either merged or ignored
-      create_delete(pkg.joinpath('BUILD'), InWorkspace.OMISSION),
+    # needs ShouldKeepExistingBuildFileForDir(pkg_free) = false
+    *[create_delete(d.joinpath('BUILD.bazel'), InWorkspace.OMISSION) for d in
+      [ancestor,
+       pkg_free,
+       leaf_pkg_free
+       ]],
+    # for pkg and leaf_pkg, BUILD.bazel will be created
+    # but BUILD will be either merged or ignored
+    create_delete(pkg.joinpath('BUILD'), InWorkspace.OMISSION),
 
-      *[create_delete(d.joinpath('BUILD/bogus-under-build-dir.txt'),
-                      InWorkspace.UNDER_SYMLINK) for
-        d in [pkg, ancestor, pkg_free, leaf_pkg_free]],
+    *[create_delete(d.joinpath('BUILD/bogus-under-build-dir.txt'),
+                    InWorkspace.UNDER_SYMLINK) for
+      d in [pkg, ancestor, pkg_free, leaf_pkg_free]],
 
-      # external/guava Bp2BuildKeepExistingBuildFile set True(recursive)
-      create_delete_kept_build_file(
-          util.any_dir_under(src('external/guava'),
-                             '!Android.bp', '!BUILD', '!BUILD.bazel')
-            .joinpath('BUILD'),
-          InWorkspace.SYMLINK),
-      create_delete_kept_build_file(
-          util.any_dir_under(src('external/guava'), 'Android.bp',
-                             '!BUILD.bazel')
-            .joinpath('BUILD.bazel'),
-          InWorkspace.NOT_UNDER_SYMLINK),
-      create_delete_kept_build_file(
-          src('external/guava/bogus/BUILD'),
-          InWorkspace.UNDER_SYMLINK),
-      modify_revert_kept_build_file(
-          util.any_file_under(src('external/guava'), 'BUILD')),
-      # bionic doesn't have Bp2BuildKeepExistingBuildFile set True
-      create_delete_unkept_build_file(src('bionic/bogus-unkept/BUILD')),
-      modify_revert(util.any_file_under(src('bionic'), 'BUILD'))
+    # external/guava Bp2BuildKeepExistingBuildFile set True(recursive)
+    create_delete_kept_build_file(
+      util.any_dir_under(src('external/guava'),
+                         '!Android.bp', '!BUILD', '!BUILD.bazel')
+      .joinpath('BUILD'),
+      InWorkspace.SYMLINK),
+    create_delete_kept_build_file(
+      util.any_dir_under(src('external/guava'), 'Android.bp',
+                         '!BUILD.bazel')
+      .joinpath('BUILD.bazel'),
+      InWorkspace.NOT_UNDER_SYMLINK),
+    create_delete_kept_build_file(
+      src('external/guava/bogus/BUILD'),
+      InWorkspace.UNDER_SYMLINK),
+    modify_revert_kept_build_file(
+      util.any_file_under(src('external/guava'), 'BUILD')),
+    # bionic doesn't have Bp2BuildKeepExistingBuildFile set True
+    create_delete_unkept_build_file(src('bionic/bogus-unkept/BUILD')),
+    modify_revert(util.any_file_under(src('bionic'), 'BUILD'))
   ]
   mixed_build_launch_cujs = [
-      modify_revert(src('bionic/libc/tzcode/asctime.c')),
-      modify_revert(src('bionic/libc/stdio/stdio.cpp')),
-      modify_revert(src('packages/modules/adb/daemon/main.cpp')),
-      modify_revert(src('frameworks/base/core/java/android/view/View.java')),
+    modify_revert(src('bionic/libc/tzcode/asctime.c')),
+    modify_revert(src('bionic/libc/stdio/stdio.cpp')),
+    modify_revert(src('packages/modules/adb/daemon/main.cpp')),
+    modify_revert(src('frameworks/base/core/java/android/view/View.java')),
   ]
   unreferenced_file_cujs = [
-      *[create_delete(d.joinpath('unreferenced.txt'), InWorkspace.SYMLINK) for
-        d in [ancestor, pkg]],
-      *[create_delete(d.joinpath('unreferenced.txt'), InWorkspace.UNDER_SYMLINK)
-        for d
-        in [pkg_free, leaf_pkg_free]]
+    *[create_delete(d.joinpath('unreferenced.txt'), InWorkspace.SYMLINK) for
+      d in [ancestor, pkg]],
+    *[create_delete(d.joinpath('unreferenced.txt'), InWorkspace.UNDER_SYMLINK)
+      for d
+      in [pkg_free, leaf_pkg_free]]
   ]
   return [
-      CujGroup('', [CujStep('no change', lambda: None)]),
+    CujGroup('', [CujStep('no change', lambda: None)]),
 
-      create_delete(src('bionic/libc/tzcode/globbed.c'),
-                    InWorkspace.UNDER_SYMLINK),
+    create_delete(src('bionic/libc/tzcode/globbed.c'),
+                  InWorkspace.UNDER_SYMLINK),
 
-      # TODO (usta): find targets that should be affected
-      *[delete_restore(f, InWorkspace.SYMLINK) for f in [
-          util.any_file('version_script.txt'),
-          util.any_file('AndroidManifest.xml')]],
+    # TODO (usta): find targets that should be affected
+    *[delete_restore(f, InWorkspace.SYMLINK) for f in [
+      util.any_file('version_script.txt'),
+      util.any_file('AndroidManifest.xml')]],
 
-      *unreferenced_file_cujs,
-      *mixed_build_launch_cujs,
-      *android_bp_cujs,
-      *bazel_file_cujs,
-      replace_link_with_dir(pkg.joinpath('bogus.txt')),
-      # TODO(usta): add a dangling symlink
+    *unreferenced_file_cujs,
+    *mixed_build_launch_cujs,
+    *android_bp_cujs,
+    *bazel_file_cujs,
+    replace_link_with_dir(pkg.joinpath('bogus.txt')),
+    # TODO(usta): add a dangling symlink
   ]

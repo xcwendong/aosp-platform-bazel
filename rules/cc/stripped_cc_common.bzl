@@ -18,6 +18,7 @@ limitations under the License.
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load(":cc_library_common.bzl", "CcAndroidMkInfo")
+load(":clang_tidy.bzl", "collect_deps_clang_tidy_info")
 
 CcUnstrippedInfo = provider(
     "Provides unstripped binary/shared library",
@@ -192,6 +193,7 @@ def _stripped_binary_impl(ctx):
         CcUnstrippedInfo(
             unstripped = ctx.attr.unstripped,
         ),
+        collect_deps_clang_tidy_info(ctx),
     ] + [
         d[CcAndroidMkInfo]
         for d in ctx.attr.androidmk_deps
