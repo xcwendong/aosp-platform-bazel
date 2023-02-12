@@ -49,20 +49,28 @@ class PerfInfoOrEvent:
 
 
 SOONG_PB = 'soong_metrics'
+SOONG_BUILD_PB = 'soong_build_metrics.pb'
 BP2BUILD_PB = 'bp2build_metrics.pb'
+
 SOONG_PROTO = 'build/soong/ui/metrics/' \
               'metrics_proto/metrics.proto'
+SOONG_BUILD_PROTO = SOONG_PROTO
 BP2BUILD_PROTO = 'build/soong/ui/metrics/' \
                  'bp2build_metrics_proto/bp2build_metrics.proto'
+
 SOONG_MSG = 'soong_build_metrics.MetricsBase'
+SOONG_BUILD_MSG = 'soong_build_metrics.SoongBuildMetrics'
 BP2BUILD_MSG = 'soong_build_bp2build_metrics.Bp2BuildMetrics'
 
 
 def _move_pbs_to(d: Path):
   soong_pb = util.get_out_dir().joinpath(SOONG_PB)
+  soong_build_pb = util.get_out_dir().joinpath(SOONG_BUILD_PB)
   bp2build_pb = util.get_out_dir().joinpath(BP2BUILD_PB)
   if soong_pb.exists():
     soong_pb.rename(d.joinpath(SOONG_PB))
+  if soong_build_pb.exists():
+    soong_build_pb.rename(d.joinpath(SOONG_BUILD_PB))
   if bp2build_pb.exists():
     bp2build_pb.rename(d.joinpath(BP2BUILD_PB))
 
@@ -83,13 +91,17 @@ def read_pbs(d: Path) -> dict[str, datetime.timedelta]:
   both to simply `soong_build/_.xyz`
   """
   soong_pb = d.joinpath(SOONG_PB)
+  soong_build_pb = d.joinpath(SOONG_BUILD_PB)
   bp2build_pb = d.joinpath(BP2BUILD_PB)
   soong_proto = util.get_top_dir().joinpath(SOONG_PROTO)
+  soong_build_proto = soong_proto
   bp2build_proto = util.get_top_dir().joinpath(BP2BUILD_PROTO)
 
   events: list[PerfInfoOrEvent] = []
   if soong_pb.exists():
     events.extend(_read_pb(soong_pb, soong_proto, SOONG_MSG))
+  if soong_build_pb.exists():
+    events.extend(_read_pb(soong_build_pb, soong_build_proto, SOONG_BUILD_MSG))
   if bp2build_pb.exists():
     events.extend(_read_pb(bp2build_pb, bp2build_proto, BP2BUILD_MSG))
 

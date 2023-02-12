@@ -19,9 +19,10 @@ TRADEFED_TEST_ATTRIBUTES = {
         providers = [[CcInfo]],
         doc = "Test target to run in tradefed.",
     ),
-    "host": attr.bool(
-        default = False,
-        doc = "Is a host (deviceless) test",
+    "test_identifier": attr.string(),
+    "host_driven": attr.bool(
+        default = True,
+        doc = "Is a host driven test",
     ),
     "_tradefed_test_sh_template": attr.label(
         default = ":tradefed.sh.tpl",
@@ -38,6 +39,7 @@ TRADEFED_TEST_ATTRIBUTES = {
             "//tools/asuite/atest/bazel/reporter:bazel-result-reporter",
         ],
         doc = "Files needed on the PATH to run tradefed",
+        cfg = "exec",
     ),
 
     # Test config and if test config generation attributes.
@@ -68,28 +70,23 @@ def _get_or_generate_test_config(ctx):
     if not c and not c_template:
         fail("Either test_config or test_config_template should be provided")
 
-    # Check for existing tradefed configs and if found add a symlink.
+    # Check for existing tradefed config - and add a symlink with test_identifier.
+    out = ctx.actions.declare_file(ctx.attr.test_identifier + ".config")
     if c:
-        config_name = c.basename.removesuffix(c.extension) + "config"
-        out = ctx.actions.declare_file(config_name)
         ctx.actions.symlink(
             output = out,
             target_file = c,
         )
         return out
 
-    # No existing config specified - generate from template.
-    out = ctx.actions.declare_file(ctx.attr.name + ".config")
-
+    # No test config found, generate config from template.
     # Join extra configs together and add xml spacing indent.
     extra_configs = "\n    ".join(ctx.attr.template_configs)
-    module_name = ctx.attr.test.label.name
-
     ctx.actions.expand_template(
         template = c_template,
         output = out,
         substitutions = {
-            "{MODULE}": module_name,
+            "{MODULE}": ctx.attr.test_identifier,
             "{EXTRA_CONFIGS}": extra_configs,
             "{TEST_INSTALL_BASE}": ctx.attr.template_install_base,
         },
@@ -123,11 +120,25 @@ def _tradefed_test_impl(ctx):
     # Generate result reporter config file.
     report_config = _create_result_reporter_config(ctx)
 
+    # Symlink file names if `__test_binary` was appended in a previous rule.
+    targets = []
+    for f in ctx.attr.test.files.to_list():
+        if "__test_binary" not in f.basename:
+            targets.append(f)
+        else:
+            file_name = f.basename.replace("__test_binary", "")
+            out = ctx.actions.declare_file(file_name)
+            ctx.actions.symlink(
+                output = out,
+                target_file = f,
+            )
+            targets.append(out)
+
     # Gather runfiles.
     runfiles = ctx.runfiles()
     runfiles = runfiles.merge_all([
         ctx.attr.test.default_runfiles,
-        ctx.runfiles(files = ctx.files._tradefed_dependencies + [test_config, report_config]),
+        ctx.runfiles(files = ctx.files._tradefed_dependencies + targets + [test_config, report_config]),
     ])
 
     # Gather directories of runfiles to put on the PATH.
@@ -145,7 +156,7 @@ def _tradefed_test_impl(ctx):
         output = script,
         is_executable = True,
         substitutions = {
-            "{MODULE}": ctx.attr.test.label.name,
+            "{MODULE}": ctx.attr.test_identifier,
             "{PATH_ADDITIONS}": path_additions,
         },
     )
@@ -163,14 +174,13 @@ _tradefed_test = rule(
     implementation = _tradefed_test_impl,
 )
 
-def tradefed_device_test(**kwargs):
+def tradefed_host_driven_test(**kwargs):
     _tradefed_test(
-        host = False,
         **kwargs
     )
 
-def tradefed_host_driven_device_test(**kwargs):
+def tradefed_device_test(**kwargs):
     _tradefed_test(
-        host = True,
+        host_driven = False,
         **kwargs
     )

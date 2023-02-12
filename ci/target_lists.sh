@@ -42,8 +42,7 @@ BUILD_TARGETS_LIST=(
   -//frameworks/av/media/module/codecserviceregistrant:libmedia_codecserviceregistrant
   -//frameworks/av/media/codec2/hidl/1.2/utils:libcodec2_hidl@1.2
   -//system/unwinding/libunwindstack:all
-  -//system/core/libutils:libutils_test
-  -//system/core/libutils:libutilscallstack
+  -//system/core/libutils:all
 )
 BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
 
@@ -55,7 +54,7 @@ TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
 HOST_ONLY_TEST_TARGETS_LIST=(
   # Test both unstripped and stripped versions of a host native unit test
   //system/core/libcutils:libcutils_test
-  //system/core/libcutils:libcutils_test_unstripped
+  //system/core/libcutils:libcutils_test__test_binary_unstripped
   # TODO(b/268186228): adb_test fails only on CI
   -//packages/modules/adb:adb_test
   # TODO(b/268185249): libbase_test asserts on the Soong basename of the test

@@ -321,10 +321,10 @@ def _with_kept_build_file_verifications(
   assert len(tail) == 0
 
   step1 = CujStep(step1.verb,
-                  step1.action,
+                  step1.apply_change,
                   _sequence(step1.verify, verify_merged))
   step2 = CujStep(step2.verb,
-                  step2.action,
+                  step2.apply_change,
                   _sequence(step2.verify, verify_removed))
   return CujGroup(template.description, [step1, step2])
 
@@ -357,7 +357,7 @@ def create_delete_unkept_build_file(buildfile) -> CujGroup:
   curated_content = '//gibberish'
 
   def create_files():
-    create_bp.action()
+    create_bp.apply_change()
     with open(buildfile, mode="w") as f:
       f.write(curated_content)
 

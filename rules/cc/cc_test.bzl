@@ -17,6 +17,9 @@ limitations under the License.
 """cc_test macro for building native tests with Bazel."""
 
 load(":cc_binary.bzl", "cc_binary")
+load("//build/bazel/rules/cc:cc_library_common.bzl", "CcAndroidMkInfo")
+load("//build/bazel/rules/cc:stripped_cc_common.bzl", "CcUnstrippedInfo", "StrippedCcBinaryInfo")
+load("//build/bazel/rules/tradefed:tradefed.bzl", "tradefed_host_driven_test")
 
 # TODO(b/244559183): Keep this in sync with cc/test.go#linkerFlags
 _gtest_copts = select({
@@ -37,7 +40,16 @@ _gtest_deps = [
     "//external/googletest/googletest:libgtest",
 ]
 
-# TODO (b/262914724): convert to tradefed_cc_test and tradefed_cc_test_host
+_pass_through_providers = [
+    CcInfo,
+    InstrumentedFilesInfo,
+    DebugPackageInfo,
+    OutputGroupInfo,
+    StrippedCcBinaryInfo,
+    CcUnstrippedInfo,
+    CcAndroidMkInfo,
+]
+
 def cc_test(
         name,
         copts = [],
@@ -45,6 +57,7 @@ def cc_test(
         dynamic_deps = [],
         gtest = True,
         isolated = True,  # TODO(b/244432609): currently no-op.
+        tags = [],
         tidy = None,
         tidy_checks = None,
         tidy_checks_as_errors = None,
@@ -65,8 +78,9 @@ def cc_test(
 
     # A cc_test is essentially the same as a cc_binary. Let's reuse the
     # implementation for now and factor the common bits out as necessary.
+    test_binary_name = name + "__test_binary"
     cc_binary(
-        name = name,
+        name = test_binary_name,
         copts = copts,
         deps = deps,
         dynamic_deps = dynamic_deps,
@@ -77,5 +91,91 @@ def cc_test(
         tidy_flags = tidy_flags,
         tidy_disabled_srcs = tidy_disabled_srcs,
         tidy_timeout_srcs = tidy_timeout_srcs,
+        tags = tags + ["manual"],
         **kwargs
     )
+
+    # Host only test with no tradefed.
+    # Compatability is left out for now so as not to break mix build.
+    # which breaks when modules are skipped with --config=android
+    without_tradefed_test_name = name + "__without_tradefed_test"
+    cc_runner_test(
+        name = without_tradefed_test_name,
+        binary = test_binary_name,
+        test = test_binary_name,
+        tags = ["manual"],
+    )
+
+    # Tradefed host driven test
+    tradefed_host_driven_test_name = name + "__tradefed_host_driven_test"
+    if not test_config and not template_test_config:
+        template_test_config = select({
+            "//build/bazel/rules/tradefed:android_host_driven_tradefed_test": "//build/make/core:native_test_config_template.xml",
+            "//build/bazel/rules/tradefed:linux_host_driven_tradefed_test": "//build/make/core:native_host_test_config_template.xml",
+        })
+    tradefed_host_driven_test(
+        name = tradefed_host_driven_test_name,
+        test_identifier = name,
+        test = test_binary_name,
+        test_config = test_config,
+        template_test_config = template_test_config,
+        template_configs = template_configs,
+        template_install_base = template_install_base,
+        tags = ["manual"],
+    )
+
+    # TODO(b/264792912) update to use proper config/tags to determine which test to run.
+    cc_runner_test(
+        name = name,
+        binary = test_binary_name,
+        test = select({
+            "//build/bazel/rules/tradefed:android_host_driven_tradefed_test": tradefed_host_driven_test_name,
+            "//build/bazel/rules/tradefed:linux_host_driven_tradefed_test": tradefed_host_driven_test_name,
+            "//conditions:default": without_tradefed_test_name,
+        }),
+    )
+
+def _cc_runner_test_impl(ctx):
+    executable = ctx.actions.declare_file(ctx.attr.name + "__cc_runner_test")
+    ctx.actions.symlink(
+        output = executable,
+        target_file = ctx.attr.test.files_to_run.executable,
+    )
+
+    # Gather runfiles.
+    runfiles = ctx.runfiles()
+    runfiles = runfiles.merge_all([
+        ctx.attr.binary.default_runfiles,
+        ctx.attr.test.default_runfiles,
+    ])
+
+    # Propagate providers of the included binary
+    # Those providers are used to populate attributes of the mixed build.
+    providers = collect_providers(ctx.attr.binary, _pass_through_providers)
+    return [DefaultInfo(
+        executable = executable,
+        runfiles = runfiles,
+    )] + providers
+
+cc_runner_test = rule(
+    doc = "A wrapper rule used to run a test and also propagates providers",
+    attrs = {
+        "binary": attr.label(
+            doc = "Binary that providers should be propagated to next rule // mix build.",
+        ),
+        "test": attr.label(
+            doc = "Test to run.",
+        ),
+    },
+    test = True,
+    implementation = _cc_runner_test_impl,
+    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
+)
+
+def collect_providers(dep, provider_types):
+    """Returns list of providers from dependency that match the provider types"""
+    providers = []
+    for provider in provider_types:
+        if provider in dep:
+            providers.append(dep[provider])
+    return providers

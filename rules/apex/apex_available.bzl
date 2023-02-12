@@ -15,7 +15,8 @@ limitations under the License.
 """
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//build/bazel/rules:common.bzl", "get_dep_targets")
+load("@soong_injection//apex_toolchain:constants.bzl", "apex_available_baseline")
+load("//build/bazel/rules:common.bzl", "get_dep_targets", "strip_bp2build_label_suffix")
 load("//build/bazel/rules/apex:cc.bzl", "CC_ATTR_ASPECTS")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
@@ -37,7 +38,7 @@ ApexAvailableInfo = provider(
 # apex_available to tags properly in the bp2build converters yet. See associated
 # bugs for more information.
 _unchecked_apexes = [
-    # TODO(b/216741746, b/239093645): support aidl and hidl apex_available props.
+    # TODO(b/260694842): support aidl and hidl apex_available props.
     "com.android.neuralnetworks",
     "com.android.media.swcodec",
 ]
@@ -78,11 +79,19 @@ def _validate_apex_available(target, ctx, *, apex_available_tags, apex_name, bas
     if CcStaticLibraryInfo in target and str(target.label).removesuffix("_bp2build_cc_library_static") in direct_deps:
         return "has shared variant directly included"
 
-    elif base_apex_name not in apex_available_tags and apex_name not in apex_available_tags:
-        return False
+    if base_apex_name in apex_available_tags or apex_name in apex_available_tags:
+        return True
 
-    # All good!
-    return True
+    target_name = strip_bp2build_label_suffix(target.label.name)
+    baselines = [
+        apex_available_baseline.get(base_apex_name, []),
+        apex_available_baseline.get(apex_name, []),
+        apex_available_baseline.get("//apex_available:anyapex", []),
+    ]
+    if any([target_name in l for l in baselines]):
+        return True
+
+    return False
 
 _IGNORED_ATTRS = [
     "certificate",

@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-set -x
 
 TEST_PATH="${TEST_SRCDIR}"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -12,7 +11,6 @@ for dep in ${PATH_ADDITIONS//:/ }; do
 done
 
 export PATH="$SCRIPT_DIR:${PATH}"
-
 # Prepend the REMOTE_JAVA_HOME environment variable to the path to ensure
 # that all Java invocations throughout the test execution flow use the same
 # version.
@@ -32,8 +30,6 @@ atest_tradefed.sh template/atest_local_min \
     --skip-host-arch-check \
     --include-filter "{MODULE}" \
     --skip-loading-config-jar \
-    --log-level-display VERBOSE \
-    --log-level VERBOSE \
     "${ADDITIONAL_TRADEFED_OPTIONS[@]}" \
     --bazel-exit-code-result-reporter:file=${exit_code_file} \
     --bazel-xml-result-reporter:file=${XML_OUTPUT_FILE} \
