@@ -34,6 +34,7 @@ import cuj_catalog
 import perf_metrics
 import ui
 import util
+import pretty
 
 MAX_RUN_COUNT: Final[int] = 5
 
@@ -147,7 +148,7 @@ def main():
         time rebuild
         collect metrics
   """
-  user_input = ui.handle_user_input()
+  user_input = ui.get_user_input()
 
   logging.warning(textwrap.dedent('''
   If you kill this process, make sure to revert unwanted changes.
@@ -178,7 +179,7 @@ def main():
           build_result = cuj_catalog.BuildResult.FAILED.name
         else:
           try:
-            cujstep.verify(user_input)
+            cujstep.verify()
             build_result = cuj_catalog.BuildResult.SUCCESS.name
           except Exception as e:
             logging.error(e)
@@ -206,6 +207,7 @@ def main():
 
   perf_metrics.write_summary_csv(user_input.log_dir)
   perf_metrics.show_summary(user_input.log_dir)
+  pretty.pretty(str(user_input.log_dir.joinpath(util.SUMMARY_CSV)), True)
 
 
 if __name__ == '__main__':

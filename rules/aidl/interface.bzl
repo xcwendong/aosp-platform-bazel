@@ -95,6 +95,7 @@ def aidl_interface(
         versions_with_info = None,
         unstable = False,
         # TODO(b/261208761): Support frozen attr
+        frozen = False,
         **kwargs):
     """aidl_interface creates a versioned aidl_libraries and language-specific *_aidl_libraries
 
@@ -123,8 +124,11 @@ def aidl_interface(
     if (versions == None and versions_with_info == None and srcs == None):
         fail("must specify at least versions, versions_with_info, or srcs")
 
-    # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=872;drc=5390d9a42f5e4f99ccb3a84068f554d948cb62b9
-    if versions != None and unstable:
+    if versions == None and versions_with_info == None:
+        if frozen == True:
+            fail("frozen cannot be set without versions or versions_with_info attr being set")
+    elif unstable == True:
+        # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface.go;l=872;drc=5390d9a42f5e4f99ccb3a84068f554d948cb62b9
         fail("cannot have versions for unstable interface")
 
     aidl_flags = ["--structured"]

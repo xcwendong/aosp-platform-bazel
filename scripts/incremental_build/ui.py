@@ -14,6 +14,7 @@
 
 import argparse
 import dataclasses
+import functools
 import logging
 import os
 import re
@@ -48,7 +49,8 @@ class UserInput:
   targets: list[str]
 
 
-def handle_user_input() -> UserInput:
+@functools.cache
+def get_user_input() -> UserInput:
   cujgroups = cuj_catalog.get_cujgroups()
 
   def validate_cujgroups(input_str: str) -> list[int]:
@@ -72,21 +74,21 @@ def handle_user_input() -> UserInput:
       if len(matching_cuj_groups):
         return matching_cuj_groups
     raise argparse.ArgumentError(
-        argument=None,
-        message=f'Invalid input: "{input_str}" '
-                f'expected an index <= {len(cujgroups)} '
-                'or a regex pattern for a CUJ descriptions')
+      argument=None,
+      message=f'Invalid input: "{input_str}" '
+              f'expected an index <= {len(cujgroups)} '
+              'or a regex pattern for a CUJ descriptions')
 
   # importing locally here to avoid chances of cyclic import
   import incremental_build
   p = argparse.ArgumentParser(
-      formatter_class=argparse.RawTextHelpFormatter,
-      description='' +
-                  textwrap.dedent(incremental_build.__doc__) +
-                  textwrap.dedent(incremental_build.main.__doc__))
+    formatter_class=argparse.RawTextHelpFormatter,
+    description='' +
+                textwrap.dedent(incremental_build.__doc__) +
+                textwrap.dedent(incremental_build.main.__doc__))
 
   cuj_list = '\n'.join(
-      [f'{i:2}: {cujgroup}' for i, cujgroup in enumerate(cujgroups)])
+    [f'{i:2}: {cujgroup}' for i, cujgroup in enumerate(cujgroups)])
   p.add_argument('-c', '--cujs', nargs='*',
                  type=validate_cujgroups,
                  help='Index number(s) for the CUJ(s) from the following list. '
@@ -136,9 +138,9 @@ def handle_user_input() -> UserInput:
     chosen_cujgroups = [i for i in range(0, len(cujgroups))]
 
   chosen_bazel_modes = [bazel_mode for bazel_mode in [
-      options.bazel_mode_dev,
-      options.bazel_mode_staging,
-      options.bazel_mode] if bazel_mode]
+    options.bazel_mode_dev,
+    options.bazel_mode_staging,
+    options.bazel_mode] if bazel_mode]
   if len(chosen_bazel_modes) > 1:
     sys.exit('choose only one --bazel-mode option')
   bazel_labels = [target for target in options.targets if
@@ -173,7 +175,7 @@ def handle_user_input() -> UserInput:
         raise RuntimeError('UNREACHABLE')
 
   pretty_str = '\n'.join(
-      [f'{i:2}: {cujgroups[i]}' for i in chosen_cujgroups])
+    [f'{i:2}: {cujgroups[i]}' for i in chosen_cujgroups])
   logging.info(f'%d CUJs chosen:\n%s', len(chosen_cujgroups), pretty_str)
 
   if not options.ignore_repo_diff and util.has_uncommitted_changes():
@@ -186,7 +188,7 @@ def handle_user_input() -> UserInput:
       sys.exit(0)
 
   return UserInput(
-      build_type=build_type,
-      chosen_cujgroups=chosen_cujgroups,
-      log_dir=Path(options.log_dir),
-      targets=options.targets)
+    build_type=build_type,
+    chosen_cujgroups=chosen_cujgroups,
+    log_dir=Path(options.log_dir),
+    targets=options.targets)

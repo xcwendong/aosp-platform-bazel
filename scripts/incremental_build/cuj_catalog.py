@@ -28,8 +28,7 @@ from typing import Callable, Optional
 from typing import TypeAlias
 
 import util
-from ui import BuildType
-from ui import UserInput
+import ui
 
 """
 Provides some representative CUJs. If you wanted to manually run something but
@@ -45,22 +44,21 @@ class BuildResult(Enum):
 
 
 Action: TypeAlias = Callable[[], None]
-Verifier: TypeAlias = Callable[[UserInput], None]
+Verifier: TypeAlias = Callable[[], None]
 
 
-def skip_when_soong_only(func: Verifier):
+def skip_when_soong_only(func: Verifier) -> Verifier:
   """A decorator for Verifiers that are not applicable to soong-only builds"""
 
-  def wrapper(user_input: UserInput):
-    if user_input.build_type == BuildType.SOONG_ONLY:
-      return
-    return func(user_input)
+  def wrapper():
+    if ui.get_user_input().build_type != ui.BuildType.SOONG_ONLY:
+      func()
 
   return wrapper
 
 
 @skip_when_soong_only
-def verify_symlink_forest_has_only_symlink_leaves(_: UserInput):
+def verify_symlink_forest_has_only_symlink_leaves():
   """Verifies that symlink forest has only symlinks or directories but no
   files except for merged BUILD.bazel files"""
 
@@ -125,7 +123,7 @@ class InWorkspace(Enum):
 
   def verifier(self, src_path: Path) -> Verifier:
     @skip_when_soong_only
-    def f(_: UserInput):
+    def f():
       ws_path = InWorkspace.ws_counterpart(src_path)
       actual: Optional[InWorkspace] = None
       if ws_path.is_symlink():
@@ -263,11 +261,15 @@ def delete_restore(original: Path, ws: InWorkspace) -> CujGroup:
 def replace_link_with_dir(p: Path):
   """Create a file, replace it with a non-empty directory, delete it"""
   cd = create_delete(p, InWorkspace.SYMLINK)
+  create_file: CujStep
+  delete_file: CujStep
   create_file, delete_file, *tail = cd.steps
   assert len(tail) == 0
 
   # an Android.bp is always a symlink in the workspace and thus its parent
   # will be a directory in the workspace
+  create_dir: CujStep
+  delete_dir: CujStep
   create_dir, delete_dir, *tail = create_delete_bp(
     p.joinpath('Android.bp')).steps
   assert len(tail) == 0
@@ -285,10 +287,10 @@ def replace_link_with_dir(p: Path):
   ])
 
 
-def _sequence(a: Verifier, b: Verifier) -> Verifier:
-  def f(user_input: UserInput):
-    a(user_input)
-    b(user_input)
+def _sequence(*vs: Verifier) -> Verifier:
+  def f():
+    for v in vs:
+      v()
 
   return f
 
@@ -298,18 +300,16 @@ def _with_kept_build_file_verifications(
   ws_file = util.get_out_dir().joinpath('soong/workspace').joinpath(
     curated_file.with_name('BUILD.bazel'))
 
-  def verify_merged(user_input: UserInput):
-    if user_input.build_type == BuildType.SOONG_ONLY:
-      return
+  @skip_when_soong_only
+  def verify_merged():
     with open(ws_file, "r") as f:
       for line in f:
         if line == curated_content:
           return  # found the line
       raise AssertionError(f'{curated_file} not merged in {ws_file}')
 
-  def verify_removed(user_input: UserInput):
-    if user_input.build_type == BuildType.SOONG_ONLY:
-      return
+  @skip_when_soong_only
+  def verify_removed():
     if not ws_file.exists():
       return
     with open(ws_file, "r") as f:
@@ -317,6 +317,8 @@ def _with_kept_build_file_verifications(
         if line == curated_content:
           raise AssertionError(f'{curated_file} still merged in {ws_file}')
 
+  step1: CujStep
+  step2: CujStep
   step1, step2, *tail = template.steps
   assert len(tail) == 0
 
@@ -352,6 +354,8 @@ def create_delete_unkept_build_file(buildfile) -> CujGroup:
   sibling_bp = buildfile.with_name('Android.bp')
   if sibling_bp.exists():
     raise AssertionError('for simplicity, try BUILD without sibling Android.bp')
+  create_bp: CujStep
+  delete_bp: CujStep
   create_bp, delete_bp, *tail = create_delete_bp(sibling_bp).steps
   assert len(tail) == 0
   curated_content = '//gibberish'
@@ -361,10 +365,8 @@ def create_delete_unkept_build_file(buildfile) -> CujGroup:
     with open(buildfile, mode="w") as f:
       f.write(curated_content)
 
-  def verify(user_input: UserInput):
-    if user_input.build_type == BuildType.SOONG_ONLY:
-      return
-    InWorkspace.OMISSION.verifier(buildfile)(user_input)
+  @skip_when_soong_only
+  def verify():
     generated = InWorkspace.ws_counterpart(buildfile.with_name('BUILD.bazel'))
     with open(generated, "r") as f:
       for line in f:
@@ -372,7 +374,11 @@ def create_delete_unkept_build_file(buildfile) -> CujGroup:
           raise AssertionError(f'{buildfile} merged in {generated}')
 
   return CujGroup(de_src(buildfile), [
-    CujStep('create', create_files, _sequence(create_bp.verify, verify)),
+    CujStep('create',
+            create_files,
+            _sequence(create_bp.verify,
+                      InWorkspace.OMISSION.verifier(buildfile),
+                      verify)),
     delete_bp
   ])
 

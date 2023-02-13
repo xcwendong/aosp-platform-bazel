@@ -106,8 +106,8 @@ def pretty(filename: str, include_rebuilds: bool):
 
   by_cuj = groupby(lines, lambda l: l["description"])
   by_cuj_by_build_type = {
-      k: groupby(v, lambda l: l["build_type"]) for k, v in
-      by_cuj.items()}
+    k: groupby(v, lambda l: l["build_type"]) for k, v in
+    by_cuj.items()}
 
   build_types = []
   for line in lines:
@@ -115,10 +115,10 @@ def pretty(filename: str, include_rebuilds: bool):
     if build_type not in build_types:
       build_types.append(line["build_type"])
 
-  rows = [["cuj", "build command"] + build_types]  # headers
+  rows = [["cuj", "target"] + build_types]  # headers
   for cuj, by_build_type in by_cuj_by_build_type.items():
     targets = next(iter(by_build_type.values()))[0]["targets"]
-    row = [cuj, f"m {targets}"]
+    row = [cuj, str(targets)]
     for build_type in build_types:
       lines = by_build_type.get(build_type)
       if not lines:
