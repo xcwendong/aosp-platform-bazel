@@ -173,15 +173,103 @@ def _next_version_for_versioned_stable_interface_test():
 
     return test_name
 
+def _tidy_flags_has_generated_directory_header_filter_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    actions = analysistest.target_actions(env)
+    clang_tidy_actions = [a for a in actions if a.mnemonic == "ClangTidy"]
+
+    action_header_filter = None
+    for action in clang_tidy_actions:
+        for arg in action.argv:
+            if arg.startswith("-header-filter="):
+                action_header_filter = arg
+
+    if action_header_filter == None:
+        asserts.true(
+            env,
+            False,
+            "did not find header-filter in ClangTidy actions: `%s`" % (
+                clang_tidy_actions
+            ),
+        )
+
+    # The genfiles path for tests and cc_libraries is different (the latter contains a
+    # configuration prefix ST-<hash>). So instead (lacking regexes) we can just check
+    # that the beginning and end of the header-filter is correct.
+    expected_header_filter_prefix = "-header-filter=" + paths.join(ctx.genfiles_dir.path)
+    expected_header_filter_prefix = expected_header_filter_prefix.removesuffix("/bin")
+    expected_header_filter_suffix = ctx.label.package + ".*"
+    asserts.true(
+        env,
+        action_header_filter.startswith(expected_header_filter_prefix),
+        "expected header-filter to start with `%s`; but was `%s`" % (
+            expected_header_filter_prefix,
+            action_header_filter,
+        ),
+    )
+    asserts.true(
+        env,
+        action_header_filter.endswith(expected_header_filter_suffix),
+        "expected header-filter to end with `%s`; but was `%s`" % (
+            expected_header_filter_suffix,
+            action_header_filter,
+        ),
+    )
+
+    return analysistest.end(env)
+
+_tidy_flags_has_generated_directory_header_filter_test = analysistest.make(
+    _tidy_flags_has_generated_directory_header_filter_test_impl,
+    config_settings = {
+        "@//build/bazel/flags/cc/tidy:allow_local_tidy_true": True,
+    },
+)
+
+def _test_aidl_interface_generated_header_filter():
+    name = "aidl_interface_generated_header_filter"
+    test_name = name + "_test"
+    aidl_library_target = name + "-cpp"
+    shared_target_under_test = aidl_library_target + "__internal_root"
+    shared_test_name = test_name + "_shared"
+    static_target_under_test = aidl_library_target + "_bp2build_cc_library_static"
+    static_test_name = test_name + "_static"
+
+    aidl_interface(
+        name = name,
+        cpp_config = {
+            "enabled": True,
+        },
+        unstable = True,
+        srcs = ["a/b/Foo.aidl"],
+        tags = ["manual"],
+    )
+
+    _tidy_flags_has_generated_directory_header_filter_test(
+        name = shared_test_name,
+        target_under_test = shared_target_under_test,
+    )
+    _tidy_flags_has_generated_directory_header_filter_test(
+        name = static_test_name,
+        target_under_test = static_target_under_test,
+    )
+    return [
+        shared_test_name,
+        static_test_name,
+    ]
+
 def aidl_interface_test_suite(name):
     native.test_suite(
         name = name,
-        tests = [
-            "//build/bazel/rules/aidl/testing:generated_targets_have_correct_srcs_test",
-            "//build/bazel/rules/aidl/testing:interface_macro_produces_all_targets_test",
-            _ndk_backend_test(),
-            _ndk_config_test(),
-            _next_version_for_unversioned_stable_interface_test(),
-            _next_version_for_versioned_stable_interface_test(),
-        ],
+        tests = (
+            [
+                "//build/bazel/rules/aidl/testing:generated_targets_have_correct_srcs_test",
+                "//build/bazel/rules/aidl/testing:interface_macro_produces_all_targets_test",
+                _ndk_backend_test(),
+                _ndk_config_test(),
+                _next_version_for_unversioned_stable_interface_test(),
+                _next_version_for_versioned_stable_interface_test(),
+            ] +
+            _test_aidl_interface_generated_header_filter()
+        ),
     )

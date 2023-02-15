@@ -19,6 +19,7 @@ load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCerti
 load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "ApexCcMkInfo", "apex_cc_aspect")
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition", "shared_lib_transition_32", "shared_lib_transition_64")
 load("//build/bazel/rules/cc:stripped_cc_common.bzl", "StrippedCcBinaryInfo")
+load("//build/bazel/rules/cc:clang_tidy.bzl", "collect_deps_clang_tidy_info")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 load("//build/bazel/rules:sh_binary.bzl", "ShBinaryInfo")
 load("//build/bazel/rules:toolchain_utils.bzl", "verify_toolchain_exists")
@@ -36,7 +37,6 @@ load(":apex_key.bzl", "ApexKeyInfo")
 load(":apex_info.bzl", "ApexInfo", "ApexMkInfo")
 load(":bundle.bzl", "apex_zip_files")
 load(":apex_deps_validation.bzl", "ApexDepsInfo", "apex_deps_validation_aspect", "validate_apex_deps")
-load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@soong_injection//apex_toolchain:constants.bzl", "default_manifest_version")
@@ -671,6 +671,7 @@ def _apex_rule_impl(ctx):
         ),
         ApexDepsInfo(transitive_deps = transitive_apex_deps),
         ApexMkInfo(make_modules_to_install = apexer_outputs.make_modules_to_install),
+        collect_deps_clang_tidy_info(ctx),
     ]
 
 # These are the standard aspects that should be applied on all edges that

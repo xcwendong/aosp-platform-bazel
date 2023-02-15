@@ -24,33 +24,36 @@ def _cc_test_provides_androidmk_info():
     dep_name = name + "_static_dep"
     whole_archive_dep_name = name + "_whole_archive_dep"
     dynamic_dep_name = name + "_dynamic_dep"
-    test_name = name + "_test"
+
+    srcs = ["//build/bazel/rules/cc/testing:test_srcs"]
+    gunit_test_srcs = ["//build/bazel/rules/cc/testing:gunit_test_srcs"]
 
     cc_library_static(
         name = dep_name,
-        srcs = ["foo.c"],
+        srcs = srcs,
         tags = ["manual"],
     )
     cc_library_static(
         name = whole_archive_dep_name,
-        srcs = ["foo.c"],
+        srcs = srcs,
         tags = ["manual"],
     )
     cc_library_shared(
         name = dynamic_dep_name,
-        srcs = ["foo.c"],
+        srcs = srcs,
         tags = ["manual"],
     )
     cc_test(
         name = name,
-        srcs = ["foo.cc"],
+        srcs = gunit_test_srcs,
         deps = [dep_name],
         whole_archive_deps = [whole_archive_dep_name],
         dynamic_deps = [dynamic_dep_name],
+        target_compatible_with = ["//build/bazel/platforms/os:linux"],
         tags = ["manual"],
     )
-    android_test_name = test_name + "_android"
-    linux_test_name = test_name + "_linux"
+    android_test_name = name + "_android"
+    linux_test_name = name + "_linux"
     target_provides_androidmk_info_test(
         name = android_test_name,
         target_under_test = name,

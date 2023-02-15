@@ -15,8 +15,8 @@ limitations under the License.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/bazel/rules/cc:cc_object.bzl", "cc_object")
-load(":tradefed.bzl", "tradefed_device_test", "tradefed_host_driven_device_test")
+load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
+load(":tradefed.bzl", "tradefed_device_test", "tradefed_host_driven_test")
 load(
     "//build/bazel/rules/test_common:paths.bzl",
     "get_output_and_package_dir_based_path",
@@ -52,12 +52,14 @@ def tradefed_cc_outputs():
     name = "cc"
     target = "cc_target"
 
-    cc_object(
+    cc_library_static(
         name = target,
+        srcs = ["foo.c"],
         tags = ["manual"],
     )
     tradefed_device_test(
         name = name,
+        test_identifier = target,
         tags = ["manual"],
         test = target,
         test_config = "//build/bazel/rules/tradefed/test:example_config.xml",
@@ -71,7 +73,7 @@ def tradefed_cc_outputs():
         expected_outputs = [
             "tradefed_test_" + name + ".sh",
             "result-reporters.xml",
-            "example_config.config",
+            target + ".config",
         ],
         target_compatible_with = ["//build/bazel/platforms/os:linux"],
     )
@@ -81,12 +83,13 @@ def tradefed_cc_host_outputs():
     name = "cc_host"
     target = "cc_host_target"
 
-    cc_object(
+    cc_library_static(
         name = target,
         tags = ["manual"],
     )
-    tradefed_host_driven_device_test(
+    tradefed_host_driven_test(
         name = name,
+        test_identifier = target,
         tags = ["manual"],
         test = target,
         test_config = "//build/bazel/rules/tradefed/test:example_config.xml",
@@ -100,7 +103,7 @@ def tradefed_cc_host_outputs():
         expected_outputs = [
             "tradefed_test_" + name + ".sh",
             "result-reporters.xml",
-            "example_config.config",
+            target + ".config",
         ],
         target_compatible_with = ["//build/bazel/platforms/os:linux"],
     )
@@ -110,12 +113,13 @@ def tradefed_cc_host_outputs_generate_test_config():
     name = "cc_host_generate_config"
     target = "cc_host_target_generate_config"
 
-    cc_object(
+    cc_library_static(
         name = target,
         tags = ["manual"],
     )
-    tradefed_host_driven_device_test(
+    tradefed_host_driven_test(
         name = name,
+        test_identifier = target,
         tags = ["manual"],
         test = target,
         template_test_config = "//build/make/core:native_host_test_config_template.xml",
@@ -133,7 +137,7 @@ def tradefed_cc_host_outputs_generate_test_config():
         expected_outputs = [
             "tradefed_test_" + name + ".sh",
             "result-reporters.xml",
-            "cc_host_generate_config.config",
+            target + ".config",
         ],
         target_compatible_with = ["//build/bazel/platforms/os:linux"],
     )

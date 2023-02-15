@@ -14,7 +14,6 @@ fi
 
 TARGETS=(
   CaptivePortalLogin
-  bluetoothtbd
   com.android.neuralnetworks
   framework-minus-apex
   libsimpleperf

@@ -25,6 +25,7 @@ load(
     "system_dynamic_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
+load(":clang_tidy.bzl", "ClangTidyInfo", "collect_deps_clang_tidy_info")
 load(
     ":fdo_profile_transitions.bzl",
     "FDO_PROFILE_ATTR",
@@ -101,6 +102,7 @@ def cc_library_shared(
         tidy_flags = None,
         tidy_disabled_srcs = None,
         tidy_timeout_srcs = None,
+        tidy_gen_header_filter = None,
         **kwargs):
     "Bazel macro to correspond with the cc_library_shared Soong module."
 
@@ -199,6 +201,7 @@ def cc_library_shared(
         tidy_flags = tidy_flags,
         tidy_disabled_srcs = tidy_disabled_srcs,
         tidy_timeout_srcs = tidy_timeout_srcs,
+        tidy_gen_header_filter = tidy_gen_header_filter,
     )
 
     sanitizer_deps_name = name + "_sanitizer_deps"
@@ -463,6 +466,7 @@ def _cc_library_shared_proxy_impl(ctx):
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
         CcUnstrippedInfo(unstripped = shared_debuginfo[0]),
         ctx.attr.abi_dump[AbiDiffInfo],
+        collect_deps_clang_tidy_info(ctx),
     ]
 
 _cc_library_shared_proxy = rule(
