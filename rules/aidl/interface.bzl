@@ -60,7 +60,7 @@ def _create_latest_version_aliases(name, last_version_name, backend_configs, **k
             **kwargs
         )
 
-def versioned_name(name, version):
+def _versioned_name(name, version):
     if version == "":
         return name
 
@@ -76,8 +76,15 @@ def _next_version(versions, unstable):
 
     return str(int(versions[-1]) + 1)
 
-def is_config_enabled(config):
-    return config != None and "enabled" in config and config["enabled"] == True
+def _is_config_enabled(config):
+    if config == None:
+        return False
+
+    for key in config:
+        if key not in ["enabled", "min_sdk_version", "tags"]:
+            fail("unknown property in aidl configuration: " + str(key))
+
+    return config.get("enabled", False) == True
 
 def aidl_interface(
         name,
@@ -94,6 +101,7 @@ def aidl_interface(
         versions = None,
         versions_with_info = None,
         unstable = False,
+        tags = [],
         # TODO(b/261208761): Support frozen attr
         frozen = False,
         **kwargs):
@@ -136,11 +144,11 @@ def aidl_interface(
         aidl_flags.extend(flags)
 
     enabled_backend_configs = {}
-    if is_config_enabled(java_config):
+    if _is_config_enabled(java_config):
         enabled_backend_configs[JAVA] = java_config
-    if is_config_enabled(cpp_config):
+    if _is_config_enabled(cpp_config):
         enabled_backend_configs[CPP] = cpp_config
-    if is_config_enabled(ndk_config):
+    if _is_config_enabled(ndk_config):
         enabled_backend_configs[NDK] = ndk_config
 
     if stability != None:
@@ -176,13 +184,15 @@ def aidl_interface(
                 deps = version_with_info.get("deps"),
                 aidl_flags = aidl_flags,
                 backend_configs = enabled_backend_configs,
+                tags = tags,
                 **kwargs
             )
         if len(versions_with_info) > 0:
             _create_latest_version_aliases(
                 name,
-                versioned_name(name, versions[-1]),
+                _versioned_name(name, versions[-1]),
                 enabled_backend_configs,
+                tags = tags,
                 **kwargs
             )
     elif versions != None and len(versions) > 0:
@@ -195,13 +205,15 @@ def aidl_interface(
                 deps = deps,
                 aidl_flags = aidl_flags,
                 backend_configs = enabled_backend_configs,
+                tags = tags,
                 **kwargs
             )
         if len(versions) > 0:
             _create_latest_version_aliases(
                 name,
-                versioned_name(name, versions[-1]),
+                _versioned_name(name, versions[-1]),
                 enabled_backend_configs,
+                tags = tags,
                 **kwargs
             )
     else:
@@ -218,10 +230,20 @@ def aidl_interface(
             deps = deps,
             aidl_flags = aidl_flags,
             backend_configs = enabled_backend_configs,
+            tags = tags,
             **kwargs
         )
 
-def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_import_prefix = "", deps = None, aidl_flags = [], backend_configs = {}, **kwargs):
+def create_aidl_binding_for_backends(
+        name,
+        version = None,
+        srcs = None,
+        strip_import_prefix = "",
+        deps = None,
+        aidl_flags = [],
+        backend_configs = {},
+        tags = [],
+        **kwargs):
     """
     Create aidl_library target and corrending <backend>_aidl_library target for a given version
 
@@ -235,7 +257,7 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
         aidl_flags:             List[string], a list of flags to pass to the AIDL compiler
         backends:               List[string], a list of the languages to generate bindings for
     """
-    aidl_library_name = versioned_name(name, version)
+    aidl_library_name = _versioned_name(name, version)
 
     # srcs is None when create_aidl_binding_for_backends is called with a
     # frozen version specified via versions or versions_with_info.
@@ -255,6 +277,8 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
         strip_import_prefix = strip_import_prefix,
         srcs = srcs,
         flags = aidl_flags,
+        # The language-specific backends will set more appropriate apex_available values.
+        tags = tags + ["apex_available=//apex_available:anyapex"],
         **kwargs
     )
 
@@ -268,7 +292,8 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
             java_aidl_library(
                 name = aidl_library_name + "-java",
                 deps = [":" + aidl_library_name],
-                # TODO(b/249276008): Pass aidl_flags_for_backend to java_aidl_library
+                tags = tags + config.get("tags", []),
+                # TODO(b/249276008): Pass min_sdk_version to java_aidl_library
                 **kwargs
             )
         elif lang == CPP or lang == NDK:
@@ -298,6 +323,7 @@ def create_aidl_binding_for_backends(name, version = None, srcs = None, strip_im
                 dynamic_deps = dynamic_deps,
                 lang = lang,
                 min_sdk_version = min_sdk_version,
+                tags = tags + config.get("tags", []),
                 **kwargs
             )
 
@@ -315,6 +341,7 @@ def _cc_aidl_libraries(
         dynamic_deps = [],
         lang = None,
         min_sdk_version = "",
+        tags = [],
         **kwargs):
     """
     Generate AIDL stub code for cpp or ndk backend and wrap it in cc libraries (both shared and static variant)
@@ -340,6 +367,7 @@ def _cc_aidl_libraries(
         deps = [aidl_library],
         lang = lang,
         min_sdk_version = min_sdk_version,
+        tags = tags,
         **kwargs
     )
 
@@ -362,6 +390,7 @@ def _cc_aidl_libraries(
         tidy = True,
         tidy_checks_as_errors = tidy_checks_as_errors,
         tidy_gen_header_filter = True,
+        tags = tags,
     )
 
     cc_library_shared(

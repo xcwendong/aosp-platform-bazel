@@ -19,11 +19,11 @@ import os
 import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Final
 from typing import Generator
 
-DEFAULT_TIMING_LOGS_DIR: Final[str] = 'timing_logs'
 INDICATOR_FILE: Final[str] = 'build/soong/soong_ui.bash'
 SUMMARY_CSV: Final[str] = 'summary.csv'
 RUN_DIR_PREFIX: Final[str] = 'run'
@@ -79,6 +79,12 @@ def get_top_dir(d: Path = Path('.').absolute()) -> Path:
 def get_out_dir() -> Path:
   out_dir = os.environ.get('OUT_DIR')
   return Path(out_dir) if out_dir else get_top_dir().joinpath('out')
+
+
+@functools.cache
+def get_default_log_dir() -> Path:
+  return get_top_dir().parent.joinpath(
+    f'timing-{date.today().strftime("%b%d")}')
 
 
 def is_interactive_shell() -> bool:

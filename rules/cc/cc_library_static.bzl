@@ -29,7 +29,7 @@ load(
     "system_dynamic_deps_defaults",
 )
 load(":stl.bzl", "stl_info_from_attr")
-load(":clang_tidy.bzl", "ClangTidyInfo", "generate_clang_tidy_actions")
+load(":clang_tidy.bzl", "ClangTidyInfo", "clang_tidy_for_dir", "generate_clang_tidy_actions")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
@@ -307,7 +307,10 @@ def _generate_tidy_actions(ctx):
 
     with_tidy = ctx.attr._with_tidy[BuildSettingInfo].value
     allow_local_tidy_true = ctx.attr._allow_local_tidy_true[BuildSettingInfo].value
-    if with_tidy or (allow_local_tidy_true and ctx.attr.tidy):
+    tidy_external_vendor = ctx.attr._tidy_external_vendor[BuildSettingInfo].value
+    tidy_enabled = with_tidy or (allow_local_tidy_true and ctx.attr.tidy)
+    should_run_for_current_package = clang_tidy_for_dir(tidy_external_vendor, ctx.label.package)
+    if tidy_enabled and should_run_for_current_package:
         direct_tidy_files = _generate_tidy_files(ctx)
     else:
         direct_tidy_files = None
@@ -583,6 +586,9 @@ _cc_library_combiner = rule(
         ),
         "_tidy_timeout": attr.label(
             default = "//build/bazel/flags/cc/tidy:tidy_timeout",
+        ),
+        "_tidy_external_vendor": attr.label(
+            default = "//build/bazel/flags/cc/tidy:tidy_external_vendor",
         ),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
