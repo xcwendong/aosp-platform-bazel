@@ -30,6 +30,9 @@ BUILD_TARGETS_LIST=(
   -//external/e2fsprogs/debugfs:all
   -//external/e2fsprogs/e2fsck:all
 
+  # TODO(b/215230098): remove after handling sdk_version for aidl
+  -//frameworks/av:av-types-aidl-java
+
   # TODO(b/266459895): remove these after re-enabling libunwindstack
   -//bionic/libc/malloc_debug:libc_malloc_debug
   -//bionic/libfdtrack:libfdtrack
@@ -52,6 +55,8 @@ TEST_TARGETS_LIST=(
 TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
 
 HOST_ONLY_TEST_TARGETS_LIST=(
+  //tools/trebuchet:AnalyzerKt
+  //tools/metalava:metalava
   # Test both unstripped and stripped versions of a host native unit test
   //system/core/libcutils:libcutils_test
   //system/core/libcutils:libcutils_test__test_binary_unstripped
