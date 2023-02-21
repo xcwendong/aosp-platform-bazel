@@ -101,10 +101,10 @@ class CujGroup:
 
   def __str__(self) -> str:
     if len(self.steps) < 2:
-      return f'{self.steps[0].verb} {self.description}'
+      return f'{self.steps[0].verb} {self.description}'.strip()
     return ' '.join(
-      [f'({chr(ord("a") + i)}) {step.verb} {self.description}' for i, step in
-       enumerate(self.steps)])
+      [f'({chr(ord("a") + i)}) {step.verb} {self.description}'.strip() for
+       i, step in enumerate(self.steps)])
 
 
 class InWorkspace(Enum):
@@ -464,7 +464,14 @@ def get_cujgroups() -> list[CujGroup]:
       for d
       in [pkg_free, leaf_pkg_free]]
   ]
+
+  def clean():
+    if ui.get_user_input().log_dir.is_relative_to(util.get_top_dir()):
+      raise AssertionError(f'specify LOG_DIR different from {util.get_out_dir}')
+    shutil.rmtree(util.get_out_dir())
+
   return [
+    CujGroup('', [CujStep('clean', clean)]),
     CujGroup('', [CujStep('no change', lambda: None)]),
 
     create_delete(src('bionic/libc/tzcode/globbed.c'),

@@ -369,7 +369,6 @@ def _run_apexer(ctx, apex_toolchain):
     args.add_all(["--key", privkey.path])
     args.add_all(["--pubkey", pubkey.path])
     args.add_all(["--payload_type", "image"])
-    args.add_all(["--target_sdk_version", "10000"])
     args.add_all(["--payload_fs_type", "ext4"])
     args.add_all(["--assets_dir", notices_file.dirname])
 
@@ -380,12 +379,18 @@ def _run_apexer(ctx, apex_toolchain):
     if ctx.attr.logging_parent:
         args.add_all(["--logging_parent", ctx.attr.logging_parent])
 
+    # TODO(b/243393960): Support API fingerprinting for APEXes for pre-release SDKs.
+    # TODO(b/269574334): target_sdk_version should be the default Platform SDK version of the branch.
+    args.add_all(["--target_sdk_version", "10000"])
+
     # TODO(b/215339575): This is a super rudimentary way to convert "current" to a numerical number.
     # Generalize this to API level handling logic in a separate Starlark utility, preferably using
     # API level maps dumped from api_levels.go
     min_sdk_version = ctx.attr.min_sdk_version
     if min_sdk_version == "current":
         min_sdk_version = "10000"
+
+    # TODO(b/243393960): Support API fingerprinting for APEXes for pre-release SDKs.
     args.add_all(["--min_sdk_version", min_sdk_version])
 
     # apexer needs the list of directories containing all auxilliary tools invoked during
