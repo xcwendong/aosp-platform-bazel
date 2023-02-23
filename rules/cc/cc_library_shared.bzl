@@ -19,7 +19,6 @@ load(
     "CcAndroidMkInfo",
     "add_lists_defaulting_to_none",
     "create_cc_androidmk_provider",
-    "disable_crt_link",
     "parse_sdk_version",
     "sanitizer_deps",
     "system_dynamic_deps_defaults",
@@ -70,11 +69,9 @@ def cc_library_shared(
         local_includes = [],
         absolute_includes = [],
         rtti = False,
-        use_libcrt = True,  # FIXME: Unused below?
         stl = "",
         cpp_std = "",
         c_std = "",
-        link_crt = True,
         additional_linker_inputs = None,
 
         # Purely _shared arguments
@@ -116,11 +113,6 @@ def cc_library_shared(
 
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
-
-    # Force crtbegin and crtend linking unless explicitly disabled (i.e. bionic
-    # libraries do this)
-    if link_crt == False:
-        features = disable_crt_link(features)
 
     if min_sdk_version:
         features = features + parse_sdk_version(min_sdk_version) + ["-sdk_version_default"]

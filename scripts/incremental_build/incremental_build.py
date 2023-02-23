@@ -93,6 +93,8 @@ def _build(user_input: ui.UserInput, logfile: Path) -> (int, dict[str, any]):
   ninja_log_file = util.get_out_dir().joinpath('.ninja_log')
 
   def get_action_count() -> int:
+    if not ninja_log_file.exists():
+      return 0
     with open(ninja_log_file, 'r') as ninja_log:
       # subtracting 1 to account for "# ninja log v5" in the first line
       return sum(1 for _ in ninja_log) - 1
@@ -109,11 +111,9 @@ def _build(user_input: ui.UserInput, logfile: Path) -> (int, dict[str, any]):
       stdout=f, stderr=f)
 
   with open(logfile, mode='w') as f:
-    if ninja_log_file.exists():
+    action_count_before = get_action_count()
+    if action_count_before > 0:
       recompact_ninja_log()
-      action_count_before = get_action_count()
-    else:
-      action_count_before = 0
     f.write(f'Command: {cmd}\n')
     f.write(f'Environment Variables:\n{textwrap.indent(env_str, "  ")}\n\n\n')
     f.flush()

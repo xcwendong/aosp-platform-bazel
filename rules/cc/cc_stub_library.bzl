@@ -13,7 +13,6 @@
 # limitations under the License.
 
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
-load(":cc_library_common.bzl", "disable_crt_link")
 load(":cc_library_static.bzl", "cc_library_static")
 load(":cc_library_shared.bzl", "CcStubLibrariesInfo")
 load(":fdo_profile_transitions.bzl", "drop_fdo_profile_transition")
@@ -111,28 +110,29 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, export_includes, so
     )
 
     # Disable coverage for stub libraries.
-    features = features + ["-coverage"]
+    features = features + ["-coverage", "-link_crt"]
 
     # The static library at the root of the stub shared library.
     cc_library_static(
         name = name + "_root",
         srcs_c = [name + "_files"],  # compile the stub.c file
         copts = ["-fno-builtin"],  # ignore conflicts with builtin function signatures
-        features = disable_crt_link(features) +
-                   [
-                       # Enable the stub library compile flags
-                       "stub_library",
-                       # Disable all include-related features to avoid including any headers
-                       # that may cause conflicting type errors with the symbols in the
-                       # generated stubs source code.
-                       #  e.g.
-                       #  double acos(double); // in header
-                       #  void acos() {} // in the generated source code
-                       # See https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=942-946;drc=d8a72d7dc91b2122b7b10b47b80cf2f7c65f9049
-                       "-toolchain_include_directories",
-                       "-includes",
-                       "-include_paths",
-                   ],
+        features = [
+            # Don't link the C runtime
+            "-link_crt",
+            # Enable the stub library compile flags
+            "stub_library",
+            # Disable all include-related features to avoid including any headers
+            # that may cause conflicting type errors with the symbols in the
+            # generated stubs source code.
+            #  e.g.
+            #  double acos(double); // in header
+            #  void acos() {} // in the generated source code
+            # See https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=942-946;drc=d8a72d7dc91b2122b7b10b47b80cf2f7c65f9049
+            "-toolchain_include_directories",
+            "-includes",
+            "-include_paths",
+        ],
         target_compatible_with = target_compatible_with,
         stl = "none",
         system_dynamic_deps = [],
@@ -160,7 +160,7 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, export_includes, so
         additional_linker_inputs = [stub_map],
         user_link_flags = [soname_flag, version_script_flag],
         roots = [name + "_root"],
-        features = disable_crt_link(features),
+        features = features + ["-link_crt"],
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
     )

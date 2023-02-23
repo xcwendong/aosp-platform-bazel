@@ -150,10 +150,6 @@ def add_lists_defaulting_to_none(*args):
 
     return combined
 
-# By default, crtbegin/crtend linking is enabled for shared libraries and cc_binary.
-def disable_crt_link(features):
-    return features + ["-link_crt"]
-
 # get_includes_paths expects a rule context, a list of directories, and
 # whether the directories are package-relative and returns a list of exec
 # root-relative paths. This handles the need to search for files both in the
