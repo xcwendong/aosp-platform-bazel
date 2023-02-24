@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
-load("//build/bazel/rules/common:api.bzl", api_levels = "api_levels_with_previews")
+load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("@soong_injection//android:constants.bzl", android_constants = "constants")
 load("//build/bazel/rules:common.bzl", "strip_bp2build_label_suffix")

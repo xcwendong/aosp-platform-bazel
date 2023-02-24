@@ -16,7 +16,7 @@ load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load(":cc_library_static.bzl", "cc_library_static")
 load(":cc_library_shared.bzl", "CcStubLibrariesInfo")
 load(":fdo_profile_transitions.bzl", "drop_fdo_profile_transition")
-load("//build/bazel/rules/common:api.bzl", api_levels = "api_levels_with_previews")
+load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
 
 # This file contains the implementation for the cc_stub_library rule.
 #

@@ -52,8 +52,8 @@ _java_aidl_gen_aspect = aspect(
         ),
         "_sdk_dependency": attr.label_list(
             default = [
-                # TODO(b/220869005) remove forced dependency on current public android.jar
-                "//prebuilts/sdk:public_current_android_sdk_java_import",
+                # TODO(b/215230098) remove forced dependency on current public android.jar
+                "//prebuilts/sdk:system_current_android_sdk_java_import",
                 # TODO(b/229251008) remove hard-coded dependency on framework-connectivity
                 "//prebuilts/sdk:current_module_lib_framework_connectivity",
             ],
