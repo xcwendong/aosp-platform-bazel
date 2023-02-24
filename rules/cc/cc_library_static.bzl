@@ -55,7 +55,6 @@ def cc_library_static(
         absolute_includes = [],
         hdrs = [],
         native_bridge_supported = False,  # TODO: not supported yet.
-        use_libcrt = True,
         rtti = False,
         stl = "",
         cpp_std = "",
@@ -113,8 +112,6 @@ def cc_library_static(
 
     if rtti:
         toolchain_features += ["rtti"]
-    if not use_libcrt:
-        toolchain_features += ["use_libcrt"]
     if cpp_std:
         toolchain_features += [cpp_std, "-cpp_std_default"]
     if c_std:

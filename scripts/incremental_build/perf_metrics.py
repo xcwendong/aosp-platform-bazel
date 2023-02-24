@@ -206,7 +206,10 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
 
 def get_build_info_and_perf(d: Path) -> dict[str, any]:
   perf = read_pbs(d)
-  with open(d.joinpath(util.BUILD_INFO_JSON), 'r') as f:
+  build_info_json = d.joinpath(util.BUILD_INFO_JSON)
+  if not build_info_json.exists():
+    return perf
+  with open(build_info_json, 'r') as f:
     build_info = json.load(f)
     return build_info | perf
 

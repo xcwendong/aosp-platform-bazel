@@ -1254,7 +1254,7 @@ def _feature_check_aspect_impl(target, ctx):
     elif ctx.rule.kind in rules_propagate_src and hasattr(ctx.rule.attr, "src"):
         argv = ctx.rule.attr.src[ActionArgsInfo].argv
     elif ctx.rule.kind == "_cc_library_shared_proxy" and hasattr(ctx.rule.attr, "shared"):
-        argv = ctx.rule.attr.shared[0][ActionArgsInfo].argv
+        argv = ctx.rule.attr.shared[ActionArgsInfo].argv
     elif ctx.rule.kind == "_apex" and hasattr(ctx.rule.attr, "native_shared_libs_32"):
         argv = ctx.rule.attr.native_shared_libs_32[0][ActionArgsInfo].argv
 

@@ -37,8 +37,6 @@ def cc_library_headers(
         export_system_includes = export_system_includes,
         hdrs = hdrs,
         native_bridge_supported = native_bridge_supported,
-        # do not automatically add libcrt dependency to header libraries
-        use_libcrt = False,
         stl = "none",
         sdk_version = sdk_version,
         min_sdk_version = min_sdk_version,

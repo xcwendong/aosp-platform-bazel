@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
-load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
+load("//build/bazel/rules/common:api.bzl", api_levels = "api_levels_with_previews")
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("@soong_injection//android:constants.bzl", android_constants = "constants")
 load("//build/bazel/rules:common.bzl", "strip_bp2build_label_suffix")
@@ -149,10 +149,6 @@ def add_lists_defaulting_to_none(*args):
             combined += arg
 
     return combined
-
-# By default, crtbegin/crtend linking is enabled for shared libraries and cc_binary.
-def disable_crt_link(features):
-    return features + ["-link_crt"]
 
 # get_includes_paths expects a rule context, a list of directories, and
 # whether the directories are package-relative and returns a list of exec
