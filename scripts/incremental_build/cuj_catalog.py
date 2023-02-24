@@ -468,7 +468,8 @@ def get_cujgroups() -> list[CujGroup]:
   def clean():
     if ui.get_user_input().log_dir.is_relative_to(util.get_top_dir()):
       raise AssertionError(f'specify LOG_DIR different from {util.get_out_dir}')
-    shutil.rmtree(util.get_out_dir())
+    if util.get_out_dir().exists():
+      shutil.rmtree(util.get_out_dir())
 
   return [
     CujGroup('', [CujStep('clean', clean)]),
