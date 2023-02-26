@@ -24,6 +24,8 @@ from typing import Callable
 
 from typing.io import TextIO
 
+import util
+
 NA = "   --:--"
 
 
@@ -114,7 +116,7 @@ def pretty(filename: str, include_rebuilds: bool):
     csv_lines = [mark_if_clean(normalize_rebuild(line)) for line in
                  csv.DictReader(f) if
                  include_rebuilds or not line['description'].startswith(
-                   'rebuild-')]
+                     'rebuild-')]
 
   lines: list[dict] = []
   for line in csv_lines:
@@ -152,6 +154,7 @@ def pretty(filename: str, include_rebuilds: bool):
 if __name__ == "__main__":
   p = argparse.ArgumentParser()
   p.add_argument('--include-rebuilds', default=False, action='store_true')
-  p.add_argument('summary_file')
+  default_summary_file = util.get_default_log_dir().joinpath(util.SUMMARY_CSV)
+  p.add_argument('summary_file', nargs='?', default=default_summary_file)
   options = p.parse_args()
   pretty(options.summary_file, options.include_rebuilds)
