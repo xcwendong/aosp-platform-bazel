@@ -51,7 +51,7 @@ def skip_when_soong_only(func: Verifier) -> Verifier:
   """A decorator for Verifiers that are not applicable to soong-only builds"""
 
   def wrapper():
-    if ui.get_user_input().build_type != ui.BuildType.SOONG_ONLY:
+    if InWorkspace.ws_counterpart(util.get_top_dir()).exists():
       func()
 
   return wrapper

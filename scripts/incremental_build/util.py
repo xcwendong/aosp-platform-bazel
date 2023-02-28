@@ -29,8 +29,18 @@ SUMMARY_CSV: Final[str] = 'summary.csv'
 RUN_DIR_PREFIX: Final[str] = 'run'
 BUILD_INFO_JSON: Final[str] = 'build_info.json'
 
-IMPORTANT_METRICS: set[str] = {'soong/bootstrap', 'soong_build/*.bazel',
-                               'ninja/ninja', 'bp2build/', 'symlink_forest/'}
+_IMPORTANT_METRICS: set[str] = {r'soong/bootstrap', r'soong_build/\*\.bazel',
+                               r'ninja/ninja', r'bp2build/',
+                               r'symlink_forest/',
+                               r'.*write_files.*'}
+
+
+@functools.cache
+def _is_important(column) -> bool:
+  for pattern in _IMPORTANT_METRICS:
+    if re.fullmatch(pattern, column):
+      return True
+  return False
 
 
 def get_csv_columns_cmd(d: Path) -> str:
@@ -54,11 +64,10 @@ def get_summary_cmd(d: Path) -> str:
       reader = csv.DictReader(r)
       headers = reader.fieldnames or []
 
-  columns: list[int] = [i for i, h in enumerate(headers) if
-                        h in IMPORTANT_METRICS]
+  columns: list[int] = [i for i, h in enumerate(headers) if _is_important(h)]
   columns.sort()
   f = ''.join(',' + str(i + 1) for i in columns)
-  return f'cut -d, -f1-9{f} "{summary_csv.absolute()}" | column -t -s,'
+  return f'cut -d, -f1-10{f} "{summary_csv.absolute()}" | column -t -s,'
 
 
 @functools.cache

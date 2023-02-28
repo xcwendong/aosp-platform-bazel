@@ -77,43 +77,36 @@ function build() {
   if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.py" \
     --ignore-repo-diff \
     --log-dir="$log_dir" \
+    --build-type soong_only mixed_prod \
     "$@"; then
     echo "See logs for errors"
   fi
 }
 
-function run() {
-  local -r bazel_mode="${1:-}"
-  clean_tree
-
-  if [[ ${#cujs[@]} -ne "0" ]]; then
-    build ${bazel_mode:+"$bazel_mode"} -c "${cujs[@]}" -- "${targets[*]}"
-  else
-    # Clean full build, then a no-change build
-    build ${bazel_mode:+"$bazel_mode"} -c "no change" "no change" -- droid
-    build ${bazel_mode:+"$bazel_mode"} -c 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
-    build ${bazel_mode:+"$bazel_mode"} -c 'modify bionic/.*/stdio.cpp' -- libc
-    build ${bazel_mode:+"$bazel_mode"} -c 'modify .*/adb/daemon/main.cpp' -- adbd
-  fi
-
-  pretty "$log_dir/summary.csv"
-}
-
 if [[ ${#cujs[@]} -ne "0" ]]; then
   echo "you might want to add \"clean\" as the first CUJ to mitigate caching issues"
 else
-  source "$TOP/build/envsetup.sh"
   if [[ ${#targets[@]} -ne "0" ]]; then
     echo "you must specify cujs as well"
     usage
   fi
   # Clear the cache by doing a build. There are probably better ways of clearing the
   # cache, but this does reduce the variance of the first full build.
-  file="$log_dir/output${bazel_mode:+"$bazel_mode"}.txt"
+  file="$log_dir/output.txt"
   echo "logging to $file"
   clean_tree
+  source "$TOP/build/envsetup.sh"
   m droid >"$file"
 fi
-BUILD_BROKEN_DISABLE_BAZEL=1 run
-run --bazel-mode
-run --bazel-mode-staging
+
+clean_tree
+
+if [[ ${#cujs[@]} -ne "0" ]]; then
+  build -c "${cujs[@]}" -- "${targets[*]}"
+else
+  build -c 'clean' 'no change' 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
+  build -c 'clean' 'modify bionic/.*/stdio.cpp' -- libc
+  build -c 'clean' 'modify .*/adb/daemon/main.cpp' -- adbd
+fi
+
+pretty "$log_dir/summary.csv"
