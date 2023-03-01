@@ -124,6 +124,7 @@ sanitizer_deps = rule(
                   "behavior sanitizer library to be used",
         ),
     },
+    provides = [CcInfo],
 )
 
 def sdk_version_feature_from_parsed_version(version):

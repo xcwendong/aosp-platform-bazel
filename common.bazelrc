@@ -17,6 +17,7 @@ build --java_runtime_version=local_jdk
 # TODO(b/227504307): Remove --javacopt="-XepDisableAllChecks" after implementing
 # the correct solution around errorprone.
 build --javacopt="-XepDisableAllChecks"
+build --host_javacopt="-XepDisableAllChecks"
 
 # Lock down the PATH variable in actions to /usr/bin and /usr/local/bin.
 build --experimental_strict_action_env

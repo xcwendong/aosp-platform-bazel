@@ -244,14 +244,9 @@ def cc_library_shared(
     native.cc_shared_library(
         name = unstripped_name,
         user_link_flags = linkopts + [soname_flag],
-        # b/184806113: Note this is  a workaround so users don't have to
-        # declare all transitive static deps used by this target.  It'd be great
-        # if a shared library could declare a transitive exported static dep
-        # instead of needing to declare each target transitively.
-        static_deps = ["//:__subpackages__"] + [shared_root_name, imp_deps_stub, deps_stub],
         dynamic_deps = shared_dynamic_deps,
         additional_linker_inputs = additional_linker_inputs,
-        roots = [shared_root_name, imp_deps_stub, deps_stub],
+        deps = [shared_root_name, imp_deps_stub, deps_stub],
         features = features,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
@@ -504,7 +499,7 @@ _cc_library_shared_proxy = rule(
                   " information to AndroidMk about LOCAL_SHARED_LIBRARIES.",
         ),
     },
-    provides = [CcAndroidMkInfo],
+    provides = [CcAndroidMkInfo, CcInfo],
     fragments = ["cpp"],
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
 )
