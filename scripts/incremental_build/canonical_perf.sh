@@ -17,15 +17,43 @@
 #
 # Gather and print top-line performance metrics for the android build
 #
+readonly TOP="$(realpath "$(dirname "$0")/../../../..")"
 
-readonly log_dir=$1
-if [[ ! $log_dir ]]; then
-  echo usage: canonical_perf.sh LOG_DIR
-  echo Must be run from root of tree.
-  echo LOG_DIR directory should be outside of tree, including not in out/,
-  echo because the whole tree will be cleaned during testing.
+usage() {
+  cat <<EOF
+usage: $0 [-l LOG_DIR] [-t TARGETS] CUJS
+  -l    LOG_DIR should be outside of tree, including not in out/,
+        because the whole tree will be cleaned during testing.
+  -t    TARGETS to run e.g. droid
+  CUJS  to run, e.g. "modify Android.bp"
+example:
+ $0 -t nothing "no change"
+ $0 -t droid -t libc "no change" "modify Android.bp"
+EOF
   exit 1
+}
+
+declare -a targets
+while getopts "l:t:" opt; do
+  case "$opt" in
+  l) log_dir=$OPTARG ;;
+  t) targets+=("$OPTARG") ;;
+  ?) usage ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+readonly -a cujs=("$@")
+
+log_dir=${log_dir:-"$TOP/../canonical-$(date +%b%d)"}
+if [[ -e "$log_dir" ]]; then
+  read -r -n 1 -p "$log_dir already exists, add more build results there? Y/N: " response
+  echo ""
+  if [[ ! "$response" =~ ^[yY]$ ]]; then
+    usage
+  fi
 fi
+mkdir -p "$log_dir"
 
 # Pretty print the results
 function pretty() {
@@ -33,14 +61,8 @@ function pretty() {
 }
 
 function clean_tree() {
-  m clean
   rm -rf out
 }
-
-rm -rf "$log_dir"
-mkdir -p "$log_dir"
-
-source build/envsetup.sh
 
 # TODO: Switch to oriole when it works
 if [[ -e vendor/google/build ]]; then
@@ -54,37 +76,41 @@ export TARGET_BUILD_VARIANT=eng
 function build() {
   date
   set -x
-  ./build/bazel/scripts/incremental_build/incremental_build.py \
+  if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.py" \
     --ignore-repo-diff \
     --log-dir="$log_dir" \
-    "$@"
+    --build-type soong_only mixed_prod \
+    "$@"; then
+    echo "See logs for errors"
+    exit 1
+  fi
   set +x
 }
 
-function run() {
-  local -r bazel_mode="${1:-}"
-
+if [[ ${#cujs[@]} -ne "0" ]]; then
+  echo "you might want to add \"clean\" as the first CUJ to mitigate caching issues"
+else
+  if [[ ${#targets[@]} -ne "0" ]]; then
+    echo "you must specify cujs as well"
+    usage
+  fi
   # Clear the cache by doing a build. There are probably better ways of clearing the
   # cache, but this does reduce the variance of the first full build.
-  clean_tree
-  date
-  file="$log_dir/output${bazel_mode:+"$bazel_mode"}.txt"
+  file="$log_dir/output.txt"
   echo "logging to $file"
-  m droid >"$file"
-
   clean_tree
+  source "$TOP/build/envsetup.sh"
+  m droid >"$file"
+fi
 
-  # Clean full build, then a no-change build
-  build ${bazel_mode:+"$bazel_mode"} -c 0 0 -- droid
+clean_tree
 
-  build ${bazel_mode:+"$bazel_mode"} -c 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
-  build ${bazel_mode:+"$bazel_mode"} -c 'modify bionic/.*/stdio.cpp' -- libc
-  build ${bazel_mode:+"$bazel_mode"} -c 'modify .*/adb/daemon/main.cpp' -- adbd
-  build ${bazel_mode:+"$bazel_mode"} -c 'modify frameworks/.*/View.java' -- framework
+if [[ ${#cujs[@]} -ne "0" ]]; then
+  build -c "${cujs[@]}" -- "${targets[*]}"
+else
+  build -c 'clean' 'no change' 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
+  build -c 'clean' 'modify bionic/.*/stdio.cpp' -- libc
+  build -c 'clean' 'modify .*/adb/daemon/main.cpp' -- adbd
+fi
 
-  pretty "$log_dir/summary.csv"
-}
-
-BUILD_BROKEN_DISABLE_BAZEL=1 run
-run --bazel-mode
-run --bazel-mode-staging
+pretty "$log_dir/summary.csv"

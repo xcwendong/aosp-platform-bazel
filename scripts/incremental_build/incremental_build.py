@@ -34,6 +34,7 @@ import cuj_catalog
 import perf_metrics
 import ui
 import util
+import pretty
 
 MAX_RUN_COUNT: Final[int] = 5
 
@@ -60,8 +61,8 @@ def _prepare_env() -> (Mapping[str, str], str):
     return soong_ui_ninja_args
 
   overrides: Mapping[str, str] = {
-      'NINJA_ARGS': get_soong_build_ninja_args(),
-      'SOONG_UI_NINJA_ARGS': get_soong_ui_ninja_args()
+    'NINJA_ARGS': get_soong_build_ninja_args(),
+    'SOONG_UI_NINJA_ARGS': get_soong_ui_ninja_args()
   }
   env = {**os.environ, **overrides}
   if not os.environ.get('TARGET_BUILD_PRODUCT'):
@@ -84,12 +85,43 @@ def _build_file_sha() -> str:
     return h.hexdigest()[0:8]
 
 
-def _build(user_input: ui.UserInput, logfile: Path) -> (int, dict[str, any]):
+def _build_file_size() -> int:
+  build_file = util.get_out_dir().joinpath('soong/build.ninja')
+  return os.path.getsize(build_file) if build_file.exists() else 0
+
+
+BuildInfo = dict[str, any]
+
+
+def _build(build_type: ui.BuildType, logfile: Path) -> (int, BuildInfo):
   logging.info('TIP: to see the log:\n  tail -f "%s"', logfile)
-  cmd = [*user_input.build_type.value, *user_input.targets]
+  cmd = [*build_type.value, *ui.get_user_input().targets]
   logging.info('Command: %s', cmd)
   env, env_str = _prepare_env()
+  ninja_log_file = util.get_out_dir().joinpath('.ninja_log')
+
+  def get_action_count() -> int:
+    if not ninja_log_file.exists():
+      return 0
+    with open(ninja_log_file, 'r') as ninja_log:
+      # subtracting 1 to account for "# ninja log v5" in the first line
+      return sum(1 for _ in ninja_log) - 1
+
+  def recompact_ninja_log():
+    subprocess.run([
+      util.get_top_dir().joinpath(
+        'prebuilts/build-tools/linux-x86/bin/ninja'),
+      '-f',
+      util.get_out_dir().joinpath(
+        f'combined-{env.get("TARGET_PRODUCT", "aosp_arm")}.ninja'),
+      '-t', 'recompact'],
+      check=False, cwd=util.get_top_dir(), shell=False,
+      stdout=f, stderr=f)
+
   with open(logfile, mode='w') as f:
+    action_count_before = get_action_count()
+    if action_count_before > 0:
+      recompact_ninja_log()
     f.write(f'Command: {cmd}\n')
     f.write(f'Environment Variables:\n{textwrap.indent(env_str, "  ")}\n\n\n')
     f.flush()
@@ -97,15 +129,48 @@ def _build(user_input: ui.UserInput, logfile: Path) -> (int, dict[str, any]):
     p = subprocess.run(cmd, check=False, cwd=util.get_top_dir(), env=env,
                        shell=False, stdout=f, stderr=f)
     elapsed_ns = time.perf_counter_ns() - start_ns
+    action_count_after = get_action_count()
 
   return (p.returncode, {
-      'build_type': user_input.build_type.name.lower(),
-      'build.ninja': _build_file_sha(),
-      'targets': ' '.join(user_input.targets),
-      'log': str(logfile.relative_to(user_input.log_dir)),
-      'ninja_explains': util.count_explanations(logfile),
-      'time': str(datetime.timedelta(microseconds=elapsed_ns / 1000))
+    'build_type': build_type.to_flag(),
+    'build.ninja': _build_file_sha(),
+    'build.ninja.size': _build_file_size(),
+    'targets': ' '.join(ui.get_user_input().targets),
+    'log': str(logfile.relative_to(ui.get_user_input().log_dir)),
+    'ninja_explains': util.count_explanations(logfile),
+    'actions': action_count_after - action_count_before,
+    'time': str(datetime.timedelta(microseconds=elapsed_ns / 1000))
   })
+
+
+def _run_cuj(run_dir: Path, build_type: ui.BuildType,
+    cujstep: cuj_catalog.CujStep, desc: str, run) -> BuildInfo:
+  is_clean = not util.get_out_dir().joinpath(
+    'soong/bootstrap.ninja').exists()
+  run_dir.mkdir(parents=True, exist_ok=False)
+  (exit_code, build_info) = _build(build_type, run_dir.joinpath('output.txt'))
+  # if build was successful, run test
+  if exit_code != 0:
+    build_result = cuj_catalog.BuildResult.FAILED.name
+  else:
+    try:
+      cujstep.verify()
+      build_result = cuj_catalog.BuildResult.SUCCESS.name
+    except Exception as e:
+      logging.error(e)
+      build_result = (cuj_catalog.BuildResult.TEST_FAILURE.name +
+                      ':' + str(e))
+  # summarize
+  log_desc = desc if run == 0 else f'rebuild-{run} after {desc}'
+  build_info = {
+                 'description': log_desc,
+                 'build_result': build_result
+               } | build_info
+  logging.info('%s after %s: %s',
+               build_info["build_result"], build_info["time"], log_desc)
+  if is_clean:
+    build_info['build_type'] = 'CLEAN ' + build_info['build_type']
+  return build_info
 
 
 def main():
@@ -122,7 +187,7 @@ def main():
         time rebuild
         collect metrics
   """
-  user_input = ui.handle_user_input()
+  user_input = ui.get_user_input()
 
   logging.warning(textwrap.dedent('''
   If you kill this process, make sure to revert unwanted changes.
@@ -133,54 +198,26 @@ def main():
   '''))
 
   run_dir_gen = util.next_path(user_input.log_dir.joinpath(util.RUN_DIR_PREFIX))
-  clean = not util.get_out_dir().joinpath('soong/bootstrap.ninja').exists()
-  for counter, cuj_index in enumerate(user_input.chosen_cujgroups):
-    cujgroup = cuj_catalog.get_cujgroups()[cuj_index]
-    logging.info('START %s [%d out of %d]', cujgroup.description, counter + 1,
-                 len(user_input.chosen_cujgroups))
-    for cujstep in cujgroup.steps:
-      desc = f'{cujstep.verb} {cujgroup.description}'
-      logging.info('START %s', desc)
-      cujstep.action()
-      run = 0
-      while True:
-        # build
-        d = next(run_dir_gen)
-        d.mkdir(parents=True, exist_ok=False)
-        (exit_code, build_info) = _build(user_input, d.joinpath('output.txt'))
-        # if build was successful, run test
-        if exit_code != 0:
-          build_result = cuj_catalog.BuildResult.FAILED.name
-        else:
-          try:
-            cujstep.verify(user_input)
-            build_result = cuj_catalog.BuildResult.SUCCESS.name
-          except Exception as e:
-            logging.error(e)
-            build_result = (cuj_catalog.BuildResult.TEST_FAILURE.name +
-                            ':' + str(e))
-        # summarize
-        log_desc = desc if run == 0 else f'rebuild-{run} after {desc}'
-        build_info = {
-                         'description': log_desc,
-                         'build_result': build_result
-                     } | build_info
-        logging.info('%s after %s: %s',
-                     build_info["build_result"], build_info["time"], log_desc)
-        if clean:
-          build_info['build_type'] = 'CLEAN ' + build_info['build_type']
-          clean = False  # we don't clean subsequently
-
-        perf_metrics.archive_run(d, build_info)
-        if util.is_ninja_dry_run() or run > MAX_RUN_COUNT or build_info[
-          'ninja_explains'] == 0:
-          # dry run or build has stabilized
-          break
-        run += 1
-      logging.info(' DONE %s', desc)
+  for build_type in user_input.build_types:
+    for counter, cuj_index in enumerate(user_input.chosen_cujgroups):
+      cujgroup = cuj_catalog.get_cujgroups()[cuj_index]
+      for cujstep in cujgroup.steps:
+        desc = ' '.join([cujstep.verb, cujgroup.description])
+        logging.info('START %s %s [%s]', build_type.name,
+                     ' '.join(user_input.targets), desc)
+        cujstep.apply_change()
+        for run in range(0, MAX_RUN_COUNT):
+          run_dir = next(run_dir_gen)
+          build_info = _run_cuj(run_dir, build_type, cujstep, desc, run)
+          perf_metrics.archive_run(run_dir, build_info)
+          if build_info['ninja_explains'] == 0:
+            break
+        logging.info(' DONE %s %s [%s]', build_type.name,
+                     ' '.join(user_input.targets), desc)
 
   perf_metrics.write_summary_csv(user_input.log_dir)
   perf_metrics.show_summary(user_input.log_dir)
+  pretty.pretty(str(user_input.log_dir.joinpath(util.SUMMARY_CSV)), True)
 
 
 if __name__ == '__main__':

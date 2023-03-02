@@ -90,6 +90,19 @@ def product_variable_constraint_settings(variables):
 
     return constraints, attribute_vars
 
+# android_product integrates product variables into Bazel platforms.
+#
+# This uses soong.variables to create constraints, and platforms used by the
+# bazel build. The soong.variables file itself contains a post-processed list of
+# variables derived from Make variables, through soong_config.mk, generated
+# during the product config step.
+#
+# Some constraints used here are handcrafted in
+# //build/bazel/platforms/{arch,os}. The rest are dynamically generated.
+#
+# If you're looking for what --config=android, --config=linux_x86_64 or most
+# select statements in the BUILD files (ultimately) refer to, they're all
+# created here.
 def android_product(name, soong_variables):
     product_var_constraints, attribute_vars = product_variable_constraint_settings(soong_variables)
     arch_configs = determine_target_arches_from_config(soong_variables)

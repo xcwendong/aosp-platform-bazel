@@ -14,10 +14,12 @@
 
 import argparse
 import dataclasses
+import functools
 import logging
 import os
 import re
 import textwrap
+from datetime import date
 from enum import Enum
 from pathlib import Path
 
@@ -39,16 +41,30 @@ class BuildType(Enum):
   B = ['build/bazel/bin/b', 'build']
   B_ANDROID = [*B, '--config=android']
 
+  @staticmethod
+  def from_flag(s: str) -> list['BuildType']:
+    chosen: list[BuildType] = []
+    for e in BuildType:
+      if s.lower() in e.name.lower():
+        chosen.append(e)
+    if len(chosen) == 0:
+      raise RuntimeError(f'no such build type: {s}')
+    return chosen
+
+  def to_flag(self):
+    return self.name.lower()
+
 
 @dataclasses.dataclass(frozen=True)
 class UserInput:
-  build_type: BuildType
+  build_types: list[BuildType]
   chosen_cujgroups: list[int]
   log_dir: Path
   targets: list[str]
 
 
-def handle_user_input() -> UserInput:
+@functools.cache
+def get_user_input() -> UserInput:
   cujgroups = cuj_catalog.get_cujgroups()
 
   def validate_cujgroups(input_str: str) -> list[int]:
@@ -72,27 +88,27 @@ def handle_user_input() -> UserInput:
       if len(matching_cuj_groups):
         return matching_cuj_groups
     raise argparse.ArgumentError(
-        argument=None,
-        message=f'Invalid input: "{input_str}" '
-                f'expected an index <= {len(cujgroups)} '
-                'or a regex pattern for a CUJ descriptions')
+      argument=None,
+      message=f'Invalid input: "{input_str}" '
+              f'expected an index <= {len(cujgroups)} '
+              'or a regex pattern for a CUJ descriptions')
 
   # importing locally here to avoid chances of cyclic import
   import incremental_build
   p = argparse.ArgumentParser(
-      formatter_class=argparse.RawTextHelpFormatter,
-      description='' +
-                  textwrap.dedent(incremental_build.__doc__) +
-                  textwrap.dedent(incremental_build.main.__doc__))
+    formatter_class=argparse.RawTextHelpFormatter,
+    description='' +
+                textwrap.dedent(incremental_build.__doc__) +
+                textwrap.dedent(incremental_build.main.__doc__))
 
   cuj_list = '\n'.join(
-      [f'{i:2}: {cujgroup}' for i, cujgroup in enumerate(cujgroups)])
-  p.add_argument('-c', '--cujs', nargs='*',
+    [f'{i:2}: {cujgroup}' for i, cujgroup in enumerate(cujgroups)])
+  p.add_argument('-c', '--cujs', nargs='+',
                  type=validate_cujgroups,
                  help='Index number(s) for the CUJ(s) from the following list. '
                       'Or substring matches for the CUJ description.'
                       f'Note the ordering will be respected:\n{cuj_list}')
-  p.add_argument('-C', '--exclude-cujs', nargs='*',
+  p.add_argument('-C', '--exclude-cujs', nargs='+',
                  type=validate_cujgroups,
                  help='Index number(s) or substring match(es) for the CUJ(s) '
                       'to be excluded')
@@ -100,7 +116,8 @@ def handle_user_input() -> UserInput:
   log_levels = dict(getattr(logging, '_levelToName')).values()
   p.add_argument('-v', '--verbosity', choices=log_levels, default='INFO',
                  help='Log level. Defaults to %(default)s')
-  default_log_dir = util.get_out_dir().joinpath(util.DEFAULT_TIMING_LOGS_DIR)
+  default_log_dir = util.get_top_dir().parent.joinpath(
+    f'timing-{date.today().strftime("%b%d")}')
   p.add_argument('-l', '--log-dir', type=Path, default=default_log_dir,
                  help=textwrap.dedent(f'''
                  Directory for timing logs. Defaults to %(default)s
@@ -110,15 +127,19 @@ def handle_user_input() -> UserInput:
                     {util.get_summary_cmd(default_log_dir)}
                   3 To view column headers:
                     {util.get_csv_columns_cmd(default_log_dir)}''').strip())
-  p.add_argument('--bazel-mode-staging', default=False, action='store_true')
-  p.add_argument('--bazel-mode-dev', default=False, action='store_true')
-  p.add_argument('--bazel-mode', default=False, action='store_true')
+  p.add_argument('-b', '--build-types', nargs='+',
+                 type=BuildType.from_flag,
+                 default=[[BuildType.SOONG_ONLY, BuildType.MIXED_PROD]],
+                 help='Defaults to "%(default)s". Choose from '
+                      f'{[e.name.lower() for e in BuildType]}')
   p.add_argument('--ignore-repo-diff', default=False, action='store_true',
                  help='Skip "repo status" check')
-
-  p.add_argument('targets', nargs='+', help='Targets to run')
+  p.add_argument('targets', nargs='*', default=['nothing'],
+                 help='Targets to run, e.g. "libc adbd". '
+                      'Defaults to %(default)s')
 
   options = p.parse_args()
+
   if options.verbosity:
     logging.root.setLevel(options.verbosity)
 
@@ -135,45 +156,23 @@ def handle_user_input() -> UserInput:
   else:
     chosen_cujgroups = [i for i in range(0, len(cujgroups))]
 
-  chosen_bazel_modes = [bazel_mode for bazel_mode in [
-      options.bazel_mode_dev,
-      options.bazel_mode_staging,
-      options.bazel_mode] if bazel_mode]
-  if len(chosen_bazel_modes) > 1:
-    sys.exit('choose only one --bazel-mode option')
-  bazel_labels = [target for target in options.targets if
-                  target.startswith('//')]
+  bazel_labels: list[str] = [target for target in options.targets if
+                             target.startswith('//')]
   if 0 < len(bazel_labels) < len(options.targets):
     sys.exit(f'Don\'t mix bazel labels {bazel_labels} with soong targets '
              f'{[t for t in options.targets if t not in bazel_labels]}')
-  build_type: BuildType
-  disable_bazel = os.getenv('BUILD_BROKEN_DISABLE_BAZEL') is not None
+  if os.getenv('BUILD_BROKEN_DISABLE_BAZEL') is not None:
+    raise RuntimeError(f'use -b {BuildType.SOONG_ONLY.to_flag()} '
+                       f'instead of BUILD_BROKEN_DISABLE_BAZEL')
+  build_types: list[BuildType] = [i for sublist in options.build_types for i in
+                                  sublist]
   if len(bazel_labels) > 0:
-    if len(chosen_bazel_modes) > 0:
-      sys.exit(f'{chosen_bazel_modes} not applicable for b')
-    if disable_bazel:
-      sys.exit('BUILD_BROKEN_DISABLE_BAZEL not applicable for `b`')
-    build_type = BuildType.B
-  else:
-    if len(chosen_bazel_modes) == 0:
-      if not disable_bazel:
-        raise RuntimeError('Use BUILD_BROKEN_DISABLE_BAZEL or --bazel-mode')
-      build_type = BuildType.SOONG_ONLY
-    else:
-      assert len(chosen_bazel_modes) == 1
-      if disable_bazel:
-        raise RuntimeError('Unset BUILD_BROKEN_DISABLE_BAZEL')
-      if options.bazel_mode_dev:
-        build_type = BuildType.MIXED_DEV
-      elif options.bazel_mode_staging:
-        build_type = BuildType.MIXED_STAGING
-      elif options.bazel_mode:
-        build_type = BuildType.MIXED_PROD
-      else:
-        raise RuntimeError('UNREACHABLE')
+    non_b = [b for b in build_types if
+             b != BuildType.B and b != BuildType.B_ANDROID]
+    raise RuntimeError(f'bazel labels can not be used with {non_b}')
 
   pretty_str = '\n'.join(
-      [f'{i:2}: {cujgroups[i]}' for i in chosen_cujgroups])
+    [f'{i:2}: {cujgroups[i]}' for i in chosen_cujgroups])
   logging.info(f'%d CUJs chosen:\n%s', len(chosen_cujgroups), pretty_str)
 
   if not options.ignore_repo_diff and util.has_uncommitted_changes():
@@ -186,7 +185,7 @@ def handle_user_input() -> UserInput:
       sys.exit(0)
 
   return UserInput(
-      build_type=build_type,
-      chosen_cujgroups=chosen_cujgroups,
-      log_dir=Path(options.log_dir),
-      targets=options.targets)
+    build_types=build_types,
+    chosen_cujgroups=chosen_cujgroups,
+    log_dir=Path(options.log_dir).resolve(),
+    targets=options.targets)

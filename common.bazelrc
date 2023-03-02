@@ -17,6 +17,7 @@ build --java_runtime_version=local_jdk
 # TODO(b/227504307): Remove --javacopt="-XepDisableAllChecks" after implementing
 # the correct solution around errorprone.
 build --javacopt="-XepDisableAllChecks"
+build --host_javacopt="-XepDisableAllChecks"
 
 # Lock down the PATH variable in actions to /usr/bin and /usr/local/bin.
 build --experimental_strict_action_env
@@ -111,3 +112,6 @@ common --experimental_builtins_injection_override=-java_binary
 # Set writable bit for all bazel outputs. This makes it easy to remove
 # the output directory and its contents after a build (using `rm`).
 build --experimental_writable_outputs
+
+# Make the Linux sandbox work under /tmp
+build --incompatible_sandbox_hermetic_tmp

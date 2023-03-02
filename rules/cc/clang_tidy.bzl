@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("//build/bazel/rules/cc:cc_library_common.bzl", "get_compilation_args")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
@@ -25,11 +24,15 @@ load(
 )
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("@soong_injection//cc_toolchain:config_constants.bzl", "constants")
+load("//build/bazel/rules:common.bzl", "get_dep_targets")
+load(":cc_library_common.bzl", "get_compilation_args")
 
 ClangTidyInfo = provider(
     "Info provided from clang-tidy actions",
     fields = {
         "tidy_files": "Outputs from the clang-tidy tool",
+        "transitive_tidy_files": "Outputs from the clang-tidy tool for all transitive dependencies." +
+                                 " Currently, these are needed so that mixed-build targets can also run clang-tidy for their dependencies.",
     },
 )
 
@@ -123,13 +126,10 @@ def _clang_rewrite_tidy_checks(tidy_checks):
     # remove the enabling argument from the list.
     return [t for t in tidy_checks if t not in clang_tidy_disable_checks]
 
-def _add_checks_for_dir(directory, input_file):
+def _add_checks_for_dir(directory):
     """should be kept up to date with
     https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/config/tidy.go;l=170;drc=b45a2ea782074944f79fc388df20b06e01f265f7
     """
-
-    if not input_file.is_source:
-        return _TIDY_DEFAULT_GLOBAL_CHECKS_NO_ANALYZER
 
     # This is a map of local path prefixes to the set of default clang-tidy checks
     # to be used.  This is like android.IsThirdPartyPath, but with more patterns.
@@ -159,8 +159,11 @@ def _add_global_tidy_checks(ctx, local_checks, input_file):
     global_tidy_checks = []
     if product_vars["TidyChecks"]:
         global_tidy_checks = _PRODUCT_VARIABLE_TIDY_CHECKS
+    elif not input_file.is_source:
+        # don't run clang-tidy for generated files
+        global_tidy_checks = _TIDY_DEFAULT_GLOBAL_CHECKS_NO_ANALYZER
     else:
-        global_tidy_checks = _add_checks_for_dir(ctx.label.package, input_file)
+        global_tidy_checks = _add_checks_for_dir(ctx.label.package)
 
     # If Tidy_checks contains "-*", ignore all checks before "-*".
     for i, check in enumerate(local_checks):
@@ -332,3 +335,22 @@ def generate_clang_tidy_actions(
         tidy_file_outputs.append(tidy_file)
 
     return tidy_file_outputs
+
+def collect_deps_clang_tidy_info(ctx):
+    transitive_clang_tidy_files = []
+    for attr_deps in get_dep_targets(ctx.attr, predicate = lambda target: ClangTidyInfo in target).values():
+        for dep in attr_deps:
+            transitive_clang_tidy_files.append(dep[ClangTidyInfo].transitive_tidy_files)
+    return ClangTidyInfo(
+        tidy_files = depset(),
+        transitive_tidy_files = depset(transitive = transitive_clang_tidy_files),
+    )
+
+def _never_tidy_for_dir(directory):
+    # should stay up to date with https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/config/tidy.go;l=227;drc=f5864ba3633fdbadfb434483848887438fc11f59
+    return directory.startswith("external/grpc-grpc")
+
+def clang_tidy_for_dir(allow_external_vendor, directory):
+    return not _never_tidy_for_dir(directory) and (
+        allow_external_vendor or _add_checks_for_dir(directory) != _TIDY_EXTERNAL_VENDOR_CHECKS
+    )

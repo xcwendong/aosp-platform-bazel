@@ -190,7 +190,7 @@ def get_branch() -> str:
     default_tag = tree.getroot().find('default')
     return default_tag.get('remote') + '/' + default_tag.get('revision')
   except Exception as e:  # pylint: disable=broad-except
-    print(f"Couldn't detect branch name: {e}", file=sys.stderr)
+    # Most likely happens due to .repo not existing on CI
     return 'Unknown'
 
 
@@ -243,6 +243,13 @@ async def test_one_product(product: Product, dirs: Directories) -> ProductResult
   if not product_success:
     shutil.copy2(os.path.join(dirs.out_product, 'build.log'),
                  f'{product_dashboard_folder}/product/build.log')
+    add_message = False
+    with open(f'{product_dashboard_folder}/product/build.log', 'r') as f:
+      if '/out/rbc/' in f.read():
+        add_message = True
+    if add_message:
+      with open(f'{product_dashboard_folder}/product/build.log', 'a') as f:
+        f.write(f'\nPaths involving out/rbc are actually under {dirs.out_product}\n')
 
   files = [f'build-{product.product}.ninja', f'build-{product.product}-package.ninja', 'soong/build.ninja']
   product_files = [(os.path.join(dirs.out_baseline, x), os.path.join(dirs.out_product, x)) for x in files]
@@ -286,6 +293,13 @@ async def test_one_product_quick(product: Product, dirs: Directories) -> Product
   if not product_success:
     shutil.copy2(os.path.join(dirs.out_product, 'build.log'),
                  f'{product_dashboard_folder}/product/build.log')
+    add_message = False
+    with open(f'{product_dashboard_folder}/product/build.log', 'r') as f:
+      if '/out/rbc/' in f.read():
+        add_message = True
+    if add_message:
+      with open(f'{product_dashboard_folder}/product/build.log', 'a') as f:
+        f.write(f'\nPaths involving out/rbc are actually under {dirs.out_product}\n')
 
   files = ['rbc_variable_dump.txt']
   product_files = [(os.path.join(dirs.out_baseline, x), os.path.join(dirs.out_product, x)) for x in files]
@@ -363,14 +377,16 @@ async def main():
   # that in each folder.
   if args.quick:
     commands = []
-    for folder in [dirs.out_baseline, dirs.out_product]:
+    folders = [dirs.out_baseline, dirs.out_product]
+    for folder in folders:
       commands.append(run_jailed_command([
           'build/soong/soong_ui.bash',
           '--dumpvar-mode',
           'TARGET_PRODUCT'
       ], folder))
-    for success in await asyncio.gather(*commands):
+    for i, success in enumerate(await asyncio.gather(*commands)):
       if not success:
+        dump_files_to_stderr(os.path.join(folders[i], 'build.log'))
         sys.exit('Failed to setup output directories')
 
   with open(os.path.join(dirs.results, 'index.html'), 'w') as f:

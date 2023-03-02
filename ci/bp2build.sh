@@ -77,7 +77,7 @@ done
 # We can safely build and test all targets on the host linux config, and rely on
 # incompatible target skipping for tests that cannot run on the host.
 build/bazel/bin/bazel --max_idle_secs=5 test ${FLAGS} --build_tests_only=false -k \
-  -- ${BUILD_TARGETS} ${TEST_TARGETS} "${HOST_INCOMPATIBLE_TARGETS[@]}"
+  -- ${BUILD_TARGETS} ${TEST_TARGETS} "${HOST_INCOMPATIBLE_TARGETS[@]}" ${HOST_ONLY_TEST_TARGETS}
 
 ###################
 # bp2build progress

@@ -19,12 +19,12 @@ load(
     "CcAndroidMkInfo",
     "add_lists_defaulting_to_none",
     "create_cc_androidmk_provider",
-    "disable_crt_link",
     "parse_sdk_version",
     "sanitizer_deps",
     "system_dynamic_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
+load(":clang_tidy.bzl", "ClangTidyInfo", "collect_deps_clang_tidy_info")
 load(
     ":fdo_profile_transitions.bzl",
     "FDO_PROFILE_ATTR",
@@ -69,11 +69,9 @@ def cc_library_shared(
         local_includes = [],
         absolute_includes = [],
         rtti = False,
-        use_libcrt = True,  # FIXME: Unused below?
         stl = "",
         cpp_std = "",
         c_std = "",
-        link_crt = True,
         additional_linker_inputs = None,
 
         # Purely _shared arguments
@@ -101,6 +99,7 @@ def cc_library_shared(
         tidy_flags = None,
         tidy_disabled_srcs = None,
         tidy_timeout_srcs = None,
+        tidy_gen_header_filter = None,
         **kwargs):
     "Bazel macro to correspond with the cc_library_shared Soong module."
 
@@ -114,11 +113,6 @@ def cc_library_shared(
 
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
-
-    # Force crtbegin and crtend linking unless explicitly disabled (i.e. bionic
-    # libraries do this)
-    if link_crt == False:
-        features = disable_crt_link(features)
 
     if min_sdk_version:
         features = features + parse_sdk_version(min_sdk_version) + ["-sdk_version_default"]
@@ -199,6 +193,7 @@ def cc_library_shared(
         tidy_flags = tidy_flags,
         tidy_disabled_srcs = tidy_disabled_srcs,
         tidy_timeout_srcs = tidy_timeout_srcs,
+        tidy_gen_header_filter = tidy_gen_header_filter,
     )
 
     sanitizer_deps_name = name + "_sanitizer_deps"
@@ -249,14 +244,9 @@ def cc_library_shared(
     native.cc_shared_library(
         name = unstripped_name,
         user_link_flags = linkopts + [soname_flag],
-        # b/184806113: Note this is  a workaround so users don't have to
-        # declare all transitive static deps used by this target.  It'd be great
-        # if a shared library could declare a transitive exported static dep
-        # instead of needing to declare each target transitively.
-        static_deps = ["//:__subpackages__"] + [shared_root_name, imp_deps_stub, deps_stub],
         dynamic_deps = shared_dynamic_deps,
         additional_linker_inputs = additional_linker_inputs,
-        roots = [shared_root_name, imp_deps_stub, deps_stub],
+        deps = [shared_root_name, imp_deps_stub, deps_stub],
         features = features,
         target_compatible_with = target_compatible_with,
         tags = ["manual"],
@@ -414,8 +404,8 @@ def _cc_library_shared_proxy_impl(ctx):
     if len(ctx.attr.deps) != 1:
         fail("Exactly one 'deps' must be specified for cc_library_shared_proxy")
     root_files = ctx.attr.deps[0][DefaultInfo].files.to_list()
-    shared_files = ctx.attr.shared[0][DefaultInfo].files.to_list()
-    shared_debuginfo = ctx.attr.shared_debuginfo[0][DefaultInfo].files.to_list()
+    shared_files = ctx.attr.shared[DefaultInfo].files.to_list()
+    shared_debuginfo = ctx.attr.shared_debuginfo[DefaultInfo].files.to_list()
     if len(shared_files) != 1 or len(shared_debuginfo) != 1:
         fail("Expected only one shared library file and one debuginfo file for it")
 
@@ -451,18 +441,19 @@ def _cc_library_shared_proxy_impl(ctx):
             files = depset(direct = files),
             runfiles = ctx.runfiles(files = [ctx.outputs.output_file]),
         ),
-        _correct_cc_shared_library_linking(ctx, ctx.attr.shared[0][CcSharedLibraryInfo], ctx.outputs.output_file, ctx.attr.deps[0]),
-        ctx.attr.table_of_contents[0][CcTocInfo],
+        _correct_cc_shared_library_linking(ctx, ctx.attr.shared[CcSharedLibraryInfo], ctx.outputs.output_file, ctx.attr.deps[0]),
+        ctx.attr.table_of_contents[CcTocInfo],
         # The _only_ linker_input is the statically linked root itself. We need to propagate this
         # as cc_shared_library identifies which libraries can be linked dynamically based on the
         # linker_inputs of the roots
         ctx.attr.deps[0][CcInfo],
         ctx.attr.deps[0][CcAndroidMkInfo],
         CcStubLibrariesInfo(has_stubs = ctx.attr.has_stubs),
-        ctx.attr.shared[0][OutputGroupInfo],
+        ctx.attr.shared[OutputGroupInfo],
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
         CcUnstrippedInfo(unstripped = shared_debuginfo[0]),
         ctx.attr.abi_dump[AbiDiffInfo],
+        collect_deps_clang_tidy_info(ctx),
     ]
 
 _cc_library_shared_proxy = rule(
@@ -471,22 +462,19 @@ _cc_library_shared_proxy = rule(
     cfg = fdo_profile_transition,
     attrs = {
         FDO_PROFILE_ATTR: attr.label(),
-        "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo], cfg = fdo_profile_transition),
-        "shared_debuginfo": attr.label(mandatory = True, cfg = fdo_profile_transition),
+        "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo]),
+        "shared_debuginfo": attr.label(mandatory = True),
         # "deps" should be a single element: the root target of the shared library.
         # See _cc_library_shared_proxy_impl comment for explanation.
-        "deps": attr.label_list(mandatory = True, providers = [CcInfo], cfg = fdo_profile_transition),
+        "deps": attr.label_list(mandatory = True, providers = [CcInfo]),
         "output_file": attr.output(mandatory = True),
         "table_of_contents": attr.label(
             mandatory = True,
             # TODO(b/217908237): reenable allow_single_file
             # allow_single_file = True,
             providers = [CcTocInfo],
-            cfg = fdo_profile_transition,
         ),
         "has_stubs": attr.bool(default = False),
-        # fdo_profile does not get propagated to runtime_deps.
-        # Hence, fdo_profile_transition does not need to get attached here
         "runtime_deps": attr.label_list(
             providers = [CcInfo],
             doc = "Deps that should be installed along with this target. Read by the apex cc aspect.",
@@ -511,7 +499,7 @@ _cc_library_shared_proxy = rule(
                   " information to AndroidMk about LOCAL_SHARED_LIBRARIES.",
         ),
     },
-    provides = [CcAndroidMkInfo],
+    provides = [CcAndroidMkInfo, CcInfo],
     fragments = ["cpp"],
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
 )
