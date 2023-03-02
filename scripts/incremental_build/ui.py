@@ -187,5 +187,5 @@ def get_user_input() -> UserInput:
   return UserInput(
     build_types=build_types,
     chosen_cujgroups=chosen_cujgroups,
-    log_dir=Path(options.log_dir),
+    log_dir=Path(options.log_dir).resolve(),
     targets=options.targets)

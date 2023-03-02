@@ -18,6 +18,7 @@ load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("@soong_injection//api_levels:api_levels.bzl", "api_levels_released_versions")
 
 PREVIEW_API_LEVEL_BASE = 9000
+FUTURE_API_LEVEL_INT = 10000  # API Level associated with an arbitrary future release
 
 def _api_levels_with_previews():
     ret = dict(api_levels_released_versions)
@@ -35,3 +36,32 @@ def _api_levels_with_final_codenames():
     return ret
 
 api_levels_with_previews = _api_levels_with_previews()
+
+# parse_api_level_from_version is a Starlark implementation of ApiLevelFromUser
+# at https://cs.android.com/android/platform/superproject/+/master:build/soong/android/api_levels.go;l=221-250;drc=5095a6c4b484f34d5c4f55a855d6174e00fb7f5e
+def parse_api_level_from_version(version):
+    """converts the given string `version` to an api level
+
+    Args:
+        version: must be non-empty. Inputs that are not "current", known
+        previews, or convertible to an integer will return an error.
+
+    Returns: The api level. This can be an int or unreleased version full name (string).
+        Finalized codenames will be interpreted as their final API levels, not
+        the preview of the associated releases. Future codenames return the
+        version codename.
+    """
+    api_levels = api_levels_with_previews
+    if version == "":
+        fail("API level string must be non-empty")
+
+    if version == "current":
+        return FUTURE_API_LEVEL_INT
+
+    if version in api_levels:
+        return api_levels[version]
+
+    elif version.isdigit():
+        return int(version)
+    else:
+        fail("version could not be parsed as integer and is not a recognized codename")

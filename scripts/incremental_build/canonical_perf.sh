@@ -53,6 +53,7 @@ if [[ -e "$log_dir" ]]; then
     usage
   fi
 fi
+mkdir -p "$log_dir"
 
 # Pretty print the results
 function pretty() {
@@ -74,13 +75,16 @@ export TARGET_BUILD_VARIANT=eng
 
 function build() {
   date
+  set -x
   if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.py" \
     --ignore-repo-diff \
     --log-dir="$log_dir" \
     --build-type soong_only mixed_prod \
     "$@"; then
     echo "See logs for errors"
+    exit 1
   fi
+  set +x
 }
 
 if [[ ${#cujs[@]} -ne "0" ]]; then
