@@ -41,6 +41,8 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@soong_injection//apex_toolchain:constants.bzl", "default_manifest_version")
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
+load("//build/bazel/rules/apex:sdk_versions.bzl", "maybe_override_min_sdk_version")
+load("//build/bazel/rules/common:api.bzl", "default_app_target_sdk")
 
 def _create_file_mapping(ctx):
     """Create a file mapping for the APEX filesystem image.
@@ -80,6 +82,8 @@ def _create_file_mapping(ctx):
 
     if platforms.get_target_bitness(ctx.attr._platform_utils) == 64:
         _add_lib_files("lib64", ctx.attr.native_shared_libs_64)
+
+        # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
         if product_vars["DeviceSecondaryArch"] != "":
             _add_lib_files("lib", ctx.attr.native_shared_libs_32)
     else:
@@ -380,8 +384,7 @@ def _run_apexer(ctx, apex_toolchain):
         args.add_all(["--logging_parent", ctx.attr.logging_parent])
 
     # TODO(b/243393960): Support API fingerprinting for APEXes for pre-release SDKs.
-    # TODO(b/269574334): target_sdk_version should be the default Platform SDK version of the branch.
-    args.add_all(["--target_sdk_version", "10000"])
+    args.add_all(["--target_sdk_version", default_app_target_sdk()])
 
     # TODO(b/215339575): This is a super rudimentary way to convert "current" to a numerical number.
     # Generalize this to API level handling logic in a separate Starlark utility, preferably using
@@ -389,6 +392,9 @@ def _run_apexer(ctx, apex_toolchain):
     min_sdk_version = ctx.attr.min_sdk_version
     if min_sdk_version == "current":
         min_sdk_version = "10000"
+
+    override_min_sdk_version = ctx.attr._apex_global_min_sdk_version_override[BuildSettingInfo].value
+    min_sdk_version = maybe_override_min_sdk_version(min_sdk_version, override_min_sdk_version)
 
     # TODO(b/243393960): Support API fingerprinting for APEXes for pre-release SDKs.
     args.add_all(["--min_sdk_version", min_sdk_version])
@@ -701,7 +707,13 @@ _apex = rule(
             providers = [AndroidAppCertificateInfo],
             mandatory = True,
         ),
-        "min_sdk_version": attr.string(default = "current"),
+        "min_sdk_version": attr.string(
+            default = "current",
+            doc = """The minimum SDK version that this APEX must support at minimum. This is usually set to
+the SDK version that the APEX was first introduced.
+
+When not set, defaults to 10000 (or "current").""",
+        ),
         "updatable": attr.bool(default = True),
         "installable": attr.bool(default = True),
         "compressible": attr.bool(default = False),
@@ -793,6 +805,10 @@ _apex = rule(
         "_override_apex_manifest_default_version": attr.label(
             default = "//build/bazel/rules/apex:override_apex_manifest_default_version",
             doc = "If specified, override 'version: 0' in apex_manifest.json with this value instead of the branch default. Non-zero versions will not be changed.",
+        ),
+        "_apex_global_min_sdk_version_override": attr.label(
+            default = "//build/bazel/rules/apex:apex_global_min_sdk_version_override",
+            doc = "If specified, override the min_sdk_version of this apex and in the transition and checks for dependencies.",
         ),
     },
     # The apex toolchain is not mandatory so that we don't get toolchain resolution errors even

@@ -15,6 +15,10 @@ limitations under the License.
 """
 
 load(
+    ":composed_transitions.bzl",
+    "lto_and_fdo_profile_incoming_transition",
+)
+load(
     ":cc_library_common.bzl",
     "CcAndroidMkInfo",
     "add_lists_defaulting_to_none",
@@ -24,10 +28,11 @@ load(
     "system_dynamic_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
+load(":lto_transitions.bzl", "lto_deps_transition")
 load(":clang_tidy.bzl", "ClangTidyInfo", "collect_deps_clang_tidy_info")
 load(
     ":fdo_profile_transitions.bzl",
-    "FDO_PROFILE_ATTR",
+    "FDO_PROFILE_ATTR_KEY",
     "fdo_profile_transition",
 )
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
@@ -404,8 +409,8 @@ def _cc_library_shared_proxy_impl(ctx):
     if len(ctx.attr.deps) != 1:
         fail("Exactly one 'deps' must be specified for cc_library_shared_proxy")
     root_files = ctx.attr.deps[0][DefaultInfo].files.to_list()
-    shared_files = ctx.attr.shared[DefaultInfo].files.to_list()
-    shared_debuginfo = ctx.attr.shared_debuginfo[DefaultInfo].files.to_list()
+    shared_files = ctx.attr.shared[0][DefaultInfo].files.to_list()
+    shared_debuginfo = ctx.attr.shared_debuginfo[0][DefaultInfo].files.to_list()
     if len(shared_files) != 1 or len(shared_debuginfo) != 1:
         fail("Expected only one shared library file and one debuginfo file for it")
 
@@ -441,15 +446,15 @@ def _cc_library_shared_proxy_impl(ctx):
             files = depset(direct = files),
             runfiles = ctx.runfiles(files = [ctx.outputs.output_file]),
         ),
-        _correct_cc_shared_library_linking(ctx, ctx.attr.shared[CcSharedLibraryInfo], ctx.outputs.output_file, ctx.attr.deps[0]),
-        ctx.attr.table_of_contents[CcTocInfo],
+        _correct_cc_shared_library_linking(ctx, ctx.attr.shared[0][CcSharedLibraryInfo], ctx.outputs.output_file, ctx.attr.deps[0]),
+        ctx.attr.table_of_contents[0][CcTocInfo],
         # The _only_ linker_input is the statically linked root itself. We need to propagate this
         # as cc_shared_library identifies which libraries can be linked dynamically based on the
         # linker_inputs of the roots
         ctx.attr.deps[0][CcInfo],
         ctx.attr.deps[0][CcAndroidMkInfo],
         CcStubLibrariesInfo(has_stubs = ctx.attr.has_stubs),
-        ctx.attr.shared[OutputGroupInfo],
+        ctx.attr.shared[0][OutputGroupInfo],
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
         CcUnstrippedInfo(unstripped = shared_debuginfo[0]),
         ctx.attr.abi_dump[AbiDiffInfo],
@@ -459,20 +464,32 @@ def _cc_library_shared_proxy_impl(ctx):
 _cc_library_shared_proxy = rule(
     implementation = _cc_library_shared_proxy_impl,
     # Incoming transition to override outgoing transition from rdep
-    cfg = fdo_profile_transition,
+    cfg = lto_and_fdo_profile_incoming_transition,
     attrs = {
-        FDO_PROFILE_ATTR: attr.label(),
-        "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo]),
-        "shared_debuginfo": attr.label(mandatory = True),
+        FDO_PROFILE_ATTR_KEY: attr.label(),
+        "shared": attr.label(
+            mandatory = True,
+            providers = [CcSharedLibraryInfo],
+            cfg = lto_deps_transition,
+        ),
+        "shared_debuginfo": attr.label(
+            mandatory = True,
+            cfg = lto_deps_transition,
+        ),
         # "deps" should be a single element: the root target of the shared library.
         # See _cc_library_shared_proxy_impl comment for explanation.
-        "deps": attr.label_list(mandatory = True, providers = [CcInfo]),
+        "deps": attr.label_list(
+            mandatory = True,
+            providers = [CcInfo],
+            cfg = lto_deps_transition,
+        ),
         "output_file": attr.output(mandatory = True),
         "table_of_contents": attr.label(
             mandatory = True,
             # TODO(b/217908237): reenable allow_single_file
             # allow_single_file = True,
             providers = [CcTocInfo],
+            cfg = lto_deps_transition,
         ),
         "has_stubs": attr.bool(default = False),
         "runtime_deps": attr.label_list(

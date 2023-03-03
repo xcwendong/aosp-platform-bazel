@@ -210,7 +210,7 @@ def _apex_cc_aspect_impl(target, ctx):
             if output_file.extension == "so":
                 shared_object_files.append(output_file)
         if hasattr(ctx.rule.attr, "shared"):
-            transitive_deps.append(ctx.rule.attr.shared)
+            transitive_deps.append(ctx.rule.attr.shared[0])
     elif ctx.rule.kind in ["cc_shared_library", "cc_binary"]:
         # Propagate along the dynamic_deps and deps edges for binaries and shared libs
         if hasattr(ctx.rule.attr, "dynamic_deps"):

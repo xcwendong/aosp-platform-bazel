@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load(":lto_transitions.bzl", "lto_deps_transition")
 load(
     ":cc_library_common.bzl",
     "CPP_EXTENSIONS",
@@ -486,10 +487,17 @@ def _cc_library_combiner_impl(ctx):
 _cc_library_combiner = rule(
     implementation = _cc_library_combiner_impl,
     attrs = {
-        "roots": attr.label_list(providers = [CcInfo]),
-        "deps": attr.label_list(providers = [CcInfo]),
+        "roots": attr.label_list(
+            providers = [CcInfo],
+            cfg = lto_deps_transition,
+        ),
+        "deps": attr.label_list(
+            providers = [CcInfo],
+            cfg = lto_deps_transition,
+        ),
         "additional_sanitizer_deps": attr.label_list(
             providers = [CcInfo],
+            cfg = lto_deps_transition,
             doc = "Deps used only to check for sanitizer enablement",
         ),
         "runtime_deps": attr.label_list(
@@ -520,7 +528,10 @@ _cc_library_combiner = rule(
                   " collision with the dynamic_deps attribute used in APEX" +
                   " aspects' propagation.",
         ),
-        "exports": attr.label(providers = [CcInfo]),
+        "exports": attr.label(
+            providers = [CcInfo],
+            cfg = lto_deps_transition,
+        ),
         "_cc_toolchain": attr.label(
             default = Label("@local_config_cc//:toolchain"),
             providers = [cc_common.CcToolchainInfo],
@@ -542,7 +553,7 @@ _cc_library_combiner = rule(
         "copts_cpp": attr.string_list(),
         "copts_c": attr.string_list(),
         "hdrs": attr.label_list(allow_files = True),
-        "includes": attr.label_list(),
+        "includes": attr.label_list(cfg = lto_deps_transition),
         "tidy_checks": attr.string_list(),
         "tidy_checks_as_errors": attr.string_list(),
         "tidy_flags": attr.string_list(),
@@ -586,6 +597,9 @@ _cc_library_combiner = rule(
         ),
         "_tidy_external_vendor": attr.label(
             default = "//build/bazel/flags/cc/tidy:tidy_external_vendor",
+        ),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],

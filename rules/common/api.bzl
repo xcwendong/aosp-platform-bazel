@@ -65,3 +65,24 @@ def parse_api_level_from_version(version):
         return int(version)
     else:
         fail("version could not be parsed as integer and is not a recognized codename")
+
+# Starlark implementation of DefaultAppTargetSDK from build/soong/android/config.go
+# https://cs.android.com/android/platform/superproject/+/master:build/soong/android/config.go;l=875-889;drc=b0dc477ef740ec959548fe5517bd92ac4ea0325c
+# check what you want returned for codename == "" case before using
+def default_app_target_sdk():
+    """default_app_target_sdk returns the API level that platform apps are targeting.
+       This converts a codename to the exact ApiLevel it represents.
+    """
+    if product_vars.get("Platform_sdk_final"):
+        return product_vars.get("Platform_sdk_version")
+
+    codename = product_vars.get("Platform_sdk_codename")
+    if codename == "" or codename == None:
+        # soong returns NoneApiLevel here value: "(no version)", number: -1, isPreview: true
+        # APEX's targetSdkVersion sets this to FUTURE_API_LEVEL
+        return FUTURE_API_LEVEL_INT
+
+    if codename == "REL":
+        fail("Platform_sdk_codename should not be REL when Platform_sdk_final is false")
+
+    return parse_api_level_from_version(codename)

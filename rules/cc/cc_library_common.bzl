@@ -231,7 +231,7 @@ def parse_sdk_version(version):
     return [sdk_version_feature_from_parsed_version(parse_apex_sdk_version(version))]
 
 def parse_apex_sdk_version(version):
-    if version == "" or version == "current":
+    if version == "" or version == "current" or version == "10000":
         return future_version
     elif version in api_levels.keys():
         return api_levels[version]

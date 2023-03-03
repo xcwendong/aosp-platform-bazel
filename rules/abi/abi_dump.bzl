@@ -154,7 +154,7 @@ def _create_abi_dump(ctx, target, src, objects, header_inputs, compilation_flags
     args.add("-o", output)
     args.add(src)
 
-    args.add_all(ctx.rule.attr.exports[CcInfo].compilation_context.includes.to_list(), map_each = _include_flag)
+    args.add_all(ctx.rule.attr.exports[0][CcInfo].compilation_context.includes.to_list(), map_each = _include_flag)
 
     args.add("--")
     args.add_all(compilation_flags)

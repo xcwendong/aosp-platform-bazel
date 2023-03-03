@@ -20,6 +20,7 @@ load(":cc_hidl_library_test.bzl", "cc_hidl_library_test_suite")
 load(":cc_library_common_test.bzl", "cc_library_common_test_suites")
 load(":cc_library_shared_test.bzl", "cc_library_shared_test_suite")
 load(":cc_library_static_test.bzl", "cc_library_static_test_suite")
+load(":lto_transitions_test.bzl", "lto_transition_test_suite")
 load(":cc_object_test.bzl", "cc_object_test_suite")
 load(":cc_proto_test.bzl", "cc_proto_test_suite")
 load(":cc_sysprop_library_test.bzl", "cc_gen_sysprop_test_suite")
@@ -78,6 +79,8 @@ cc_proto_test_suite(name = "cc_proto_tests")
 clang_tidy_test_suite(name = "clang_tidy_tests")
 
 flex_test_suite(name = "flex_tests")
+
+lto_transition_test_suite(name = "lto_transition_tests")
 
 stl_test_suite(name = "stl_tests")
 

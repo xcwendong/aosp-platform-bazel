@@ -14,36 +14,44 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-FDO_PROFILE_ATTR = "fdo_profile"
+FDO_PROFILE_ATTR_KEY = "fdo_profile"
+CLI_FDO_KEY = "//command_line_option:fdo_profile"
+CLI_CODECOV_KEY = "//command_line_option:collect_code_coverage"
 
-def _fdo_profile_transition_impl(setting, attr):
-    # https://github.com/bazelbuild/bazel/blob/8a53b0e51506d825d276ea7c9480190bd2287009/src/main/java/com/google/devtools/build/lib/rules/cpp/FdoHelper.java#L170
-    # Coverage mode is not compatible with FDO optimization in Bazel cc rules
-    # If both collect_code_coverage is set, disable fdo optimization
-    if setting["//command_line_option:collect_code_coverage"]:
+# https://github.com/bazelbuild/bazel/blob/8a53b0e51506d825d276ea7c9480190bd2287009/src/main/java/com/google/devtools/build/lib/rules/cpp/FdoHelper.java#L170
+# Coverage mode is not compatible with FDO optimization in Bazel cc rules
+# If both collect_code_coverage is set, disable fdo optimization
+def apply_fdo_profile(codecov_setting, fdo_profile_attr):
+    if codecov_setting:
         return {
-            "//command_line_option:fdo_profile": None,
+            CLI_FDO_KEY: None,
         }
     else:
         return {
-            "//command_line_option:fdo_profile": getattr(attr, FDO_PROFILE_ATTR),
+            CLI_FDO_KEY: fdo_profile_attr,
         }
+
+def fdo_profile_transition_impl(setting, attr):
+    return apply_fdo_profile(
+        setting[CLI_CODECOV_KEY],
+        getattr(attr, FDO_PROFILE_ATTR_KEY),
+    )
 
 # This transition reads the fdo_profile attribute of a rule and set the value
 # to //command_line_option:fdo_profile"
 fdo_profile_transition = transition(
-    implementation = _fdo_profile_transition_impl,
+    implementation = fdo_profile_transition_impl,
     inputs = [
-        "//command_line_option:collect_code_coverage",
+        CLI_CODECOV_KEY,
     ],
     outputs = [
-        "//command_line_option:fdo_profile",
+        CLI_FDO_KEY,
     ],
 )
 
 def _drop_fdo_profile_transition_impl(_, __):
     return {
-        "//command_line_option:fdo_profile": None,
+        CLI_FDO_KEY: None,
     }
 
 # This transition always resets //command_line_option:fdo_profile to None."
@@ -51,6 +59,6 @@ drop_fdo_profile_transition = transition(
     implementation = _drop_fdo_profile_transition_impl,
     inputs = [],
     outputs = [
-        "//command_line_option:fdo_profile",
+        CLI_FDO_KEY,
     ],
 )
