@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import csv
+import datetime
 import functools
 import glob
 import logging
@@ -30,9 +31,9 @@ RUN_DIR_PREFIX: Final[str] = 'run'
 BUILD_INFO_JSON: Final[str] = 'build_info.json'
 
 _IMPORTANT_METRICS: set[str] = {r'soong/bootstrap', r'soong_build/\*\.bazel',
-                               r'ninja/ninja', r'bp2build/',
-                               r'symlink_forest/',
-                               r'.*write_files.*'}
+                                r'ninja/ninja', r'bp2build/',
+                                r'symlink_forest/',
+                                r'.*write_files.*'}
 
 
 @functools.cache
@@ -241,3 +242,10 @@ def any_match_under(root: Path, *patterns: str) -> (Path, list[str]):
     children.sort()
     bfs.extend(children)
   raise RuntimeError(f'No suitable directory for {patterns}')
+
+
+def hhmmss(t: datetime.timedelta) -> str:
+  h, f = divmod(t.seconds, 60 * 60)
+  m, f = divmod(f, 60)
+  s = f + t.microseconds / 1000_000
+  return f'{h:02d}:{m:02d}:{s:06.3f}'

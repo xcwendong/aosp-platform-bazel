@@ -81,7 +81,7 @@ def archive_run(d: Path, build_info: dict[str, any]):
     json.dump(build_info, f, indent=True)
 
 
-def read_pbs(d: Path) -> dict[str, datetime.timedelta]:
+def read_pbs(d: Path) -> dict[str, str]:
   """
   Reads metrics data from pb files and archives the file by copying
   them under the log_dir.
@@ -110,8 +110,8 @@ def read_pbs(d: Path) -> dict[str, datetime.timedelta]:
   def normalize(desc: str) -> str:
     return re.sub(r'^(?:soong_build|mixed_build)', '*', desc)
 
-  return {f'{m.name}/{normalize(m.description)}': str(m.real_time) for m in
-          events}
+  return {f'{m.name}/{normalize(m.description)}': util.hhmmss(m.real_time) for m
+          in events}
 
 
 def _read_pb(
