@@ -104,14 +104,14 @@ def build_bundle_config(actions, name):
       name: name of target creating action
     """
     file_content = {
+        # TODO(b/257459237): Config should collect manifest names and paths of android apps if their manifest name is overridden.
+        "apex_config": {},
         "compression": {
             "uncompressed_glob": [
                 "apex_payload.img",
                 "apex_manifest.*",
             ],
         },
-        # TODO(b/257459237): Config should collect manifest names and paths of android apps if their manifest name is overridden.
-        "apex_config": {},
     }
     bundle_config_file = actions.declare_file(paths.join(name, "bundle_config.json"))
 

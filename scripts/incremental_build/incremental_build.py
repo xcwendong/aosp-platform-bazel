@@ -93,7 +93,8 @@ def _build_file_size() -> int:
 BuildInfo = dict[str, any]
 
 
-def _build(build_type: ui.BuildType, logfile: Path) -> (int, BuildInfo):
+def _build(build_type: ui.BuildType, run_dir: Path) -> (int, BuildInfo):
+  logfile = run_dir.joinpath('output.txt')
   logging.info('TIP: to see the log:\n  tail -f "%s"', logfile)
   cmd = [*build_type.value, *ui.get_user_input().targets]
   logging.info('Command: %s', cmd)
@@ -122,6 +123,7 @@ def _build(build_type: ui.BuildType, logfile: Path) -> (int, BuildInfo):
     action_count_before = get_action_count()
     if action_count_before > 0:
       recompact_ninja_log()
+      action_count_before = get_action_count()
     f.write(f'Command: {cmd}\n')
     f.write(f'Environment Variables:\n{textwrap.indent(env_str, "  ")}\n\n\n')
     f.flush()
@@ -136,7 +138,7 @@ def _build(build_type: ui.BuildType, logfile: Path) -> (int, BuildInfo):
     'build.ninja': _build_file_sha(),
     'build.ninja.size': _build_file_size(),
     'targets': ' '.join(ui.get_user_input().targets),
-    'log': str(logfile.relative_to(ui.get_user_input().log_dir)),
+    'log': str(run_dir.relative_to(ui.get_user_input().log_dir)),
     'ninja_explains': util.count_explanations(logfile),
     'actions': action_count_after - action_count_before,
     'time': util.hhmmss(datetime.timedelta(microseconds=elapsed_ns / 1000))
@@ -148,7 +150,7 @@ def _run_cuj(run_dir: Path, build_type: ui.BuildType,
   is_clean = not util.get_out_dir().joinpath(
     'soong/bootstrap.ninja').exists()
   run_dir.mkdir(parents=True, exist_ok=False)
-  (exit_code, build_info) = _build(build_type, run_dir.joinpath('output.txt'))
+  (exit_code, build_info) = _build(build_type, run_dir)
   # if build was successful, run test
   if exit_code != 0:
     build_result = cuj_catalog.BuildResult.FAILED.name
