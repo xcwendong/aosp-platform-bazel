@@ -24,24 +24,6 @@ _arch_abi_map = {
     "x86": "x86",
 }
 
-def _apex_zip(actions, name, tools, arch, apex_file):
-    """Run actions to transform an APEX file to a zip with the expected abi-specific directory layout.
-
-    Args:
-      actions: ctx.actions from a rule, used to declare outputs and actions.
-      name: string, name of the target running the action
-      aapt2: struct, executable tool in exec configuration
-      zip2zip: struct, executable tool in exec configuration
-      arch: string, the arch of the target configuration of the target requesting the action
-      apex_file: File, the APEX file
-
-    Returns:
-      APEX layout zip file
-    """
-    apex_proto = _proto_convert(actions, name, tools.aapt2, arch, apex_file)
-    base_file = _base_file(actions, name, tools.zip2zip, arch, apex_proto)
-    return base_file
-
 def _proto_convert(actions, name, aapt2, arch, apex_file):
     """Run 'aapt2 convert' to convert resource files to protobuf format.  """
 
