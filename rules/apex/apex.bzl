@@ -1,18 +1,16 @@
-"""
-Copyright (C) 2021 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo", "android_app_certificate_with_default_cert")
@@ -84,7 +82,7 @@ def _create_file_mapping(ctx):
         _add_lib_files("lib64", ctx.attr.native_shared_libs_64)
 
         # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
-        if product_vars["DeviceSecondaryArch"] != "":
+        if ctx.attr._device_secondary_arch[BuildSettingInfo].value != "":
             _add_lib_files("lib", ctx.attr.native_shared_libs_32)
     else:
         _add_lib_files("lib", ctx.attr.native_shared_libs_32)
@@ -645,12 +643,19 @@ def _apex_rule_impl(ctx):
     apex_key_info = ctx.attr.key[ApexKeyInfo]
 
     arch = platforms.get_target_arch(ctx.attr._platform_utils)
-    zip_files = apex_zip_files(actions = ctx.actions, name = ctx.label.name, tools = struct(
-        aapt2 = apex_toolchain.aapt2,
-        zip2zip = ctx.executable._zip2zip,
-        merge_zips = ctx.executable._merge_zips,
-        soong_zip = apex_toolchain.soong_zip,
-    ), apex_file = signed_apex, arch = arch)
+    zip_files = apex_zip_files(
+        actions = ctx.actions,
+        name = ctx.label.name,
+        tools = struct(
+            aapt2 = apex_toolchain.aapt2,
+            zip2zip = ctx.executable._zip2zip,
+            merge_zips = ctx.executable._merge_zips,
+            soong_zip = apex_toolchain.soong_zip,
+        ),
+        apex_file = signed_apex,
+        arch = arch,
+        secondary_arch = ctx.attr._device_secondary_arch[BuildSettingInfo].value,
+    )
 
     transitive_apex_deps, transitive_unvalidated_targets_output_file, apex_deps_validation_files = _validate_apex_deps(ctx)
 
@@ -809,6 +814,10 @@ When not set, defaults to 10000 (or "current").""",
         "_apex_global_min_sdk_version_override": attr.label(
             default = "//build/bazel/rules/apex:apex_global_min_sdk_version_override",
             doc = "If specified, override the min_sdk_version of this apex and in the transition and checks for dependencies.",
+        ),
+        "_device_secondary_arch": attr.label(
+            default = "//build/bazel/rules/apex:device_secondary_arch",
+            doc = "If specified, also include the libraries from the secondary arch.",
         ),
     },
     # The apex toolchain is not mandatory so that we don't get toolchain resolution errors even

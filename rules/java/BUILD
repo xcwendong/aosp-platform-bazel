@@ -15,5 +15,8 @@ limitations under the License.
 """
 
 load(":sdk_library_test.bzl", "java_sdk_library_test_suite")
+load(":merged_txts_test.bzl", "merged_txts_test_suite")
 
 java_sdk_library_test_suite(name = "java_sdk_library_tests")
+
+merged_txts_test_suite(name = "merged_txts_tests")

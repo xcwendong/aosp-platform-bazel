@@ -79,7 +79,6 @@ function build() {
   if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.py" \
     --ignore-repo-diff \
     --log-dir="$log_dir" \
-    --build-type soong_only mixed_prod \
     "$@"; then
     echo "See logs for errors"
     exit 1

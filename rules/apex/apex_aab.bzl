@@ -1,18 +1,16 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
 load("//build/bazel/rules:toolchain_utils.bzl", "verify_toolchain_exists")
@@ -20,28 +18,47 @@ load(":apex_info.bzl", "ApexInfo")
 load(":apex_key.bzl", "ApexKeyInfo")
 load(":bundle.bzl", "build_bundle_config")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 
 def _arch_transition_impl(settings, attr):
     """Implementation of arch_transition.
-    Four archs are included for mainline modules: x86, x86_64, arm and arm64.
+    Six arch products are included for mainline modules: x86, x86_64, x86_64only, arm, arm64, arm64only.
     """
     old_platform = str(settings["//command_line_option:platforms"][0])
+    device_secondary_arch = settings["//build/bazel/rules/apex:device_secondary_arch"]
+
+    # We can't use platforms alone to differentiate between x86_64 and x86_64
+    # with a secondary arch, which is significant for apex packaging that can
+    # optionally include the secondary arch's libs. That is currently determined
+    # by DeviceSecondaryArch in apex's lib inclusion logic, so we explicitly set
+    # DeviceSecondaryArch to "" for the 64bit only cases.
 
     # TODO(b/249685973) Instead of using these __internal_x86 platforms, use
     # the mainline_modules_<arch> android products
     return {
+        # these key names must correspond to mainline_modules_<arch> product name suffixes.
         "x86": {
             "//command_line_option:platforms": old_platform + "__internal_x86",
+            "//build/bazel/rules/apex:device_secondary_arch": "",
         },
         "x86_64": {
             "//command_line_option:platforms": old_platform + "__internal_x86_64",
+            "//build/bazel/rules/apex:device_secondary_arch": "x86",
+        },
+        "x86_64only": {
+            "//command_line_option:platforms": old_platform + "__internal_x86_64",
+            "//build/bazel/rules/apex:device_secondary_arch": "",  # don't include x86 libs
         },
         "arm": {
             "//command_line_option:platforms": old_platform + "__internal_arm",
+            "//build/bazel/rules/apex:device_secondary_arch": "",
         },
         "arm64": {
             "//command_line_option:platforms": old_platform + "__internal_arm64",
+            "//build/bazel/rules/apex:device_secondary_arch": "arm",
+        },
+        "arm64only": {
+            "//command_line_option:platforms": old_platform + "__internal_arm64",
+            "//build/bazel/rules/apex:device_secondary_arch": "",  # don't include arm libs
         },
     }
 
@@ -50,9 +67,11 @@ arch_transition = transition(
     implementation = _arch_transition_impl,
     inputs = [
         "//command_line_option:platforms",
+        "//build/bazel/rules/apex:device_secondary_arch",
     ],
     outputs = [
         "//command_line_option:platforms",
+        "//build/bazel/rules/apex:device_secondary_arch",
     ],
 )
 

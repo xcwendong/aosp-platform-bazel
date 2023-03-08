@@ -133,7 +133,9 @@ def get_user_input() -> UserInput:
                     {util.get_csv_columns_cmd(default_log_dir)}''').strip())
   p.add_argument('-b', '--build-types', nargs='+',
                  type=BuildType.from_flag,
-                 default=[[BuildType.SOONG_ONLY, BuildType.MIXED_PROD]],
+                 default=[[BuildType.SOONG_ONLY,
+                           BuildType.MIXED_PROD,
+                           BuildType.MIXED_STAGING]],
                  help='Defaults to "%(default)s". Choose from '
                       f'{[e.name.lower() for e in BuildType]}')
   p.add_argument('--ignore-repo-diff', default=False, action='store_true',

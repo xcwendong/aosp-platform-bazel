@@ -93,7 +93,7 @@ def _test_apex_aab_apex_files_output_group():
     )
 
     expected_paths = []
-    for arch in ["arm", "arm64", "x86", "x86_64"]:
+    for arch in ["arm", "arm64", "x86", "x86_64", "arm64only", "x86_64only"]:
         paths = [
             "/".join([native.package_name(), "mainline_modules_" + arch, basename])
             for basename in [

@@ -3,7 +3,7 @@
 ###############
 # Build and test targets for device target platform.
 ###############
-BUILD_TARGETS_LIST=(
+BUILD_TARGETS=(
   //art/...
   //bionic/...
   //bootable/recovery/tools/recovery_l10n/...
@@ -47,14 +47,12 @@ BUILD_TARGETS_LIST=(
   -//system/unwinding/libunwindstack:all
   -//system/core/libutils:all
 )
-BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
 
-TEST_TARGETS_LIST=(
+TEST_TARGETS=(
   //build/bazel/...
 )
-TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
 
-HOST_ONLY_TEST_TARGETS_LIST=(
+HOST_ONLY_TEST_TARGETS=(
   //tools/trebuchet:AnalyzerKt
   //tools/metalava:metalava
   # Test both unstripped and stripped versions of a host native unit test
@@ -65,7 +63,6 @@ HOST_ONLY_TEST_TARGETS_LIST=(
   # TODO(b/268185249): libbase_test asserts on the Soong basename of the test
   -//system/libbase:libbase_test
 )
-HOST_ONLY_TEST_TARGETS="${HOST_ONLY_TEST_TARGETS_LIST[@]}"
 
 HOST_INCOMPATIBLE_TARGETS=(
   # TODO(b/216626461): add support for host_ldlibs
