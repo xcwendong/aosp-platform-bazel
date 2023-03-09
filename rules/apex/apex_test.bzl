@@ -2363,6 +2363,149 @@ def _test_apex_in_bundled_build():
 
     return test_name
 
+def _apex_compression_test(ctx):
+    env = analysistest.begin(ctx)
+
+    target = analysistest.target_under_test(env)
+    asserts.true(
+        env,
+        target[ApexInfo].signed_compressed_output != None,
+        "ApexInfo.signed_compressed_output should exist from compressible apex",
+    )
+
+    return analysistest.end(env)
+
+apex_compression_test = analysistest.make(
+    _apex_compression_test,
+    config_settings = {
+        "@//build/bazel/rules/apex:compression_enabled": True,
+    },
+)
+
+def _test_apex_compression():
+    name = "apex_compression"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+        compressible = True,
+    )
+
+    apex_compression_test(
+        name = test_name,
+        target_under_test = name,
+    )
+
+    return test_name
+
+def _apex_no_compression_test(ctx):
+    env = analysistest.begin(ctx)
+
+    target = analysistest.target_under_test(env)
+    asserts.true(
+        env,
+        target[ApexInfo].signed_compressed_output == None,
+        "ApexInfo.signed_compressed_output should not exist when compression_enabled is not specified",
+    )
+
+    return analysistest.end(env)
+
+apex_no_compression_test = analysistest.make(
+    _apex_no_compression_test,
+    config_settings = {
+        "@//build/bazel/rules/apex:compression_enabled": False,
+    },
+)
+
+def _test_apex_no_compression():
+    name = "apex_no_compression"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+    )
+
+    apex_no_compression_test(
+        name = test_name,
+        target_under_test = name,
+    )
+
+    return test_name
+
+def _min_target_sdk_version_api_fingerprint_test(ctx):
+    env = analysistest.begin(ctx)
+    actions = analysistest.target_actions(env)
+
+    apexer_action = None
+    for action in actions:
+        if action.argv == None:
+            continue
+        if "--min_sdk_version" in action.argv:
+            apexer_action = action
+            break
+
+    asserts.true(
+        env,
+        apexer_action != None,
+        "There is no apexer action in all the actions",
+    )
+
+    argv = apexer_action.argv
+    api_fingerprint_in_input = False
+    api_fingerprint_path = None
+    for f in apexer_action.inputs.to_list():
+        if f.basename == "api_fingerprint.txt":
+            api_fingerprint_in_input = True
+            api_fingerprint_path = f.path
+            break
+
+    asserts.true(
+        env,
+        api_fingerprint_in_input,
+        "api_fingerprint.txt is not in the input files",
+    )
+
+    expected_sdk_version = "123" + ".$$(cat {})".format(api_fingerprint_path)
+    asserts.equals(
+        env,
+        expected = expected_sdk_version,
+        actual = argv[argv.index("--min_sdk_version") + 1],
+    )
+
+    asserts.equals(
+        env,
+        expected = expected_sdk_version,
+        actual = argv[argv.index("--target_sdk_version") + 1],
+    )
+
+    return analysistest.end(env)
+
+min_target_sdk_version_api_fingerprint_test = analysistest.make(
+    _min_target_sdk_version_api_fingerprint_test,
+    config_settings = {
+        "@//build/bazel/rules/apex:unbundled_build": True,
+        "@//build/bazel/rules/apex:always_use_prebuilt_sdks": False,
+        "@//build/bazel/rules/apex:unbundled_build_target_sdk_with_api_fingerprint": True,
+        "@//build/bazel/rules/apex:platform_sdk_codename": "123",
+    },
+)
+
+def _test_min_target_sdk_version_api_fingerprint():
+    name = "min_target_sdk_version_api_fingerprint"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+        min_sdk_version = "current",
+    )
+
+    min_target_sdk_version_api_fingerprint_test(
+        name = test_name,
+        target_under_test = name,
+    )
+
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -2412,5 +2555,8 @@ def apex_test_suite(name):
             _test_directly_included_stubs_lib_with_indirectly_static_variant(),
             _test_apex_in_unbundled_build(),
             _test_apex_in_bundled_build(),
+            _test_apex_compression(),
+            _test_apex_no_compression(),
+            _test_min_target_sdk_version_api_fingerprint(),
         ] + _test_apex_transition(),
     )
