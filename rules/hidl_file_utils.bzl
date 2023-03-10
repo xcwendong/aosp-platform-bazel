@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/bazel/rules/hidl:hidl_library.bzl", "HidlInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
 LANGUAGE_CC_HEADERS = "c++-headers"

@@ -12,24 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/bazel/rules/aidl:interface.bzl", "aidl_interface")
+load("@bazel_skylib//lib:new_sets.bzl", "sets")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@soong_injection//apex_toolchain:constants.bzl", "default_manifest_version")
+load("//build/bazel/platforms:platform_utils.bzl", "platforms")
+load("//build/bazel/rules:common.bzl", "get_dep_targets")
+load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
 load("//build/bazel/rules:sh_binary.bzl", "sh_binary")
+load("//build/bazel/rules/aidl:interface.bzl", "aidl_interface")
 load("//build/bazel/rules/android:android_app_certificate.bzl", "android_app_certificate")
 load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
+load("//build/bazel/rules/cc:cc_library_headers.bzl", "cc_library_headers")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
-load("//build/bazel/rules/cc:cc_library_headers.bzl", "cc_library_headers")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
-load("//build/bazel/rules:common.bzl", "get_dep_targets")
 load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test", "target_under_test_exist_test")
-load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
-load("//build/bazel/platforms:platform_utils.bzl", "platforms")
-load(":apex_info.bzl", "ApexInfo", "ApexMkInfo")
 load(":apex_deps_validation.bzl", "ApexDepsInfo", "apex_dep_infos_to_allowlist_strings")
+load(":apex_info.bzl", "ApexInfo", "ApexMkInfo")
 load(":apex_test_helpers.bzl", "test_apex")
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("@bazel_skylib//lib:new_sets.bzl", "sets")
-load("@soong_injection//apex_toolchain:constants.bzl", "default_manifest_version")
 
 ActionArgsInfo = provider(
     fields = {
@@ -43,11 +43,11 @@ def _canned_fs_config_test(ctx):
 
     found_canned_fs_config_action = False
 
-    def pretty_print_list(l):
-        if not l:
+    def pretty_print_list(the_list):
+        if not the_list:
             return "[]"
         result = "[\n"
-        for item in l:
+        for item in the_list:
             result += "  \"%s\",\n" % item
         return result + "]"
 
@@ -560,11 +560,11 @@ def _apex_native_libs_requires_provides_test(ctx):
 apex_native_libs_requires_provides_test = analysistest.make(
     _apex_native_libs_requires_provides_test,
     attrs = {
-        "requires_native_libs": attr.label_list(doc = "bazel target names of libs required for dynamic linking"),
-        "provides_native_libs": attr.label_list(doc = "bazel target names of libs provided for dynamic linking"),
         "make_modules_to_install": attr.string_list(doc = "make module names that should be installed to system"),
-        "requires_argv": attr.string_list(),
         "provides_argv": attr.string_list(),
+        "provides_native_libs": attr.label_list(doc = "bazel target names of libs provided for dynamic linking"),
+        "requires_argv": attr.string_list(),
+        "requires_native_libs": attr.label_list(doc = "bazel target names of libs required for dynamic linking"),
     },
 )
 
@@ -1053,7 +1053,7 @@ def _file_contexts_args_test(ctx):
     # ["/bin/bash", "c", "<args>"]
     cmd = file_contexts_action.argv[2]
 
-    for i, expected_arg in enumerate(ctx.attr.expected_args):
+    for expected_arg in ctx.attr.expected_args:
         asserts.true(
             env,
             expected_arg in cmd,
@@ -1359,7 +1359,6 @@ def _test_min_sdk_version_apex_inherit_override_min_sdk_tiramisu():
     name = "min_sdk_version_apex_inherit_override_min_sdk_tiramisu"
     test_name = name + "_test"
     cc_name = name + "_lib_cc"
-    apex_min = "29"
 
     cc_library_shared(
         name = cc_name,
@@ -2069,7 +2068,7 @@ def _apex_transition_test(ctx):
 
 def _cc_compile_test_aspect_impl(target, ctx):
     transitive_march = []
-    for attr, attr_deps in get_dep_targets(ctx.rule.attr, predicate = lambda target: _MarchInfo in target).items():
+    for attr_deps in get_dep_targets(ctx.rule.attr, predicate = lambda target: _MarchInfo in target).values():
         for dep in attr_deps:
             transitive_march.append(dep[_MarchInfo].march)
     march_values = []

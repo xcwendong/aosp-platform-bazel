@@ -1,6 +1,6 @@
 load("//build/bazel/rules/android:rules.bzl", "android_binary", "android_library")
-load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
+load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 
 android_binary(
     name = "app",

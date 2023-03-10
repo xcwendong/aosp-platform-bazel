@@ -1,15 +1,15 @@
 """Constants for product variables based on information in variable.go"""
 
 load(
+    "@soong_injection//product_config:product_variables.bzl",
+    _arch_variant_product_var_constraints = "arch_variant_product_var_constraints",
+    _product_var_constraints = "product_var_constraints",
+)
+load(
     "@soong_injection//product_config:soong_config_variables.bzl",
     _soong_config_bool_variables = "soong_config_bool_variables",
     _soong_config_string_variables = "soong_config_string_variables",
     _soong_config_value_variables = "soong_config_value_variables",
-)
-load(
-    "@soong_injection//product_config:product_variables.bzl",
-    _arch_variant_product_var_constraints = "arch_variant_product_var_constraints",
-    _product_var_constraints = "product_var_constraints",
 )
 
 _soong_config_variables = _soong_config_bool_variables.keys() + \

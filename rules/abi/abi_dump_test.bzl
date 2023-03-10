@@ -15,15 +15,10 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load(":abi_dump.bzl", "abi_dump", "find_abi_config")
-load("//build/bazel/platforms:platform_utils.bzl", "platforms")
-load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
-load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
-load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test")
+load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/test_common:args.bzl", "get_arg_value", "get_arg_values")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
+load(":abi_dump.bzl", "abi_dump", "find_abi_config")
 
 ABI_LINKER = "prebuilts/clang-tools/linux-x86/bin/header-abi-linker"
 ABI_DIFF = "prebuilts/clang-tools/linux-x86/bin/header-abi-diff"

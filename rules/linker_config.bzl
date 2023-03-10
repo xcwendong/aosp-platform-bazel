@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 
 def _linker_config_impl(ctx):
     output_file = ctx.actions.declare_file(paths.replace_extension(ctx.file.src.basename, ".pb"))

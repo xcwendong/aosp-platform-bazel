@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":apex_key.bzl", "ApexKeyInfo", "apex_key")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load(":apex_key.bzl", "ApexKeyInfo", "apex_key")
 
 def _apex_key_test(ctx):
     env = analysistest.begin(ctx)

@@ -13,10 +13,10 @@
 # limitations under the License.
 
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
-load(":cc_library_static.bzl", "cc_library_static")
+load("//build/bazel/rules/common:api.bzl", "api")
 load(":cc_library_shared.bzl", "CcStubLibrariesInfo")
+load(":cc_library_static.bzl", "cc_library_static")
 load(":fdo_profile_transitions.bzl", "drop_fdo_profile_transition")
-load("//build/bazel/rules/common:api.bzl", "parse_api_level_from_version", api_levels = "api_levels_with_previews")
 
 # This file contains the implementation for the cc_stub_library rule.
 #
@@ -184,7 +184,7 @@ def _cc_stub_library_shared_impl(ctx):
     if len(ctx.attr.deps) != 1:
         fail("Exactly one 'deps' must be specified for cc_stub_library_shared")
 
-    api_level = str(parse_api_level_from_version(ctx.attr.version))
+    api_level = str(api.parse_api_level_from_version(ctx.attr.version))
     version_macro_name = "__" + ctx.attr.source_library.label.name.upper() + "__API__=" + api_level
     compilation_context = cc_common.create_compilation_context(
         defines = depset([version_macro_name]),

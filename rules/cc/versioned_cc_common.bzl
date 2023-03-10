@@ -14,8 +14,6 @@
 
 """A macro to handle build number stamping."""
 
-load(":stripped_cc_common.bzl", "StrippedCcBinaryInfo")
-
 def stamp_build_number(ctx, prefix = "", extension = ""):
     if len(ctx.files.src) != 1:
         fail("Expected only one input file for build number stamping")

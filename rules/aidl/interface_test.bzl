@@ -13,11 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//lib:new_sets.bzl", "sets")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/aidl:interface.bzl", "aidl_interface")
 load("//build/bazel/rules/test_common:rules.bzl", "target_under_test_exist_test")
-load("@bazel_skylib//lib:new_sets.bzl", "sets")
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 
 def _ndk_backend_test_impl(ctx):
     env = analysistest.begin(ctx)

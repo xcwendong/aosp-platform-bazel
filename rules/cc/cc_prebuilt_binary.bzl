@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load(":stripped_cc_common.bzl", "common_strip_attrs", "stripped_impl")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
+load(":stripped_cc_common.bzl", "common_strip_attrs", "stripped_impl")
 
 def is_target_host(ctx):
     return not platforms.is_target_android(ctx.attr._platform_utils)

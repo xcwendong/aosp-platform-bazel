@@ -15,5 +15,3 @@ limitations under the License.
 """
 
 package(default_visibility = ["//visibility:public"])
-
-load("@rules_license//rules:license_kind.bzl", "license_kind")

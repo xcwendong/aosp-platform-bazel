@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
-load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
-load("//build/bazel/rules/test_common:paths.bzl", "get_package_dir_based_path")
 load("//build/bazel/rules/test_common:flags.bzl", "action_flags_present_only_for_mnemonic_test")
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("//build/bazel/rules/test_common:paths.bzl", "get_package_dir_based_path")
+load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
 
 def _cc_library_shared_suffix_test_impl(ctx):
     env = analysistest.begin(ctx)

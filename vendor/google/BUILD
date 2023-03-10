@@ -1,7 +1,6 @@
-package(default_visibility = ["//build/bazel/tests/apex:__subpackages__"])
-
 load("//build/bazel/rules/apex:apex_aab.bzl", "apex_aab")
-load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+
+package(default_visibility = ["//build/bazel/tests/apex:__subpackages__"])
 
 # This package contains the multi-architecture aab and apks packages of
 # Bazel-buildable Mainline modules. These are exclusively used for development

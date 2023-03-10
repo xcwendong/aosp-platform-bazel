@@ -15,10 +15,10 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@soong_injection//apex_toolchain:constants.bzl", "apex_available_baseline")
 load("//build/bazel/rules:common.bzl", "get_dep_targets", "strip_bp2build_label_suffix")
-load("//build/bazel/rules/apex:cc.bzl", "CC_ATTR_ASPECTS")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
-load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
+load("//build/bazel/rules/apex:cc.bzl", "CC_ATTR_ASPECTS")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "CcStaticLibraryInfo")
+load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
 
 ApexAvailableInfo = provider(
     "ApexAvailableInfo collects APEX availability metadata.",
@@ -86,7 +86,7 @@ def _validate_apex_available(target, ctx, *, apex_available_tags, apex_name, bas
         apex_available_baseline.get(apex_name, []),
         apex_available_baseline.get("//apex_available:anyapex", []),
     ]
-    if any([target_name in l for l in baselines]):
+    if any([target_name in b for b in baselines]):
         return True
 
     return False
@@ -166,9 +166,9 @@ apex_available_aspect = aspect(
     provides = [ApexAvailableInfo],
     attr_aspects = ["*"],
     attrs = {
+        "testonly": attr.bool(default = False),  # propagated from the apex
         "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
         "_base_apex_name": attr.label(default = "//build/bazel/rules/apex:base_apex_name"),
         "_direct_deps": attr.label(default = "//build/bazel/rules/apex:apex_direct_deps"),
-        "testonly": attr.bool(default = False),  # propagated from the apex
     },
 )

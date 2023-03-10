@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":lto_transitions.bzl", "lto_deps_transition")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("//build/bazel/rules:common.bzl", "get_dep_targets")
 load(
     ":cc_library_common.bzl",
     "CPP_EXTENSIONS",
@@ -27,13 +31,9 @@ load(
     "parse_sdk_version",
     "system_dynamic_deps_defaults",
 )
-load(":stl.bzl", "stl_info_from_attr")
 load(":clang_tidy.bzl", "ClangTidyInfo", "clang_tidy_for_dir", "generate_clang_tidy_actions")
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//build/bazel/rules:common.bzl", "get_dep_targets")
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load(":lto_transitions.bzl", "lto_deps_transition")
+load(":stl.bzl", "stl_info_from_attr")
 
 CcStaticLibraryInfo = provider(fields = ["root_static_archive", "objects"])
 

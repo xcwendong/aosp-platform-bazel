@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/sysprop:sysprop_library.bzl", "sysprop_library")
 load("//build/bazel/rules/test_common:args.bzl", "get_arg_value")
 load(
@@ -20,7 +21,6 @@ load(
     "get_package_dir_based_path",
 )
 load(":cc_sysprop_library.bzl", "cc_gen_sysprop")
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 def _provides_correct_outputs_test_impl(ctx):
     env = analysistest.begin(ctx)

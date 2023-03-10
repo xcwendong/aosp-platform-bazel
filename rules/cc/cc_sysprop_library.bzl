@@ -15,15 +15,13 @@
 load(
     "//build/bazel/rules/sysprop:sysprop_library.bzl",
     "SyspropGenInfo",
-    "sysprop_library",
 )
-load(":cc_library_shared.bzl", "cc_library_shared")
-load(":cc_library_static.bzl", "cc_library_static")
 load(
     ":cc_library_common.bzl",
     "create_ccinfo_for_includes",
 )
-load("@bazel_skylib//lib:paths.bzl", "paths")
+load(":cc_library_shared.bzl", "cc_library_shared")
+load(":cc_library_static.bzl", "cc_library_static")
 
 # TODO(b/240466571): Implement determination of exported includes
 def _cc_gen_sysprop_impl(ctx):

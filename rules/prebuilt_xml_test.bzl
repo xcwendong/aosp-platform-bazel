@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/bazel/rules:prebuilt_xml.bzl", "prebuilt_xml")
-load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
-load("//build/bazel/rules/test_common:args.bzl", "get_arg_value")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
+load("//build/bazel/rules:prebuilt_xml.bzl", "prebuilt_xml")
+load("//build/bazel/rules/test_common:args.bzl", "get_arg_value")
 
 SRC = "fooSrc.xml"
 DIR = "etc/xml"

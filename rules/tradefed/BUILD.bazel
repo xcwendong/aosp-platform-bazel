@@ -1,6 +1,6 @@
-load(":tradefed_test.bzl", "tradefed_test_suite")
-load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load(":tradefed_test.bzl", "tradefed_test_suite")
 
 # flags / configs.
 string_flag(

@@ -13,16 +13,15 @@
 # limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load(":lto_transitions.bzl", "lto_deps_transition")
+load(":cc_constants.bzl", "constants")
 load(
     ":cc_library_common.bzl",
     "get_includes_paths",
     "is_external_directory",
     "parse_sdk_version",
-    "sdk_version_feature_from_parsed_version",
     "system_dynamic_deps_defaults",
 )
-load(":cc_constants.bzl", "constants")
+load(":lto_transitions.bzl", "lto_deps_transition")
 load(":stl.bzl", "stl_info_from_attr")
 
 # "cc_object" module copts, taken from build/soong/cc/object.go

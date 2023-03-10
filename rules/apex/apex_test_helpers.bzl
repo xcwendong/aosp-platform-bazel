@@ -13,12 +13,11 @@
 # limitations under the License.
 
 load("//build/bazel/rules/android:android_app_certificate.bzl", "android_app_certificate")
-load(":apex_key.bzl", "apex_key")
 load(":apex.bzl", "apex")
-load(":apex_info.bzl", "ApexInfo")
+load(":apex_key.bzl", "apex_key")
 
 # Set up test-local dependencies required for every apex.
-def setup_apex_required_deps(
+def _setup_apex_required_deps(
         file_contexts,
         key,
         manifest,
@@ -64,7 +63,7 @@ def test_apex(
         manifest = "test_manifest",
         certificate = "test_certificate",
         **kwargs):
-    setup_apex_required_deps(
+    _setup_apex_required_deps(
         file_contexts = file_contexts,
         key = key,
         manifest = manifest,

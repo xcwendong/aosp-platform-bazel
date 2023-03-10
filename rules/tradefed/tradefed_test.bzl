@@ -14,11 +14,11 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
-load(":tradefed.bzl", "tradefed_device_test", "tradefed_host_driven_test")
 load(
     "//build/bazel/rules/test_common:paths.bzl",
     "get_output_and_package_dir_based_path",
 )
+load(":tradefed.bzl", "tradefed_device_test", "tradefed_host_driven_test")
 
 def _test_tradefed_config_generation_impl(ctx):
     env = analysistest.begin(ctx)

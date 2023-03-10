@@ -14,7 +14,6 @@ limitations under the License.
 """
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load(":cc_object.bzl", "CcObjectInfo", "cc_object")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 
 """Build rule for converting `.asm` files to `.o` files with yasm."""

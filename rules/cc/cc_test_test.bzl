@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":cc_test.bzl", "cc_test")
+load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
 load(":cc_library_shared.bzl", "cc_library_shared")
 load(":cc_library_static.bzl", "cc_library_static")
-load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
+load(":cc_test.bzl", "cc_test")
 
 def _cc_test_provides_androidmk_info():
     name = "cc_test_provides_androidmk_info"

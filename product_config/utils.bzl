@@ -1,6 +1,6 @@
-load("//build/bazel/product_variables:constants.bzl", "constants")
 load("@//build/bazel/platforms:product_variables/product_platform.bzl", "determine_target_arches_from_config", "product_variables_providing_rule")
 load("@//build/bazel/platforms/arch/variants:constants.bzl", _variant_constants = "constants")
+load("//build/bazel/product_variables:constants.bzl", "constants")
 load(
     "//prebuilts/clang/host/linux-x86:cc_toolchain_constants.bzl",
     "arch_to_variants",

@@ -13,10 +13,10 @@
 # limitations under the License.
 
 load("//build/bazel/rules/aidl:library.bzl", "aidl_library")
-load("//build/bazel/rules/java:aidl_library.bzl", "java_aidl_library")
 load("//build/bazel/rules/cc:cc_aidl_code_gen.bzl", "cc_aidl_code_gen")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
+load("//build/bazel/rules/java:aidl_library.bzl", "java_aidl_library")
 
 JAVA = "java"
 CPP = "cpp"

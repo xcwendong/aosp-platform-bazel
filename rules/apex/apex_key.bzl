@@ -19,8 +19,8 @@ load("//build/bazel/rules/android:android_app_certificate.bzl", "default_cert_di
 ApexKeyInfo = provider(
     "Info needed to sign APEX bundles",
     fields = {
-        "public_key": "File containing the public_key",
         "private_key": "File containing the private key",
+        "public_key": "File containing the public_key",
     },
 )
 
@@ -45,8 +45,8 @@ def _apex_key_rule_impl(ctx):
 _apex_key = rule(
     implementation = _apex_key_rule_impl,
     attrs = {
-        "public_key": attr.label(mandatory = True, allow_single_file = True),
         "private_key": attr.label(mandatory = True, allow_single_file = True),
+        "public_key": attr.label(mandatory = True, allow_single_file = True),
     },
 )
 

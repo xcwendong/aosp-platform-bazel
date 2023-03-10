@@ -1,7 +1,5 @@
 """Parallels variable.go to provide variables and create a platform based on converted config."""
 
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
-load("//build/bazel/product_variables:constants.bzl", "constants")
 load("//build/bazel/platforms/arch/variants:constants.bzl", _arch_constants = "constants")
 
 def _product_variables_providing_rule_impl(ctx):

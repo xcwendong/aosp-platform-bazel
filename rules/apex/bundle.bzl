@@ -16,14 +16,14 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 
 # Arch to ABI map
 _arch_abi_map = {
-    "arm64": "arm64-v8a",
     "arm": "armeabi-v7a",
-    "x86_64": "x86_64",
+    "arm64": "arm64-v8a",
     "x86": "x86",
+    "x86_64": "x86_64",
 }
 
 def _proto_convert(actions, name, aapt2, apex_file):
-    """Run 'aapt2 convert' to convert resource files to protobuf format.  """
+    """Run 'aapt2 convert' to convert resource files to protobuf format."""
 
     root, ext = paths.split_extension(apex_file.basename)
     output_file = actions.declare_file(paths.join(
@@ -36,7 +36,7 @@ def _proto_convert(actions, name, aapt2, apex_file):
     args.add("convert")
     args.add("--output-format", "proto")
     args.add(apex_file)
-    args.add("-o", output_file.path)
+    args.add("-o", output_file)
 
     actions.run(
         inputs = [apex_file],
@@ -48,8 +48,7 @@ def _proto_convert(actions, name, aapt2, apex_file):
     return output_file
 
 def _base_file(actions, name, zip2zip, arch, secondary_arch, apex_proto_file):
-    """Run zip2zip to transform the apex file the expected directory structure
-    with all files that will be included in the base module of aab file."""
+    """Transforms the apex file to the expected directory structure with all files that will be included in the base module of aab file."""
 
     output_file = actions.declare_file(name + "-base.zip")
 
@@ -84,6 +83,8 @@ def build_bundle_config(actions, name):
     Args:
       actions: ctx.actions from a rule, used to declare outputs and actions.
       name: name of target creating action
+    Returns:
+      The bundle_config.json file
     """
     file_content = {
         # TODO(b/257459237): Config should collect manifest names and paths of android apps if their manifest name is overridden.
@@ -141,6 +142,10 @@ def apex_zip_files(actions, name, tools, apex_file, arch, secondary_arch):
         tools: struct containing fields with executables: aapt2, zip2zip, soong_zip, merge_zips
         apex_file: File, APEX file
         arch: string, the arch of the target configuration of the target requesting the action
+    Returns:
+        A struct with these fields:
+        apex_only: the regular "base" apex zip
+        apex_with_config: a zipfile that's identical to apex_only, but with the addition of bundle_config.json
     """
     apex_proto = _proto_convert(actions, name, tools.aapt2, apex_file)
     apex_zip = _base_file(actions, name, tools.zip2zip, arch, secondary_arch, apex_proto)

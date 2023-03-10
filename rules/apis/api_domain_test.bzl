@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":api_domain.bzl", "api_domain")
 load(":cc_api_contribution.bzl", "cc_api_contribution")
 load(":java_api_contribution.bzl", "java_api_contribution")

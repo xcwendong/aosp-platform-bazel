@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load(":cc_api_contribution_test.bzl", "cc_api_test_suite")
 load(":api_domain_test.bzl", "api_domain_test_suite")
+load(":cc_api_contribution_test.bzl", "cc_api_test_suite")
 
 cc_api_test_suite(name = "cc_api_test_suite")
 

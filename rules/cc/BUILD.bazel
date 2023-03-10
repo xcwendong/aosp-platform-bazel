@@ -13,23 +13,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load(":cc_aidl_library_test.bzl", "cc_aidl_library_test_suite")
 load(":cc_binary_test.bzl", "cc_binary_test_suite")
-load(":cc_test_test.bzl", "cc_test_test_suite")
 load(":cc_hidl_library_test.bzl", "cc_hidl_library_test_suite")
 load(":cc_library_common_test.bzl", "cc_library_common_test_suites")
 load(":cc_library_shared_test.bzl", "cc_library_shared_test_suite")
 load(":cc_library_static_test.bzl", "cc_library_static_test_suite")
-load(":lto_transitions_test.bzl", "lto_transition_test_suite")
 load(":cc_object_test.bzl", "cc_object_test_suite")
+load(":cc_prebuilt_binary_test.bzl", "cc_prebuilt_binary_test_suite")
 load(":cc_proto_test.bzl", "cc_proto_test_suite")
 load(":cc_sysprop_library_test.bzl", "cc_gen_sysprop_test_suite")
-load(":cc_prebuilt_binary_test.bzl", "cc_prebuilt_binary_test_suite")
+load(":cc_test_test.bzl", "cc_test_test_suite")
 load(":clang_tidy_test.bzl", "clang_tidy_test_suite")
 load(":flex_test.bzl", "flex_test_suite")
+load(":lto_transitions_test.bzl", "lto_transition_test_suite")
 load(":stl_test.bzl", "stl_test_suite")
 load(":yasm_test.bzl", "yasm_test_suite")
-load("@bazel_skylib//lib:selects.bzl", "selects")
 
 config_setting(
     name = "coverage_lib_flag",

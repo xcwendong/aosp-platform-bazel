@@ -1,7 +1,7 @@
-load(":apex_diff_test.bzl", "apex_diff_test")
-load(":apex_compression_test.bzl", "apex_compression_test")
-load(":apex_package_name_test.bzl", "apex_package_name_test")
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load(":apex_compression_test.bzl", "apex_compression_test")
+load(":apex_diff_test.bzl", "apex_diff_test")
+load(":apex_package_name_test.bzl", "apex_package_name_test")
 
 # Test that the compressed apex and uncompressed apex have the same contents
 apex_diff_test(
@@ -21,6 +21,21 @@ apex_compression_test(
     name = "build.bazel.examples.apex.minimal_capex",
     apex = "//build/bazel/examples/apex/minimal:build.bazel.examples.apex.minimal_compressed.capex",
     compressed = True,
+)
+
+genrule(
+    name = "build.bazel.examples.apex.minimal_android_manifest",
+    testonly = True,
+    srcs = ["//build/bazel/examples/apex/minimal:build.bazel.examples.apex.minimal.apex"],
+    outs = ["minimal_apex_android_manifest.txt"],
+    cmd = "$(location //frameworks/base/tools/aapt2) dump xmltree --file AndroidManifest.xml $< > $@",
+    tools = ["//frameworks/base/tools/aapt2"],
+)
+
+diff_test(
+    name = "minimal_apex_android_manifest_test",
+    file1 = "minimal_apex_android_manifest.txt",
+    file2 = "minimal_apex_android_manifest.golden",
 )
 
 genrule(

@@ -12,33 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(
-    ":composed_transitions.bzl",
-    "lto_and_fdo_profile_incoming_transition",
-)
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("//build/bazel/rules/abi:abi_dump.bzl", "AbiDiffInfo", "abi_dump")
 load(
     ":cc_library_common.bzl",
     "CcAndroidMkInfo",
     "add_lists_defaulting_to_none",
-    "create_cc_androidmk_provider",
     "parse_sdk_version",
     "sanitizer_deps",
     "system_dynamic_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
-load(":lto_transitions.bzl", "lto_deps_transition")
-load(":clang_tidy.bzl", "ClangTidyInfo", "collect_deps_clang_tidy_info")
+load(":clang_tidy.bzl", "collect_deps_clang_tidy_info")
+load(
+    ":composed_transitions.bzl",
+    "lto_and_fdo_profile_incoming_transition",
+)
 load(
     ":fdo_profile_transitions.bzl",
     "FDO_PROFILE_ATTR_KEY",
-    "fdo_profile_transition",
 )
 load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
+load(":lto_transitions.bzl", "lto_deps_transition")
 load(":stl.bzl", "stl_info_from_attr")
 load(":stripped_cc_common.bzl", "CcUnstrippedInfo", "stripped_shared_library")
 load(":versioned_cc_common.bzl", "versioned_shared_library")
-load("//build/bazel/rules/abi:abi_dump.bzl", "AbiDiffInfo", "abi_dump")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
 CcTocInfo = _CcTocInfo
 

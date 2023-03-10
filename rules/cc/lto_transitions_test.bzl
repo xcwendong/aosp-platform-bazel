@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
-load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
+load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 
 # TODO(b/270583469): Extract this and the equivalent logic for FDO
 ActionArgsInfo = provider(

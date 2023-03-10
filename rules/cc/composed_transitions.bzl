@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":lto_transitions.bzl", "CLI_FEATURES_KEY", "apply_drop_lto")
 load(
     ":fdo_profile_transitions.bzl",
     "CLI_CODECOV_KEY",
@@ -20,6 +19,7 @@ load(
     "FDO_PROFILE_ATTR_KEY",
     "apply_fdo_profile",
 )
+load(":lto_transitions.bzl", "CLI_FEATURES_KEY", "apply_drop_lto")
 
 # Both LTO and FDO require an incoming transition on cc_library_shared
 def _lto_and_fdo_profile_incoming_transition_impl(settings, attr):

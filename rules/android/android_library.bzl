@@ -1,11 +1,5 @@
 """android_library rule."""
 
-load("@rules_kotlin//kotlin:common.bzl", _kt_common = "common")
-load("@rules_kotlin//kotlin:compiler_opt.bzl", "merge_kotlincopts")
-load("@rules_kotlin//kotlin:jvm_compile.bzl", "kt_jvm_compile")
-load("@rules_kotlin//kotlin:traverse_exports.bzl", _kt_traverse_exports = "kt_traverse_exports")
-load("@rules_kotlin//toolchains/kotlin_jvm:kt_jvm_toolchains.bzl", _kt_jvm_toolchains = "kt_jvm_toolchains")
-load("@rules_android//rules:acls.bzl", _acls = "acls")
 load(
     "@rules_android//rules:attrs.bzl",
     _attrs = "attrs",
@@ -23,7 +17,7 @@ load(
     "ProviderInfo",
     "processing_pipeline",
 )
-load("@rules_android//rules:utils.bzl", "get_android_toolchain", "utils")
+load("@rules_android//rules:utils.bzl", "utils")
 load(
     "@rules_android//rules/android_library:attrs.bzl",
     _BASE_ATTRS = "ATTRS",
@@ -38,8 +32,12 @@ load(
     _attrs_metadata = "attrs_metadata",
     _make_rule = "make_rule",
 )
-load("@rules_android//rules:providers.bzl", "AndroidLintRulesInfo")
+load("@rules_kotlin//kotlin:common.bzl", _kt_common = "common")
+load("@rules_kotlin//kotlin:compiler_opt.bzl", "merge_kotlincopts")
 load("@rules_kotlin//kotlin:compiler_opt.bzl", "kotlincopts_attrs")
+load("@rules_kotlin//kotlin:jvm_compile.bzl", "kt_jvm_compile")
+load("@rules_kotlin//kotlin:traverse_exports.bzl", _kt_traverse_exports = "kt_traverse_exports")
+load("@rules_kotlin//toolchains/kotlin_jvm:kt_jvm_toolchains.bzl", _kt_jvm_toolchains = "kt_jvm_toolchains")
 
 KT_COMPILER_ATTRS = _attrs.add(
     kotlincopts_attrs(),

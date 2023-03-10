@@ -20,6 +20,7 @@ import glob
 import json
 import logging
 import re
+import shutil
 import subprocess
 import textwrap
 from pathlib import Path
@@ -68,11 +69,11 @@ def _move_pbs_to(d: Path):
   soong_build_pb = util.get_out_dir().joinpath(SOONG_BUILD_PB)
   bp2build_pb = util.get_out_dir().joinpath(BP2BUILD_PB)
   if soong_pb.exists():
-    soong_pb.rename(d.joinpath(SOONG_PB))
+    shutil.move(soong_pb, d.joinpath(SOONG_PB))
   if soong_build_pb.exists():
-    soong_build_pb.rename(d.joinpath(SOONG_BUILD_PB))
+    shutil.move(soong_build_pb, d.joinpath(SOONG_BUILD_PB))
   if bp2build_pb.exists():
-    bp2build_pb.rename(d.joinpath(BP2BUILD_PB))
+    shutil.move(bp2build_pb, d.joinpath(BP2BUILD_PB))
 
 
 def archive_run(d: Path, build_info: dict[str, any]):

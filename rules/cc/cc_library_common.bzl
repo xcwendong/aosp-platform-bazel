@@ -13,10 +13,10 @@
 # limitations under the License.
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
-load("//build/bazel/rules/common:api.bzl", api_levels = "api_levels_with_previews")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("@soong_injection//android:constants.bzl", android_constants = "constants")
+load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("//build/bazel/rules:common.bzl", "strip_bp2build_label_suffix")
+load("//build/bazel/rules/common:api.bzl", "api")
 
 _bionic_targets = ["//bionic/libc", "//bionic/libdl", "//bionic/libm"]
 _static_bionic_targets = ["//bionic/libc:libc_bp2build_cc_library_static", "//bionic/libdl:libdl_bp2build_cc_library_static", "//bionic/libm:libm_bp2build_cc_library_static"]
@@ -130,8 +130,8 @@ def sdk_version_feature_from_parsed_version(version):
 
 def _create_sdk_version_features_map():
     version_feature_map = {}
-    for api in api_levels.values():
-        version_feature_map["//build/bazel/rules/apex:min_sdk_version_" + str(api)] = [sdk_version_feature_from_parsed_version(api)]
+    for level in api.api_levels.values():
+        version_feature_map["//build/bazel/rules/apex:min_sdk_version_" + str(level)] = [sdk_version_feature_from_parsed_version(level)]
     version_feature_map["//conditions:default"] = [sdk_version_feature_from_parsed_version(future_version)]
 
     return version_feature_map
@@ -231,29 +231,29 @@ def parse_sdk_version(version):
 def parse_apex_sdk_version(version):
     if version == "" or version == "current" or version == "10000":
         return future_version
-    elif version in api_levels.keys():
-        return api_levels[version]
+    elif version in api.api_levels.keys():
+        return api.api_levels[version]
     elif version.isdigit():
         version = int(version)
-        if version in api_levels.values():
+        if version in api.api_levels.values():
             return version
         elif version == product_vars["Platform_sdk_version"]:
             # For internal branch states, support parsing a finalized version number
             # that's also still in
-            # product_vars["Platform_version_active_codenames"], but not api_levels.
+            # product_vars["Platform_version_active_codenames"], but not api.api_levels.
             #
             # This happens a few months each year on internal branches where the
             # internal master branch has a finalized API, but is not released yet,
             # therefore the Platform_sdk_version is usually latest AOSP dessert
-            # version + 1. The generated api_levels map sets these to 9000 + i,
+            # version + 1. The generated api.api_levels map sets these to 9000 + i,
             # where i is the index of the current/future version, so version is not
-            # in the api_levels.values() list, but it is a valid sdk version.
+            # in the api.api_levels.values() list, but it is a valid sdk version.
             #
             # See also b/234321488#comment2
             return version
     fail("Unknown sdk version: %s, could not be parsed as " % version +
          "an integer and/or is not a recognized codename. Valid api levels are:" +
-         str(api_levels))
+         str(api.api_levels))
 
 CPP_EXTENSIONS = ["cc", "cpp", "c++"]
 

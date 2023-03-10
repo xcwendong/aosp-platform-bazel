@@ -13,7 +13,6 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/bazel/rules:linker_config.bzl", "linker_config")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 

@@ -23,14 +23,6 @@ load(
     _android_application = "android_application",
 )
 load(
-    ":android_binary.bzl",
-    _android_binary = "android_binary",
-)
-load(
-    ":android_library.bzl",
-    _android_library = "android_library_macro",
-)
-load(
     "@rules_android//rules:rules.bzl",
     _android_ndk_repository = "android_ndk_repository",
 )
@@ -49,6 +41,14 @@ load(
 load(
     ":android_app_certificate.bzl",
     _android_app_certificate = "android_app_certificate",
+)
+load(
+    ":android_binary.bzl",
+    _android_binary = "android_binary",
+)
+load(
+    ":android_library.bzl",
+    _android_library = "android_library_macro",
 )
 
 aar_import = _aar_import

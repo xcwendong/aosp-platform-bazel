@@ -1,0 +1,3 @@
+load(":api_test.bzl", "api_levels_test_suite")
+
+api_levels_test_suite(name = "api_test")

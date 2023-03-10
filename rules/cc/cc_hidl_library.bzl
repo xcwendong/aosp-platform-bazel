@@ -13,10 +13,10 @@
 # limitations under the License.
 
 load("//build/bazel/rules:hidl_file_utils.bzl", "LANGUAGE_CC_HEADERS", "LANGUAGE_CC_SOURCES", "hidl_file_utils")
-load(":cc_library_common.bzl", "create_ccinfo_for_includes")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/hidl:hidl_library.bzl", "HidlInfo")
+load(":cc_library_common.bzl", "create_ccinfo_for_includes")
 
 CC_SOURCE_SUFFIX = "_genc++"
 CC_HEADER_SUFFIX = "_genc++_headers"

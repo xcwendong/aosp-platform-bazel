@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("android_app_certificate.bzl", "AndroidAppCertificateInfo")
 
 AndroidAppKeystoreInfo = provider(
