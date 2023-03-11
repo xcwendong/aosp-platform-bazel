@@ -20,6 +20,7 @@ import re
 import statistics
 import sys
 from decimal import Decimal
+from pathlib import Path
 from typing import Callable
 
 from typing.io import TextIO
@@ -27,13 +28,6 @@ from typing.io import TextIO
 import util
 
 NA = "   --:--"
-
-
-def mark_if_clean(line: dict) -> dict:
-  if line['build_type'].startswith("CLEAN "):
-    line["description"] = "CLEAN " + line["description"]
-    line["build_type"] = line["build_type"].replace("CLEAN ", "", 1)
-  return line
 
 
 def normalize_rebuild(line: dict) -> dict:
@@ -111,9 +105,10 @@ def _get_build_types(xs: list[dict]) -> list[str]:
   return build_types
 
 
-def pretty(filename: str, include_rebuilds: bool):
+def pretty(log_dir: Path, include_rebuilds: bool):
+  filename = log_dir if log_dir.is_file() else log_dir.joinpath(util.METRICS_TABLE)
   with open(filename) as f:
-    csv_lines = [mark_if_clean(normalize_rebuild(line)) for line in
+    csv_lines = [normalize_rebuild(line) for line in
                  csv.DictReader(f) if
                  include_rebuilds or not line['description'].startswith(
                      'rebuild-')]
@@ -154,7 +149,7 @@ def pretty(filename: str, include_rebuilds: bool):
 if __name__ == "__main__":
   p = argparse.ArgumentParser()
   p.add_argument('--include-rebuilds', default=False, action='store_true')
-  default_summary_file = util.get_default_log_dir().joinpath(util.SUMMARY_CSV)
-  p.add_argument('summary_file', nargs='?', default=default_summary_file)
+  p.add_argument('log_dir', nargs='?', type=Path,
+                 default=util.get_default_log_dir())
   options = p.parse_args()
-  pretty(options.summary_file, options.include_rebuilds)
+  pretty(options.log_dir, options.include_rebuilds)

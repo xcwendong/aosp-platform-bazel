@@ -32,7 +32,7 @@ import ui
 
 """
 Provides some representative CUJs. If you wanted to manually run something but
-would like the metrics to be collated in the summary.csv file, use
+would like the metrics to be collated in the metrics.csv file, use
 `perf_metrics.py` as a stand-alone after your build.
 """
 
@@ -491,3 +491,7 @@ def get_cujgroups() -> list[CujGroup]:
     replace_link_with_dir(pkg.joinpath('bogus.txt')),
     # TODO(usta): add a dangling symlink
   ]
+
+
+def warmup_index() -> int:
+  return 1

@@ -292,7 +292,7 @@ def create_aidl_binding_for_backends(
                 deps = [":" + aidl_library_name],
                 tags = tags + config.get("tags", []),
                 # TODO(b/249276008): Pass min_sdk_version to java_aidl_library
-                **kwargs
+                **(kwargs | {"target_compatible_with": ["//build/bazel/platforms/os:android"]})
             )
         elif lang == CPP or lang == NDK:
             dynamic_deps = []

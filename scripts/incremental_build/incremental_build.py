@@ -147,8 +147,6 @@ def _build(build_type: ui.BuildType, run_dir: Path) -> (int, BuildInfo):
 
 def _run_cuj(run_dir: Path, build_type: ui.BuildType,
     cujstep: cuj_catalog.CujStep, desc: str, run) -> BuildInfo:
-  is_clean = not util.get_out_dir().joinpath(
-    'soong/bootstrap.ninja').exists()
   run_dir.mkdir(parents=True, exist_ok=False)
   (exit_code, build_info) = _build(build_type, run_dir)
   # if build was successful, run test
@@ -170,8 +168,6 @@ def _run_cuj(run_dir: Path, build_type: ui.BuildType,
                } | build_info
   logging.info('%s after %s: %s',
                build_info["build_result"], build_info["time"], log_desc)
-  if is_clean:
-    build_info['build_type'] = 'CLEAN ' + build_info['build_type']
   return build_info
 
 
@@ -201,7 +197,8 @@ def main():
 
   run_dir_gen = util.next_path(user_input.log_dir.joinpath(util.RUN_DIR_PREFIX))
   for build_type in user_input.build_types:
-    for counter, cuj_index in enumerate(user_input.chosen_cujgroups):
+    warmed_up = False
+    for cuj_index in [cuj_catalog.warmup_index(), *user_input.chosen_cujgroups]:
       cujgroup = cuj_catalog.get_cujgroups()[cuj_index]
       for cujstep in cujgroup.steps:
         desc = cujstep.verb
@@ -212,16 +209,22 @@ def main():
         cujstep.apply_change()
         for run in range(0, MAX_RUN_COUNT):
           run_dir = next(run_dir_gen)
-          build_info = _run_cuj(run_dir, build_type, cujstep, desc, run)
+          adorned_desc = desc
+          if not warmed_up:
+            adorned_desc = f'WARMUP {adorned_desc}'
+            warmed_up = True
+          if not util.get_out_dir().joinpath('soong/bootstrap.ninja').exists():
+            adorned_desc = f'CLEAN {adorned_desc}'
+          build_info = _run_cuj(run_dir, build_type, cujstep, adorned_desc, run)
           perf_metrics.archive_run(run_dir, build_info)
           if build_info['ninja_explains'] == 0:
             break
         logging.info(' DONE %s %s [%s]', build_type.name,
                      ' '.join(user_input.targets), desc)
 
-  perf_metrics.write_summary_csv(user_input.log_dir)
-  perf_metrics.show_summary(user_input.log_dir)
-  pretty.pretty(str(user_input.log_dir.joinpath(util.SUMMARY_CSV)), True)
+  perf_metrics.tabulate_metrics_csv(user_input.log_dir)
+  perf_metrics.display_tabulated_metrics(user_input.log_dir)
+  pretty.pretty(user_input.log_dir, False)
 
 
 if __name__ == '__main__':

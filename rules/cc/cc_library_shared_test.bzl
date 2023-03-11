@@ -729,11 +729,28 @@ def _cc_library_set_defines_for_stubs():
     )
 
     cc_library_shared(
+        name = name + "_libbaz",
+        system_dynamic_deps = [],
+        stl = "none",
+        tags = ["manual"],
+        stubs_symbol_file = name + "_libbaz.map.txt",
+    )
+
+    cc_stub_suite(
+        name = name + "_libbaz_stub_libs",
+        soname = name + "_libbaz.so",
+        source_library = ":" + name + "_libbaz",
+        symbol_file = name + "_libbaz.map.txt",
+        versions = ["30"],
+    )
+
+    cc_library_shared(
         name = name + "_lib_with_stub_deps",
         srcs = ["foo.cpp"],
         implementation_dynamic_deps = [
             name + "_libfoo_stub_libs_current",
             name + "_libbar_stub_libs_current",
+            name + "_libbaz_stub_libs-30",  # depend on an old version explicitly
         ],
         tags = ["manual"],
     )
@@ -743,8 +760,9 @@ def _cc_library_set_defines_for_stubs():
         target_under_test = name + "_lib_with_stub_deps__internal_root_cpp",
         mnemonics = ["CppCompile"],
         expected_flags = [
-            "-D__CC_LIBRARY_SET_DEFINES_FOR_STUBS_LIBFOO__API__=40",
+            "-D__CC_LIBRARY_SET_DEFINES_FOR_STUBS_LIBFOO__API__=10000",
             "-D__CC_LIBRARY_SET_DEFINES_FOR_STUBS_LIBBAR__API__=10000",
+            "-D__CC_LIBRARY_SET_DEFINES_FOR_STUBS_LIBBAZ__API__=30",
         ],
     )
     return test_name

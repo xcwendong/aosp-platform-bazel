@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("android_app_certificate.bzl", "AndroidAppCertificateInfo")
 
 AndroidAppKeystoreInfo = provider(
@@ -64,8 +65,10 @@ def _pem_to_pk12(ctx, openssl, certificate_pem, private_key_pem, pk12_file):
         mnemonic = "CreatePK12",
     )
 
-def _pk12_to_keystore(ctx, keytool, pk12_file, keystore_file):
+def _pk12_to_keystore(ctx, pk12_file, keystore_file):
     """Converts a PKCS12 keystore file to a JKS keystore file."""
+    java_runtime = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+    keytool = paths.join(java_runtime.java_home, "bin", "keytool")
     args = ctx.actions.args()
     args.add("-importkeystore")
     args.add_all(["-destkeystore", keystore_file])
@@ -80,6 +83,7 @@ def _pk12_to_keystore(ctx, keytool, pk12_file, keystore_file):
     ctx.actions.run(
         inputs = [pk12_file],
         executable = keytool,
+        tools = [java_runtime.files],
         outputs = [keystore_file],
         arguments = [args],
         mnemonic = "CreateKeystore",
@@ -87,7 +91,6 @@ def _pk12_to_keystore(ctx, keytool, pk12_file, keystore_file):
 
 def _android_app_keystore_rule_impl(ctx):
     openssl = ctx.executable._openssl
-    keytool = ctx.executable._keytool
 
     private_pem = ctx.actions.declare_file(ctx.attr.name + ".priv.pem")
     pk12 = ctx.actions.declare_file(ctx.attr.name + ".pk12")
@@ -97,7 +100,7 @@ def _android_app_keystore_rule_impl(ctx):
     pem_file = ctx.attr.certificate[AndroidAppCertificateInfo].pem
     _pk8_to_private_pem(ctx, openssl, pk8_file, private_pem)
     _pem_to_pk12(ctx, openssl, pem_file, private_pem, pk12)
-    _pk12_to_keystore(ctx, keytool, pk12, keystore)
+    _pk12_to_keystore(ctx, pk12, keystore)
 
     return [
         AndroidAppKeystoreInfo(
@@ -118,12 +121,10 @@ android_app_keystore = rule(
             cfg = "exec",
             doc = "An OpenSSL compatible tool.",
         ),
-        "_keytool": attr.label(
-            default = Label("//prebuilts/jdk/jdk11:linux-x86/bin/keytool"),
-            allow_single_file = True,
-            executable = True,
+        "_java_runtime": attr.label(
+            default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
             cfg = "exec",
-            doc = "The keytool binary.",
+            providers = [java_common.JavaRuntimeInfo],
         ),
     },
     provides = [AndroidAppKeystoreInfo],

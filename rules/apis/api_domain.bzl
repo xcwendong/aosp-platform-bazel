@@ -14,23 +14,16 @@
 
 """Bazel rules for generating the metadata of API domain contributions to an API surface"""
 
-load("@bazel_skylib//lib:sets.bzl", "sets")
-load(":cc_api_contribution.bzl", "CcApiContributionInfo", "VALID_CC_API_SURFACES")
-load(":java_api_contribution.bzl", "JavaApiContributionInfo", "VALID_JAVA_API_SURFACES")
-
-def _all_api_surfaces():
-    # Returns a deduped union of cc and java api surfaces
-    api_surfaces = sets.make()
-    for api_surface in VALID_CC_API_SURFACES + VALID_JAVA_API_SURFACES:
-        sets.insert(api_surfaces, api_surface)
-    return sets.to_list(api_surfaces)
+load(":api_surface.bzl", "ALL_API_SURFACES")
+load(":cc_api_contribution.bzl", "CcApiContributionInfo")
+load(":java_api_contribution.bzl", "JavaApiContributionInfo")
 
 def _api_domain_impl(ctx):
     """Implementation of the api_domain rule
     Currently it only supports exporting the API surface contributions of the API domain
     """
     out = []
-    for api_surface in _all_api_surfaces():
+    for api_surface in ALL_API_SURFACES:
         # TODO(b/220938703): Add other contributions (e.g. resource_api_contribution)
         # cc
         cc_libraries = [cc[CcApiContributionInfo] for cc in ctx.attr.cc_api_contributions if api_surface in cc[CcApiContributionInfo].api_surfaces]

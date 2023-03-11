@@ -14,6 +14,8 @@
 
 """Bazel rules for exporting API contributions of Java libraries"""
 
+load(":api_surface.bzl", "CORE_PLATFORM_API", "INTRA_CORE_API", "MODULE_LIB_API", "PUBLIC_API", "SYSTEM_API", "SYSTEM_SERVER_API", "TEST_API", "TOOLCHAIN_API")
+
 """A Bazel provider that encapsulates the contributions of a Java library to an API surface"""
 JavaApiContributionInfo = provider(
     fields = {
@@ -23,34 +25,21 @@ JavaApiContributionInfo = provider(
     },
 )
 
-_PUBLIC_API = "publicapi"
-_SYSTEM_API = "systemapi"
-_TEST_API = "testapi"
-_MODULE_LIB_API = "module-libapi"
-_SYSTEM_SERVER_API = "system-serverapi"
-_INTRA_CORE_API = "intracoreapi"
-_CORE_PLATFORM_API = "core_platformapi"
-
-# _TOOLCHAIN_API is a special API surface provided by ART to compile other API domains
-# (e.g. core-lambda-stubs required to compile java files containing lambdas)
-# This is not part of go/android-api-types, and is not available to apps at runtime
-_TOOLCHAIN_API = "toolchainapi"
-
 # Java API surfaces are hierarchical.
 # This hierarchy map was created by looking at the stub definitions in frameworks/base/StubLibraries.bp
 # Key is the full api surface
 # Values are the partial metalava signature files that are combined to generate the full api surface stubs.
 _JAVA_FULLAPISURFACE_TO_PARTIALSIGNATUREFILE = {
-    _PUBLIC_API: [_PUBLIC_API],
-    _SYSTEM_API: [_PUBLIC_API, _SYSTEM_API],
-    _TEST_API: [_PUBLIC_API, _SYSTEM_API, _TEST_API],
-    _MODULE_LIB_API: [_PUBLIC_API, _SYSTEM_API, _MODULE_LIB_API],
-    _SYSTEM_SERVER_API: [_PUBLIC_API, _SYSTEM_API, _MODULE_LIB_API, _SYSTEM_SERVER_API],
+    PUBLIC_API: [PUBLIC_API],
+    SYSTEM_API: [PUBLIC_API, SYSTEM_API],
+    TEST_API: [PUBLIC_API, SYSTEM_API, TEST_API],
+    MODULE_LIB_API: [PUBLIC_API, SYSTEM_API, MODULE_LIB_API],
+    SYSTEM_SERVER_API: [PUBLIC_API, SYSTEM_API, MODULE_LIB_API, SYSTEM_SERVER_API],
     # intracore is publicapi + "@IntraCoreApi".
     # e.g. art.module.intra.core.api uses the following `droiddoc_option`
     # [<hide>, --show-single-annotation libcore.api.IntraCoreApi"]
     # conscrypt and icu4j use similar droidoc_options
-    _INTRA_CORE_API: [_PUBLIC_API, _INTRA_CORE_API],
+    INTRA_CORE_API: [PUBLIC_API, INTRA_CORE_API],
     # CorePlatformApi does not extend PublicApi
     # Each core module is at different stages of transition
     # The status quo in Soong today is
@@ -58,10 +47,10 @@ _JAVA_FULLAPISURFACE_TO_PARTIALSIGNATUREFILE = {
     # 2. i18n - APIs have migrated to Public API surface
     # 3. art - APIs have migrated to ModuleLib API suface
     # This layering complexity will be handled by the build orchestrator and not by API export.
-    _CORE_PLATFORM_API: [_CORE_PLATFORM_API],
+    CORE_PLATFORM_API: [CORE_PLATFORM_API],
     # coreapi does not have an entry here, it really is the public stubs of the 3 core modules
     # (art, conscrypt, i18n)
-    _TOOLCHAIN_API: [_TOOLCHAIN_API],
+    TOOLCHAIN_API: [TOOLCHAIN_API],
 }
 
 VALID_JAVA_API_SURFACES = _JAVA_FULLAPISURFACE_TO_PARTIALSIGNATUREFILE.keys()

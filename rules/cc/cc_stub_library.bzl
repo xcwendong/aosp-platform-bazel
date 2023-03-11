@@ -13,7 +13,9 @@
 # limitations under the License.
 
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
+load("//build/bazel/rules/apis:api_surface.bzl", "MODULE_LIB_API")
 load("//build/bazel/rules/common:api.bzl", "api")
+load(":cc_library_headers.bzl", "cc_library_headers")
 load(":cc_library_shared.bzl", "CcStubLibrariesInfo")
 load(":cc_library_static.bzl", "cc_library_static")
 load(":fdo_profile_transitions.bzl", "drop_fdo_profile_transition")
@@ -225,6 +227,10 @@ _cc_stub_library_shared = rule(
 )
 
 def cc_stub_suite(name, source_library, versions, symbol_file, export_includes = [], soname = "", deps = [], data = [], target_compatible_with = [], features = [], tags = ["manual"]):
+    # Implicitly add "current" to versions. This copies the behavior from Soong (aosp/1641782)
+    if "current" not in versions:
+        versions.append("current")
+
     for version in versions:
         cc_stub_library_shared(
             # Use - as the seperator of name and version. "current" might be the version of some libraries.
@@ -240,10 +246,18 @@ def cc_stub_suite(name, source_library, versions, symbol_file, export_includes =
             tags = tags,
         )
 
+    # Create a header library target for this API surface (ModuleLibApi)
+    # The external @api_surfaces repository will contain an alias to this header library.
+    cc_library_headers(
+        name = "%s_%s_headers" % (name, MODULE_LIB_API),
+        export_includes = export_includes,
+        deps = deps,  # Necessary for exporting headers that might exist in a different directory (e.g. libEGL)
+    )
+
     native.alias(
         # Use _ as the seperator of name and version in alias. So there is no
         # duplicated name if "current" is one of the versions of a library.
         name = name + "_current",
-        actual = name + "-" + versions[-1],
+        actual = name + "-" + "current",
         tags = tags,
     )

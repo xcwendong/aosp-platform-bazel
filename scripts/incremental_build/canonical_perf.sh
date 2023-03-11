@@ -45,23 +45,9 @@ shift $((OPTIND - 1))
 
 readonly -a cujs=("$@")
 
-log_dir=${log_dir:-"$TOP/../canonical-$(date +%b%d)"}
-if [[ -e "$log_dir" ]]; then
-  read -r -n 1 -p "$log_dir already exists, add more build results there? Y/N: " response
-  echo ""
-  if [[ ! "$response" =~ ^[yY]$ ]]; then
-    usage
-  fi
-fi
-mkdir -p "$log_dir"
-
 # Pretty print the results
 function pretty() {
   python3 "$(dirname "$0")/pretty.py" "$1"
-}
-
-function clean_tree() {
-  rm -rf out
 }
 
 # TODO: Switch to oriole when it works
@@ -77,9 +63,7 @@ function build() {
   date
   set -x
   if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.py" \
-    --ignore-repo-diff \
-    --log-dir="$log_dir" \
-    "$@"; then
+    --ignore-repo-diff ${log_dir:+--log-dir="$log_dir"} "$@"; then
     echo "See logs for errors"
     exit 1
   fi
@@ -93,23 +77,14 @@ else
     echo "you must specify cujs as well"
     usage
   fi
-  # Clear the cache by doing a build. There are probably better ways of clearing the
-  # cache, but this does reduce the variance of the first full build.
-  file="$log_dir/output.txt"
-  echo "logging to $file"
-  clean_tree
-  source "$TOP/build/envsetup.sh"
-  m droid >"$file"
 fi
-
-clean_tree
 
 if [[ ${#cujs[@]} -ne "0" ]]; then
   build -c "${cujs[@]}" -- "${targets[*]}"
 else
-  build -c 'clean' 'no change' 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
-  build -c 'clean' 'modify bionic/.*/stdio.cpp' -- libc
-  build -c 'clean' 'modify .*/adb/daemon/main.cpp' -- adbd
+  build -c 'clean' 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
+  build -c 'modify bionic/.*/stdio.cpp' --append-csv libc
+  build -c 'modify .*/adb/daemon/main.cpp' --append-csv adbd
 fi
 
-pretty "$log_dir/summary.csv"
+pretty ${$log_dir:"$log_dir/metrics.csv"}

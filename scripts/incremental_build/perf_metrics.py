@@ -215,7 +215,7 @@ def get_build_info_and_perf(d: Path) -> dict[str, any]:
     return build_info | perf
 
 
-def write_summary_csv(log_dir: Path):
+def tabulate_metrics_csv(log_dir: Path):
   rows: list[dict[str, any]] = []
   dirs = glob.glob(f'{util.RUN_DIR_PREFIX}*', root_dir=log_dir)
   dirs.sort(key=lambda x: int(x[1 + len(util.RUN_DIR_PREFIX):]))
@@ -232,27 +232,27 @@ def write_summary_csv(log_dir: Path):
   lines = [','.join(headers)]
   lines.extend(row2line(r) for r in rows)
 
-  with open(log_dir.joinpath(util.SUMMARY_CSV), mode='wt') as f:
+  with open(log_dir.joinpath(util.METRICS_TABLE), mode='wt') as f:
     f.writelines(f'{line}\n' for line in lines)
 
 
-def show_summary(log_dir: Path):
-  summary_cmd = util.get_summary_cmd(log_dir)
-  output = subprocess.check_output(summary_cmd, shell=True, text=True)
+def display_tabulated_metrics(log_dir: Path):
+  cmd_str = util.get_cmd_to_display_tabulated_metrics(log_dir)
+  output = subprocess.check_output(cmd_str, shell=True, text=True)
   logging.info(textwrap.dedent(f'''
   %s
   TIPS:
-  1 To view key metrics in summary.csv:
+  1 To view key metrics in metrics.csv:
     %s
   2 To view column headers:
-    %s'''), output, summary_cmd, util.get_csv_columns_cmd(log_dir))
+    %s'''), output, cmd_str, util.get_csv_columns_cmd(log_dir))
 
 
 def main():
   p = argparse.ArgumentParser(
     formatter_class=argparse.RawTextHelpFormatter,
     description='read archived perf metrics from [LOG_DIR] and '
-                f'summarize them into {util.SUMMARY_CSV}')
+                f'summarize them into {util.METRICS_TABLE}')
   default_log_dir = util.get_default_log_dir()
   p.add_argument('-l', '--log-dir', type=Path, default=default_log_dir,
                  help=textwrap.dedent('''
@@ -260,8 +260,8 @@ def main():
                  TIPS: Specify a directory outside of the source tree
                  ''').strip())
   p.add_argument('-m', '--add-manual-build',
-                 help='If you want to add the metrics from the current manual '
-                      f'build to {util.SUMMARY_CSV}, provide a description')
+                 help='If you want to add the metrics from the last manual '
+                      f'build to {util.METRICS_TABLE}, provide a description')
   options = p.parse_args()
 
   if options.add_manual_build:
@@ -271,8 +271,8 @@ def main():
     run_dir.mkdir(parents=True, exist_ok=False)
     archive_run(run_dir, build_info)
 
-  write_summary_csv(options.log_dir)
-  show_summary(options.log_dir)
+  tabulate_metrics_csv(options.log_dir)
+  display_tabulated_metrics(options.log_dir)
 
 
 if __name__ == '__main__':

@@ -17,6 +17,7 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("//build/bazel/rules/cc:cc_constants.bzl", "constants")
+load(":api_surface.bzl", "MODULE_LIB_API", "PUBLIC_API", "VENDOR_API")
 
 """A Bazel provider that encapsulates the headers presented to an API surface"""
 CcApiHeaderInfo = provider(
@@ -178,9 +179,9 @@ CcApiContributionInfo = provider(
 )
 
 VALID_CC_API_SURFACES = [
-    "publicapi",
-    "module-libapi",  # API surface provided by platform and mainline modules to other mainline modules
-    "vendorapi",
+    PUBLIC_API,
+    MODULE_LIB_API,  # API surface provided by platform and mainline modules to other mainline modules
+    VENDOR_API,
 ]
 
 def _validate_api_surfaces(api_surfaces):

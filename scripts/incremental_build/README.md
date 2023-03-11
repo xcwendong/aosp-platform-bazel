@@ -10,13 +10,13 @@ equivalent to
 1. running `m --skip-soong-tests libc` and then
 2. parsing `$OUTDIR/soong_metrics` and `$OUTDIR/bp2build_metrics.pb` files
 3. Adding timing-related metrics from those files
-   into `out/timing_logs/summary.csv`
+   into `out/timing_logs/metrics.csv`
 
 There are a number of CUJs set up in `cuj_catalog.py` and they are run
-sequentially, such that each row in `summary.csv` are the timings of various "
+sequentially, such that each row in `metrics.csv` are the timings of various "
 events" during an incremental build.
 
-You may also add rows to `summary.csv` after a manual run,
+You may also add rows to `metrics.csv` after a manual run,
 using `perf_metrics.py`
 script. This is particularly useful when you don't want to
 modify `cuj_catalog.py`

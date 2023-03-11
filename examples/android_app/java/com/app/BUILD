@@ -5,6 +5,7 @@ load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 android_binary(
     name = "app",
     manifest = "AndroidManifest.xml",
+    target_compatible_with = ["//build/bazel/platforms/os:android"],
     deps = [
         ":applib",
     ],
@@ -14,6 +15,7 @@ android_binary(
     name = "app-cert-string",
     certificate_name = "platform",
     manifest = "AndroidManifest.xml",
+    target_compatible_with = ["//build/bazel/platforms/os:android"],
     deps = [
         ":applib",
     ],
@@ -23,6 +25,7 @@ android_binary(
     name = "app-cert-module",
     certificate = "//build/make/target/product/security:aosp-testkey",
     manifest = "AndroidManifest.xml",
+    target_compatible_with = ["//build/bazel/platforms/os:android"],
     deps = [
         ":applib",
     ],
@@ -37,6 +40,7 @@ android_library(
     ],
     manifest = "AndroidManifest.xml",
     resource_files = glob(["res/**"]),
+    target_compatible_with = ["//build/bazel/platforms/os:android"],
     deps = [
         # TODO(b/240555494): re-enable JNI when it is supported
         # ":jni",
@@ -47,6 +51,7 @@ android_library(
 android_library(
     name = "lib",
     srcs = ["Lib.java"],
+    target_compatible_with = ["//build/bazel/platforms/os:android"],
 )
 
 cc_library_shared(
