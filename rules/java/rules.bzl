@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Macro wrapping the java_library for bp2build. """
-
 load(
     "@rules_java//java:defs.bzl",
+    _java_binary = "java_binary",
+)
+load(
+    "@rules_java//java:defs.bzl",
+    _java_import = "java_import",
+)
+load(
+    "//build/bazel/rules/java:library.bzl",
     _java_library = "java_library",
 )
 
-def java_library(name = "", srcs = [], deps = [], javacopts = [], **kwargs):
-    # Disable the error prone check of HashtableContains by default. See https://errorprone.info/bugpattern/HashtableContains
-    # HashtableContains error is reported when compiling //external/bouncycastle:bouncycastle-bcpkix-unbundled
-    opts = ["-Xep:HashtableContains:OFF"] + javacopts
-
-    _java_library(name = name, srcs = srcs, deps = deps, javacopts = opts, **kwargs)
+java_binary = _java_binary
+java_library = _java_library
+java_import = _java_import

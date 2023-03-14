@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 load("@rules_kotlin//kotlin:jvm_library.bzl", _kt_jvm_library = "kt_jvm_library")
+load("//build/bazel/rules/java:rules.bzl", "java_import")
 
 def _kotlin_resources_impl(ctx):
     output_file = ctx.actions.declare_file("kt_resources.jar")
@@ -67,7 +68,7 @@ def kt_jvm_library(
     if resource_strip_prefix != None:
         java_import_name = name + "resources"
         kt_res_jar_name = name + "resources_jar"
-        native.java_import(
+        java_import(
             name = java_import_name,
             jars = [":" + kt_res_jar_name],
         )

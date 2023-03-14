@@ -85,9 +85,9 @@ def _parse_api_level_from_version(version):
 
     # Not preview nor current.
     #
-    # If the level is the codename of an API level has been finalized, this
-    # function returns the API level number associated with that API level. If the
-    # input is *not* a finalized codename, the input is returned unmodified.
+    # If the level is the codename of an API level that has been finalized, this
+    # function returns the API level number associated with that API level. If
+    # the input is *not* a finalized codename, the input is returned unmodified.
     canonical_level = api_levels_released_versions.get(version)
     if not canonical_level:
         if not version.isdigit():
