@@ -35,13 +35,6 @@ _preview_codenames_to_ints = {
     for i, codename in enumerate(_PLATFORM_VERSION_ACTIVE_CODENAMES)
 }
 
-_final_codename = {
-    "current": _final_or_future(_PLATFORM_SDK_VERSION),
-} if _PLATFORM_SDK_FINAL and _PLATFORM_SDK_VERSION else {}
-
-_api_levels_with_previews = dicts.add(api_levels_released_versions, _preview_codenames_to_ints)
-_api_levels_with_final_codenames = dicts.add(api_levels_released_versions, _final_codename)
-
 # Returns true if a string or int version is in preview (not finalized).
 def _is_preview(version):
     if type(version) == "string" and version.isdigit():
@@ -61,6 +54,13 @@ def _final_or_future(version):
         return _FUTURE_API_LEVEL_INT
     else:
         return version
+
+_final_codename = {
+    "current": _final_or_future(_PLATFORM_SDK_VERSION),
+} if _PLATFORM_SDK_FINAL and _PLATFORM_SDK_VERSION else {}
+
+_api_levels_with_previews = dicts.add(api_levels_released_versions, _preview_codenames_to_ints)
+_api_levels_with_final_codenames = dicts.add(api_levels_released_versions, _final_codename)
 
 # parse_api_level_from_version is a Starlark implementation of ApiLevelFromUser
 # at https://cs.android.com/android/platform/superproject/+/master:build/soong/android/api_levels.go;l=221-250;drc=5095a6c4b484f34d5c4f55a855d6174e00fb7f5e
