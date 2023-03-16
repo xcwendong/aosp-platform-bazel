@@ -1,10 +1,14 @@
-# Copyright (C) 2021 The Android Open Source Project
+#!/bin/bash -eu
+
+set -o pipefail
+
+# Copyright (C) 2023 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,16 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-def cc_prebuilt_library_shared(
-        name,
-        shared_library,
-        alwayslink = None,
-        **kwargs):
-    "Bazel macro to correspond with the *_cc_prebuilt_library_shared Soong module types"
 
-    native.cc_import(
-        name = name,
-        shared_library = shared_library,
-        alwayslink = alwayslink,
-        **kwargs
-    )
+# This test suite contains a number of end to end tests verifying Bazel's integration
+# with Soong in Android builds.
+
+TOP="$(readlink -f "$(dirname "$0")"/../../..)"
+"$TOP/build/bazel/ci/determinism_test.sh"
+"$TOP/build/bazel/ci/mixed_mode_toggle.sh"

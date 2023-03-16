@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Optional
 
 import util
+import pretty
 
 
 @dataclasses.dataclass
@@ -46,7 +47,7 @@ class PerfInfoOrEvent:
     if isinstance(self.start_time, int):
       epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
       self.start_time = epoch + datetime.timedelta(
-        microseconds=self.start_time / 1000)
+          microseconds=self.start_time / 1000)
 
 
 SOONG_PB = 'soong_metrics'
@@ -245,14 +246,15 @@ def display_tabulated_metrics(log_dir: Path):
   1 To view key metrics in metrics.csv:
     %s
   2 To view column headers:
-    %s'''), output, cmd_str, util.get_csv_columns_cmd(log_dir))
+    %s
+    '''), output, cmd_str, util.get_csv_columns_cmd(log_dir))
 
 
 def main():
   p = argparse.ArgumentParser(
-    formatter_class=argparse.RawTextHelpFormatter,
-    description='read archived perf metrics from [LOG_DIR] and '
-                f'summarize them into {util.METRICS_TABLE}')
+      formatter_class=argparse.RawTextHelpFormatter,
+      description='read archived perf metrics from [LOG_DIR] and '
+                  f'summarize them into {util.METRICS_TABLE}')
   default_log_dir = util.get_default_log_dir()
   p.add_argument('-l', '--log-dir', type=Path, default=default_log_dir,
                  help=textwrap.dedent('''
@@ -273,6 +275,8 @@ def main():
 
   tabulate_metrics_csv(options.log_dir)
   display_tabulated_metrics(options.log_dir)
+  pretty.summarize_metrics(options.log_dir)
+  pretty.display_summarized_metrics(options.log_dir, False)
 
 
 if __name__ == '__main__':

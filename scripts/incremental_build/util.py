@@ -27,6 +27,7 @@ from typing import Generator
 
 INDICATOR_FILE: Final[str] = 'build/soong/soong_ui.bash'
 METRICS_TABLE: Final[str] = 'metrics.csv'
+SUMMARY_TABLE: Final[str] = 'summary.csv'
 RUN_DIR_PREFIX: Final[str] = 'run'
 BUILD_INFO_JSON: Final[str] = 'build_info.json'
 
@@ -245,7 +246,28 @@ def any_match_under(root: Path, *patterns: str) -> (Path, list[str]):
 
 
 def hhmmss(t: datetime.timedelta) -> str:
+  """pretty prints time periods, prefers mm:ss.sss and resorts to hh:mm:ss.sss
+  only if t >= 1 hour.
+  Examples: 02:12.231, 00:00.512, 00:01:11.321, 1:12:13.121
+  See unit test for more examples."""
   h, f = divmod(t.seconds, 60 * 60)
   m, f = divmod(f, 60)
   s = f + t.microseconds / 1000_000
-  return f'{h:02d}:{m:02d}:{s:06.3f}'
+  return f'{h}:{m:02d}:{s:06.3f}' if h else f'{m:02d}:{s:06.3f}'
+
+
+def period_to_seconds(s: str) -> float:
+  """converts a time period into seconds. The input is expected to be in the
+  format used by hhmmss().
+  Example: 02:04.000 -> 125.0
+  See unit test for more examples."""
+  if s == '':
+    return 0.0
+  acc = 0.0
+  while True:
+    [left, *right] = s.split(':', 1)
+    acc = acc * 60 + float(left)
+    if right:
+      s = right[0]
+    else:
+      return acc
