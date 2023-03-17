@@ -90,9 +90,9 @@ def has_cc_stubs(target):
 # Check if this target is specified as a direct dependency of the APEX,
 # as opposed to a transitive dependency, as the transitivity impacts
 # the files that go into an APEX.
-def is_apex_direct_dep(target, ctx):
+def is_apex_direct_dep(label, ctx):
     apex_direct_deps = ctx.attr._apex_direct_deps[BuildSettingInfo].value
-    return str(target.label) in apex_direct_deps
+    return str(label) in apex_direct_deps
 
 MinSdkVersionInfo = provider(
     "MinSdkVersionInfo provides metadata about the min_sdk_version attribute of a target",
@@ -153,7 +153,7 @@ def _apex_cc_aspect_impl(target, ctx):
     # Whether this dep is a direct dep of an APEX or makes a difference in dependency
     # traversal, and aggregation of libs that are required from the platform/other APEXes,
     # and libs that this APEX will provide to others.
-    is_direct_dep = is_apex_direct_dep(target, ctx)
+    is_direct_dep = is_apex_direct_dep(target.label, ctx)
 
     provides = []
     requires = []
@@ -179,14 +179,14 @@ def _apex_cc_aspect_impl(target, ctx):
 
             # Mark this target as required from the system either via
             # the system partition, or another APEX, and propagate this list.
-            source_library = target[CcStubLibrarySharedInfo].source_library
+            source_library_label = target[CcStubLibrarySharedInfo].source_library_label
 
             # If a stub library is in the "provides" of the apex, it doesn't need to be in the "requires"
-            if not is_apex_direct_dep(source_library, ctx):
-                requires.append(source_library.label)
-                if not ctx.attr._unbundled_build[BuildSettingInfo].value and not _installed_to_bootstrap(source_library.label):
+            if not is_apex_direct_dep(source_library_label, ctx):
+                requires.append(source_library_label)
+                if not ctx.attr._unbundled_build[BuildSettingInfo].value and not _installed_to_bootstrap(source_library_label):
                     # It's sufficient to pass the make module name, not the fully qualified bazel label.
-                    make_modules_to_install.append(source_library.label.name)
+                    make_modules_to_install.append(source_library_label.name)
 
             return [
                 ApexCcInfo(

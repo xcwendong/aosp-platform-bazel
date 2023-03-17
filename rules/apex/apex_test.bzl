@@ -522,16 +522,19 @@ def _apex_native_libs_requires_provides_test(ctx):
         env,
         [t.label for t in ctx.attr.requires_native_libs],  # expected
         target_under_test[ApexInfo].requires_native_libs,  # actual
+        "did not get expected requires_native_libs",
     )
     asserts.equals(
         env,
         [t.label for t in ctx.attr.provides_native_libs],
         target_under_test[ApexInfo].provides_native_libs,
+        "did not get expected provides_native_libs",
     )
     asserts.equals(
         env,
         ctx.attr.make_modules_to_install,
         target_under_test[ApexMkInfo].make_modules_to_install,
+        "did not get expected make_modules_to_install",
     )
 
     # Compare the argv of the jsonmodify action that updates the apex
@@ -680,7 +683,7 @@ def _test_apex_manifest_dependencies_requires():
     cc_stub_suite(
         name = name + "_lib_with_dep_stub_libs",
         soname = name + "_lib_with_dep.so",
-        source_library = ":" + name + "_lib_with_dep",
+        source_library_label = ":" + name + "_lib_with_dep",
         symbol_file = name + "_lib_with_dep.map.txt",
         versions = ["30"],
     )
@@ -703,7 +706,7 @@ def _test_apex_manifest_dependencies_requires():
     cc_stub_suite(
         name = name + "_libfoo_stub_libs",
         soname = name + "_libfoo.so",
-        source_library = ":" + name + "_libfoo",
+        source_library_label = ":" + name + "_libfoo",
         symbol_file = name + "_libfoo.map.txt",
         versions = ["30"],
     )
@@ -747,7 +750,7 @@ def _test_apex_manifest_dependencies_provides():
     cc_stub_suite(
         name = name + "_libfoo_stub_libs",
         soname = name + "_libfoo.so",
-        source_library = ":" + name + "_libfoo",
+        source_library_label = ":" + name + "_libfoo",
         symbol_file = name + "_libfoo.map.txt",
         versions = ["30"],
     )
@@ -794,7 +797,7 @@ def _test_apex_manifest_dependencies_selfcontained():
     cc_stub_suite(
         name = name + "_lib_with_dep_stub_libs",
         soname = name + "_lib_with_dep.so",
-        source_library = ":" + name + "_lib_with_dep",
+        source_library_label = ":" + name + "_lib_with_dep",
         symbol_file = name + "_lib_with_dep.map.txt",
         versions = ["30"],
     )
@@ -817,7 +820,7 @@ def _test_apex_manifest_dependencies_selfcontained():
     cc_stub_suite(
         name = name + "_libfoo_stub_libs",
         soname = name + "_libfoo.so",
-        source_library = ":" + name + "_libfoo",
+        source_library_label = ":" + name + "_libfoo",
         symbol_file = name + "_libfoo.map.txt",
         versions = ["30"],
     )
@@ -894,7 +897,7 @@ def _test_apex_manifest_dependencies_cc_binary():
     cc_stub_suite(
         name = name + "_librequires_stub_libs",
         soname = name + "_librequires.so",
-        source_library = ":" + name + "_librequires",
+        source_library_label = ":" + name + "_librequires",
         symbol_file = name + "_librequires.map.txt",
         versions = ["30"],
     )
@@ -917,7 +920,7 @@ def _test_apex_manifest_dependencies_cc_binary():
     cc_stub_suite(
         name = name + "_librequires2_stub_libs",
         soname = name + "_librequires2.so",
-        source_library = ":" + name + "_librequires2",
+        source_library_label = ":" + name + "_librequires2",
         symbol_file = name + "_librequires2.map.txt",
         versions = ["30"],
     )
@@ -2250,7 +2253,7 @@ def cc_library_shared_with_stubs(name):
     cc_stub_suite(
         name = name + "_stub_libs",
         soname = name + ".so",
-        source_library = ":" + name,
+        source_library_label = ":" + name,
         symbol_file = name + ".map.txt",
         versions = ["30"],
         tags = ["manual"],

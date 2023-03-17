@@ -385,7 +385,7 @@ def _cc_aidl_libraries(
         deps = [aidl_code_gen],
         dynamic_deps = dynamic_deps,
         min_sdk_version = min_sdk_version,
-        tidy = True,
+        tidy = "local",
         tidy_checks_as_errors = tidy_checks_as_errors,
         tidy_gen_header_filter = True,
         tags = tags,

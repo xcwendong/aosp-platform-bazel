@@ -304,7 +304,7 @@ def _generate_tidy_actions(ctx):
     with_tidy = ctx.attr._with_tidy[BuildSettingInfo].value
     allow_local_tidy_true = ctx.attr._allow_local_tidy_true[BuildSettingInfo].value
     tidy_external_vendor = ctx.attr._tidy_external_vendor[BuildSettingInfo].value
-    tidy_enabled = with_tidy or (allow_local_tidy_true and ctx.attr.tidy)
+    tidy_enabled = (with_tidy and ctx.attr.tidy != "never") or (allow_local_tidy_true and ctx.attr.tidy == "local")
     should_run_for_current_package = clang_tidy_for_dir(tidy_external_vendor, ctx.label.package)
     if tidy_enabled and should_run_for_current_package:
         direct_tidy_files = _generate_tidy_files(ctx)
@@ -545,7 +545,7 @@ _cc_library_combiner = rule(
         ),
 
         # Clang-tidy attributes
-        "tidy": attr.bool(),
+        "tidy": attr.string(values = ["", "local", "never"]),
         "srcs_cpp": attr.label_list(allow_files = True),
         "srcs_c": attr.label_list(allow_files = True),
         "copts_cpp": attr.string_list(),
