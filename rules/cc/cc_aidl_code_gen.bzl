@@ -177,6 +177,7 @@ def _compile_aidl_srcs(ctx, aidl_info, lang):
         executable = ctx.executable._aidl,
         arguments = [args],
         progress_message = "Compiling AIDL binding",
+        mnemonic = "CcAidlCodeGen",
     )
 
     return ret

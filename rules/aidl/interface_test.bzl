@@ -17,6 +17,7 @@ load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/aidl:interface.bzl", "aidl_interface")
+load("//build/bazel/rules/aidl:library.bzl", "AidlGenInfo")
 load("//build/bazel/rules/test_common:rules.bzl", "target_under_test_exist_test")
 
 def _ndk_backend_test_impl(ctx):
@@ -135,6 +136,74 @@ def _ndk_config_test():
     )
 
     return test_name
+
+def _aidl_library_has_flags_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+
+    asserts.true(
+        env,
+        AidlGenInfo in target_under_test,
+        "",
+    )
+    asserts.equals(
+        env,
+        ctx.attr.expected_flags,
+        target_under_test[AidlGenInfo].flags,
+        "",
+    )
+
+    return analysistest.end(env)
+
+aidl_library_has_flags_test = analysistest.make(
+    _aidl_library_has_flags_test_impl,
+    attrs = {
+        "expected_flags": attr.string_list(),
+    },
+)
+
+def _test_aidl_interface_passes_flags_to_aidl_libraries():
+    name = "aidl_interface_passes_version_flags_to_aidl_libraries"
+    aidl_interface(
+        name = name,
+        srcs = ["Foo.aidl"],
+        tags = ["manual"],
+        versions = ["1", "2"],
+    )
+
+    target_v1_test_name = name + "_test-V1"
+    aidl_library_has_flags_test(
+        name = target_v1_test_name,
+        target_under_test = name + "-V1",
+        expected_flags = [
+            "--structured",
+            "--version=1",
+        ],
+    )
+    target_v2_test_name = name + "_test-V2"
+    aidl_library_has_flags_test(
+        name = target_v2_test_name,
+        target_under_test = name + "-V2",
+        expected_flags = [
+            "--structured",
+            "--version=2",
+        ],
+    )
+    target_v_next_test_name = name + "_test-V_next"
+    aidl_library_has_flags_test(
+        name = target_v_next_test_name,
+        target_under_test = name + "-V3",
+        expected_flags = [
+            "--structured",
+            "--version=3",
+        ],
+    )
+
+    return [
+        target_v1_test_name,
+        target_v2_test_name,
+        target_v_next_test_name,
+    ]
 
 def _next_version_for_unversioned_stable_interface_test():
     name = "unversioned_stable_interface_next_version"
@@ -270,6 +339,7 @@ def aidl_interface_test_suite(name):
                 _next_version_for_unversioned_stable_interface_test(),
                 _next_version_for_versioned_stable_interface_test(),
             ] +
-            _test_aidl_interface_generated_header_filter()
+            _test_aidl_interface_generated_header_filter() +
+            _test_aidl_interface_passes_flags_to_aidl_libraries()
         ),
     )
