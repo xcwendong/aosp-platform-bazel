@@ -26,7 +26,7 @@ load("//build/bazel/rules/apex:cc.bzl", "ApexCcInfo", "ApexCcMkInfo", "apex_cc_a
 load("//build/bazel/rules/apex:sdk_versions.bzl", "maybe_override_min_sdk_version")
 load("//build/bazel/rules/apex:transition.bzl", "apex_transition", "shared_lib_transition_32", "shared_lib_transition_64")
 load("//build/bazel/rules/cc:clang_tidy.bzl", "collect_deps_clang_tidy_info")
-load("//build/bazel/rules/cc:stripped_cc_common.bzl", "StrippedCcBinaryInfo")
+load("//build/bazel/rules/cc:stripped_cc_common.bzl", "CcUnstrippedInfo", "StrippedCcBinaryInfo")
 load("//build/bazel/rules/common:api.bzl", "api")
 load(
     "//build/bazel/rules/license:license_aspect.bzl",
@@ -45,25 +45,54 @@ load(":bundle.bzl", "apex_zip_files")
 def _create_file_mapping(ctx):
     """Create a file mapping for the APEX filesystem image.
 
-    This returns a Dict[File, str] where the dictionary keys
-    are paths in the apex staging dir / filesystem image, and
-    the values are the files that should be installed there.
+    This returns a Dict[File, str] where the dictionary keys are paths in the
+    apex staging dir / filesystem image, and the values are the files and other
+    metadata that should be installed there.
+
+    It also returns other data structures, such as:
+    - requires: libs that this apex depend on from other apex or the platform
+    - provides: libs that this apex provide to other apex or the platform
+    - make_modules_to_install: make module names of libs that needs to be installed onto the platform in a bundled build (LOCAL_REQUIRED_MODULES)
+    - make_files_info: metadata about this apex's payload to be used for other packaging steps.
     """
 
-    # Dictionary mapping from paths in the apex to the files to be put there
+    # Dictionary mapping from paths in the apex to the files and associated metadata to be put there
     file_mapping = {}
     requires = {}
     provides = {}
     make_modules_to_install = {}
 
-    def add_file_mapping(installed_path, bazel_file):
+    # Generate a str -> str dictionary to define Make modules and variables for the
+    # packaging step in a mixed build. This is necessary as long as there are
+    # Make-derived actions that operate on bazel's outputs. If we move all Make
+    # packaging actions to Bazel, there's no need for this data flow.
+    make_files_info = {}
+
+    arch = platforms.get_target_arch(ctx.attr._platform_utils)
+    is_target_64_bit = platforms.get_target_bitness(ctx.attr._platform_utils) == 64
+
+    def add_file_mapping(install_dir, basename, bazel_file, klass, owner, arch = None, unstripped = None):
+        installed_path = paths.join(install_dir, basename)
         if installed_path in file_mapping and file_mapping[installed_path] != bazel_file:
             # TODO: we should figure this out and make it a failure
             print("Warning: %s in this apex is already installed to %s, overwriting it with %s" %
                   (file_mapping[installed_path].path, installed_path, bazel_file.path))
         file_mapping[installed_path] = bazel_file
 
-    def _add_lib_files(directory, libs):
+        files_info = {
+            "built_file": bazel_file.path,
+            "class": klass,
+            "install_dir": install_dir,
+            "basename": basename,
+            "package": owner.package,
+            "make_module_name": owner.name,
+            "arch": arch,
+        }
+        if unstripped:
+            files_info["unstripped_built_file"] = unstripped.path
+        make_files_info[installed_path] = files_info
+
+    def _add_lib_files(directory, libs, arch):
         for dep in libs:
             apex_cc_info = dep[ApexCcInfo]
             for lib in apex_cc_info.requires_native_libs.to_list():
@@ -71,21 +100,32 @@ def _create_file_mapping(ctx):
             for lib in apex_cc_info.provides_native_libs.to_list():
                 provides[lib] = True
             for lib_file in apex_cc_info.transitive_shared_libs.to_list():
-                add_file_mapping(paths.join(directory, lib_file.basename), lib_file)
+                stripped = lib_file.stripped
+                unstripped = lib_file.unstripped
+                add_file_mapping(
+                    directory,
+                    stripped.basename,
+                    stripped,
+                    "nativeSharedLib",
+                    stripped.owner,
+                    arch = arch,
+                    unstripped = unstripped,
+                )
 
             # For bundled builds.
             apex_cc_mk_info = dep[ApexCcMkInfo]
             for mk_module in apex_cc_mk_info.make_modules_to_install.to_list():
                 make_modules_to_install[mk_module] = True
 
-    if platforms.get_target_bitness(ctx.attr._platform_utils) == 64:
-        _add_lib_files("lib64", ctx.attr.native_shared_libs_64)
+    if is_target_64_bit:
+        _add_lib_files("lib64", ctx.attr.native_shared_libs_64, arch)
 
         # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
-        if ctx.attr._device_secondary_arch[BuildSettingInfo].value != "":
-            _add_lib_files("lib", ctx.attr.native_shared_libs_32)
+        secondary_arch = ctx.attr._device_secondary_arch[BuildSettingInfo].value
+        if secondary_arch:
+            _add_lib_files("lib", ctx.attr.native_shared_libs_32, secondary_arch)
     else:
-        _add_lib_files("lib", ctx.attr.native_shared_libs_32)
+        _add_lib_files("lib", ctx.attr.native_shared_libs_32, arch)
 
     backing_libs = []
     for lib in file_mapping.values():
@@ -100,7 +140,7 @@ def _create_file_mapping(ctx):
             filename = prebuilt_file_info.filename
         else:
             filename = dep.label.name
-        add_file_mapping(paths.join(prebuilt_file_info.dir, filename), prebuilt_file_info.src)
+        add_file_mapping(prebuilt_file_info.dir, filename, prebuilt_file_info.src, "etc", dep.label, arch = arch)
 
     # Handle binaries
     for dep in ctx.attr.binaries:
@@ -116,15 +156,24 @@ def _create_file_mapping(ctx):
                 if sh_binary_info.filename:
                     filename = sh_binary_info.filename
 
-                add_file_mapping(paths.join(directory, filename), dep[DefaultInfo].files_to_run.executable)
+                add_file_mapping(directory, filename, dep[DefaultInfo].files_to_run.executable, "shBinary", dep.label, arch = arch)
         elif ApexCcInfo in dep:
             # cc_binary just takes the final executable from the runfiles.
-            add_file_mapping(paths.join("bin", dep.label.name), dep[DefaultInfo].files_to_run.executable)
+            add_file_mapping(
+                "bin",
+                dep.label.name,
+                dep[DefaultInfo].files_to_run.executable,
+                "nativeExecutable",
+                dep.label,
+                arch,
+                unstripped = dep[CcUnstrippedInfo].unstripped.files.to_list()[0],
+            )
 
-            if platforms.get_target_bitness(ctx.attr._platform_utils) == 64:
-                _add_lib_files("lib64", [dep])
+            # Add transitive shared lib deps of apex binaries to the apex.
+            if is_target_64_bit:
+                _add_lib_files("lib64", [dep], arch)
             else:
-                _add_lib_files("lib", [dep])
+                _add_lib_files("lib", [dep], arch)
 
     return (
         file_mapping,
@@ -132,6 +181,7 @@ def _create_file_mapping(ctx):
         sorted(provides.keys(), key = lambda x: x.name),
         backing_libs,
         sorted(make_modules_to_install),
+        sorted(make_files_info.values(), key = lambda x: ":".join([x["package"], x["make_module_name"], x["arch"]])),
     )
 
 def _add_so(label):
@@ -299,7 +349,7 @@ def _generate_installed_files_list(ctx, file_mapping):
     return installed_files
 
 def _generate_notices(ctx, apex_toolchain):
-    licensees = license_map(ctx, ctx.attr.binaries + ctx.attr.prebuilts + ctx.attr.native_shared_libs_32 + ctx.attr.native_shared_libs_64)
+    licensees = license_map(ctx.attr.binaries + ctx.attr.prebuilts + ctx.attr.native_shared_libs_32 + ctx.attr.native_shared_libs_64)
     licenses_file = ctx.actions.declare_file(ctx.attr.name + "_licenses.json")
     ctx.actions.write(licenses_file, "[\n%s\n]\n" % ",\n".join(license_map_to_json(licensees)))
 
@@ -340,7 +390,7 @@ def _run_apexer(ctx, apex_toolchain):
     pubkey = apex_key_info.public_key
     android_jar = apex_toolchain.android_jar
 
-    file_mapping, requires_native_libs, provides_native_libs, backing_libs, make_modules_to_install = _create_file_mapping(ctx)
+    file_mapping, requires_native_libs, provides_native_libs, backing_libs, make_modules_to_install, make_files_info = _create_file_mapping(ctx)
     canned_fs_config = _generate_canned_fs_config(ctx, file_mapping.keys())
     file_contexts = _generate_file_contexts(ctx)
     full_apex_manifest_json = _add_apex_manifest_information(ctx, apex_toolchain, requires_native_libs, provides_native_libs)
@@ -488,6 +538,7 @@ def _run_apexer(ctx, apex_toolchain):
         java_symbols_used_by_apex = _generate_java_symbols_used_by_apex(ctx, apex_toolchain),
         installed_files = _generate_installed_files_list(ctx, file_mapping),
         make_modules_to_install = make_modules_to_install,
+        make_files_info = make_files_info,
     )
 
 def _run_signapk(ctx, unsigned_file, signed_file, private_key, public_key, mnemonic):
@@ -714,7 +765,10 @@ def _apex_rule_impl(ctx):
             _validation = apex_deps_validation_files,
         ),
         ApexDepsInfo(transitive_deps = transitive_apex_deps),
-        ApexMkInfo(make_modules_to_install = apexer_outputs.make_modules_to_install),
+        ApexMkInfo(
+            make_modules_to_install = apexer_outputs.make_modules_to_install,
+            files_info = apexer_outputs.make_files_info,
+        ),
         collect_deps_clang_tidy_info(ctx),
     ]
 

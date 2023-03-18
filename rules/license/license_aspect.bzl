@@ -14,7 +14,7 @@ def _maybe_expand(rule, transitive_licenses):
     if hasattr(dep_info, "license_closure"):
         transitive_licenses.append(dep_info.license_closure)
 
-def _rule_licenses_aspect_impl(rule, ctx):
+def _rule_licenses_aspect_impl(_rule, ctx):
     if ctx.rule.kind == "_license":
         return RuleLicensedDependenciesInfo()
 
@@ -66,13 +66,12 @@ def _divine_package_name(license):
         return license.package_name
     return license.rule.name.removeprefix("external_").removesuffix("_license").replace("_", " ")
 
-def license_map(ctx, deps):
+def license_map(deps):
     """Collects license to licensees map for the given set of rule targets.
 
     TODO(asmundak): at the moment licensees lists are all empty because collecting
     the licensees turned out to be too slow. Restore this later.
     Args:
-        ctx:context
         deps: list of rule targets
     Returns:
         dictionary mapping a license to its licensees

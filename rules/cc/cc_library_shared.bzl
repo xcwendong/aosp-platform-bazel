@@ -79,11 +79,11 @@ def cc_library_shared(
         strip = {},
 
         # TODO(b/202299295): Handle data attribute.
-        data = [],
+        data = [],  # @unused
         use_version_lib = False,
         stubs_symbol_file = None,
         inject_bssl_hash = False,
-        sdk_version = "",
+        sdk_version = "",  # @unused
         min_sdk_version = "",
         abi_checker_enabled = None,
         abi_checker_symbol_file = None,

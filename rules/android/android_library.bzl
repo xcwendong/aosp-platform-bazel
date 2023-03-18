@@ -141,10 +141,17 @@ ATTRS = _attrs.add(
     KT_COMPILER_ATTRS,
 )
 
-def _validations_processor(ctx, **unused_sub_ctxs):
+def _validations_processor(ctx, **_unused_sub_ctxs):
     utils.check_for_failures(ctx.label, ctx.attr.deps, ctx.attr.exports)
 
-def _process_jvm(ctx, java_package, exceptions_ctx, resources_ctx, idl_ctx, db_ctx, **unused_sub_ctxs):
+def _process_jvm(
+        ctx,
+        java_package,  # @unused
+        exceptions_ctx,  # @unused
+        resources_ctx,
+        idl_ctx,
+        db_ctx,
+        **_unused_sub_ctxs):
     # Filter out disallowed sources.
     srcs = ctx.files.srcs + idl_ctx.idl_java_srcs + db_ctx.java_srcs
 

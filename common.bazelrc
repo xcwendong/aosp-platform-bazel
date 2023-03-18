@@ -8,9 +8,9 @@ build --platform_mappings=build/bazel/platforms/platform_mappings
 # Use toolchain resolution to find the cc toolchain.
 build --incompatible_enable_cc_toolchain_resolution
 
-# Ensure that the host_javabase always use @local_jdk, the checked-in JDK.
-build --tool_java_runtime_version=local_jdk
-build --java_runtime_version=local_jdk
+# Ensure that the host_javabase always use the checked-in JDK.
+build --tool_java_runtime_version=jdk17
+build --java_runtime_version=jdk17
 
 # Disable errorprone to continue making progress on java and android conversion
 # while we determine how errorprone will be handled in Bazel-only builds b/227504307.

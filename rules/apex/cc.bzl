@@ -14,7 +14,8 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
-load("//build/bazel/rules/cc:cc_library_shared.bzl", "CcStubLibrariesInfo")
+load("//build/bazel/rules/cc:cc_library_shared.bzl", "CcSharedLibraryOutputInfo", "CcStubLibrariesInfo")
+load("//build/bazel/rules/cc:stripped_cc_common.bzl", "CcUnstrippedInfo")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
 
 ApexCcInfo = provider(
@@ -213,9 +214,10 @@ def _apex_cc_aspect_impl(target, ctx):
 
     # Exclude the stripped and unstripped so files
     if ctx.rule.kind == "_cc_library_shared_proxy":
-        for output_file in target[DefaultInfo].files.to_list():
-            if output_file.extension == "so":
-                shared_object_files.append(output_file)
+        shared_object_files.append(struct(
+            stripped = target[CcSharedLibraryOutputInfo].output_file,
+            unstripped = target[CcUnstrippedInfo].unstripped,
+        ))
         if hasattr(ctx.rule.attr, "shared"):
             transitive_deps.append(ctx.rule.attr.shared[0])
     elif ctx.rule.kind in ["cc_shared_library", "cc_binary"]:
@@ -232,9 +234,15 @@ def _apex_cc_aspect_impl(target, ctx):
 
     if ctx.rule.kind in ["stripped_binary", "_cc_library_shared_proxy", "_cc_library_combiner"] and hasattr(ctx.rule.attr, "runtime_deps"):
         for dep in ctx.rule.attr.runtime_deps:
+            unstripped = None
+            if CcUnstrippedInfo in dep:
+                unstripped = dep[CcUnstrippedInfo].unstripped
             for output_file in dep[DefaultInfo].files.to_list():
                 if output_file.extension == "so":
-                    shared_object_files.append(output_file)
+                    shared_object_files.append(struct(
+                        stripped = output_file,
+                        unstripped = unstripped,
+                    ))
             transitive_deps.append(dep)
 
     return [

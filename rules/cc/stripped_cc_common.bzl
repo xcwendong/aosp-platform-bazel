@@ -14,7 +14,6 @@
 
 """A macro to handle shared library stripping."""
 
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load(":cc_library_common.bzl", "CcAndroidMkInfo")
 load(":clang_tidy.bzl", "collect_deps_clang_tidy_info")
 
@@ -39,17 +38,17 @@ def _get_strip_args(attrs):
     strip_args = []
     keep_mini_debug_info = False
     if attrs.keep_symbols:
-        strip_args += ["--keep-symbols"]
+        strip_args.append("--keep-symbols")
     elif attrs.keep_symbols_and_debug_frame:
-        strip_args += ["--keep-symbols-and-debug-frame"]
+        strip_args.append("--keep-symbols-and-debug-frame")
     elif attrs.keep_symbols_list:
-        strip_args += ["-k" + ",".join(attrs.keep_symbols_list)]
+        strip_args.append("-k" + ",".join(attrs.keep_symbols_list))
     elif not attrs.all:
-        strip_args += ["--keep-mini-debug-info"]
+        strip_args.append("--keep-mini-debug-info")
         keep_mini_debug_info = True
 
     if not keep_mini_debug_info:
-        strip_args += ["--add-gnu-debuglink"]
+        strip_args.append("--add-gnu-debuglink")
 
     return strip_args
 
@@ -62,7 +61,6 @@ def stripped_impl(ctx, prefix = "", suffix = "", extension = ""):
             target_file = ctx.files.src[0],
         )
         return out_file
-    cc_toolchain = find_cpp_toolchain(ctx)
     d_file = ctx.actions.declare_file(ctx.attr.name + ".d")
     ctx.actions.run(
         env = {

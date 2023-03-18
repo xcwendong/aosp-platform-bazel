@@ -137,6 +137,7 @@ def _get_target_arch(utils):
 platforms = struct(
     is_target_linux = _is_target_linux,
     is_target_android = _is_target_android,
+    is_target_bionic = _is_target_bionic,
     is_target_darwin = _is_target_darwin,
     is_target_linux_or_android = _is_target_linux_or_android,
     is_target_x86 = _is_target_x86,

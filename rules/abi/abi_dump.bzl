@@ -46,8 +46,6 @@ def _abi_dump_aspect_impl(target, ctx):
 
     transitive_dumps = []
     direct_dumps = []
-    transitive_paths = []
-    direct_paths = []
 
     if CcStaticLibraryInfo in target:
         direct_dumps.extend(_create_abi_dumps(
@@ -220,7 +218,7 @@ def create_linked_abi_dump(ctx, dump_files):
 
     return output
 
-def find_abi_config(ctx):
+def find_abi_config(_ctx):
     sdk_version = str(product_vars["Platform_sdk_version"])
     prev_version = int(parse_apex_sdk_version(sdk_version))
     version = "current"

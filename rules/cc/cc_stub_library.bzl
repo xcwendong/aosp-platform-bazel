@@ -227,7 +227,18 @@ _cc_stub_library_shared = rule(
     },
 )
 
-def cc_stub_suite(name, source_library_label, versions, symbol_file, export_includes = [], soname = "", deps = [], data = [], target_compatible_with = [], features = [], tags = ["manual"]):
+def cc_stub_suite(
+        name,
+        source_library_label,
+        versions,
+        symbol_file,
+        export_includes = [],
+        soname = "",
+        deps = [],
+        data = [],  # @unused
+        target_compatible_with = [],
+        features = [],
+        tags = ["manual"]):
     # Implicitly add "current" to versions. This copies the behavior from Soong (aosp/1641782)
     if "current" not in versions:
         versions.append("current")

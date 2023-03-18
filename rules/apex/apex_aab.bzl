@@ -23,7 +23,6 @@ def _arch_transition_impl(settings, _attr):
     Six arch products are included for mainline modules: x86, x86_64, x86_64only, arm, arm64, arm64only.
     """
     old_platform = str(settings["//command_line_option:platforms"][0])
-    device_secondary_arch = settings["//build/bazel/rules/apex:device_secondary_arch"]
 
     # We can't use platforms alone to differentiate between x86_64 and x86_64
     # with a secondary arch, which is significant for apex packaging that can

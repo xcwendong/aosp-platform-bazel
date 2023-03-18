@@ -105,6 +105,14 @@ local_repository(
     path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
 )
 
+# Stubbing the local_jdk both ensures that we don't accidentally download remote
+# repositories and allows us to let the Kotlin rules continue to access
+# @local_jdk//jar.
+local_repository(
+    name = "local_jdk",
+    path = "build/bazel/rules/java/stub_local_jdk",
+)
+
 # The following 2 repositories contain prebuilts that are necessary to the Java Rules.
 # They are vendored locally to avoid the need for CI bots to download them.
 local_repository(
@@ -124,7 +132,7 @@ local_repository(
     path = "build/bazel/rules/java/rules_java",
 )
 
-register_toolchains("@local_jdk//:all")
+register_toolchains("//prebuilts/jdk/jdk17/linux-x86:all")
 
 local_repository(
     name = "kotlin_maven_interface",

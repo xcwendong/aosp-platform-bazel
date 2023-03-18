@@ -11,6 +11,7 @@ load(":apex.bzl", "compression_enabled")
 load(":apex_aab_test.bzl", "apex_aab_test_suite")
 load(":apex_key_test.bzl", "apex_key_test_suite")
 load(":apex_test.bzl", "apex_test_suite")
+load(":apex_mk_test.bzl", "apex_mk_test_suite")
 
 string_setting(
     name = "apex_name",
@@ -218,6 +219,10 @@ apex_aab_test_suite(
 
 apex_key_test_suite(
     name = "apex_key_tests",
+)
+
+apex_mk_test_suite(
+    name = "apex_mk_tests",
 )
 
 filegroup(

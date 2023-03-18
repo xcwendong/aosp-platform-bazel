@@ -15,8 +15,8 @@
 def cc_prebuilt_library_static(
         name,
         static_library,
-        export_includes = [],
-        export_system_includes = [],
+        export_includes = [],  # @unused
+        export_system_includes = [],  # @unused
         **kwargs):
     "Bazel macro to correspond with the *_cc_prebuilt_library_static Soong module types"
 

@@ -195,7 +195,7 @@ def create_ccinfo_for_includes(
     # Combine this target's compilation context with those of the deps; use only
     # the compilation context of the combined CcInfo.
     cc_infos = [dep[CcInfo] for dep in deps]
-    cc_infos += [CcInfo(compilation_context = compilation_context)]
+    cc_infos.append(CcInfo(compilation_context = compilation_context))
     combined_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
 
     return CcInfo(compilation_context = combined_info.compilation_context)
