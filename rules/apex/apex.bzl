@@ -459,7 +459,7 @@ def _run_apexer(ctx, apex_toolchain):
     override_min_sdk_version = ctx.attr._apex_global_min_sdk_version_override[BuildSettingInfo].value
     min_sdk_version = maybe_override_min_sdk_version(min_sdk_version, override_min_sdk_version)
 
-    if use_api_fingerprint:
+    if min_sdk_version == "10000" and use_api_fingerprint:
         min_sdk_version = ctx.attr._platform_sdk_codename[BuildSettingInfo].value + sdk_version_suffix
         args.add(api_fingerprint_file.path)
     args.add_all(["--min_sdk_version", min_sdk_version])

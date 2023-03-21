@@ -2467,23 +2467,32 @@ def _min_target_sdk_version_api_fingerprint_test(ctx):
         "api_fingerprint.txt is not in the input files",
     )
 
-    expected_sdk_version = "123" + ".$$(cat {})".format(api_fingerprint_path)
+    expected_target_sdk_version = "123" + ".$$(cat {})".format(api_fingerprint_path)
     asserts.equals(
         env,
-        expected = expected_sdk_version,
-        actual = argv[argv.index("--min_sdk_version") + 1],
+        expected = expected_target_sdk_version,
+        actual = argv[argv.index("--target_sdk_version") + 1],
     )
 
+    if ctx.attr.min_sdk_version in ["current", "10000"]:
+        expected_min_sdk_version = "123" + ".$$(cat {})".format(api_fingerprint_path)
+    else:
+        expected_min_sdk_version = ctx.attr.min_sdk_version
     asserts.equals(
         env,
-        expected = expected_sdk_version,
-        actual = argv[argv.index("--target_sdk_version") + 1],
+        expected = expected_min_sdk_version,
+        actual = argv[argv.index("--min_sdk_version") + 1],
     )
 
     return analysistest.end(env)
 
 min_target_sdk_version_api_fingerprint_test = analysistest.make(
     _min_target_sdk_version_api_fingerprint_test,
+    attrs = {
+        "min_sdk_version": attr.string(
+            default = "current",
+        ),
+    },
     config_settings = {
         "@//build/bazel/rules/apex:unbundled_build": True,
         "@//build/bazel/rules/apex:always_use_prebuilt_sdks": False,
@@ -2492,13 +2501,30 @@ min_target_sdk_version_api_fingerprint_test = analysistest.make(
     },
 )
 
-def _test_min_target_sdk_version_api_fingerprint():
-    name = "min_target_sdk_version_api_fingerprint"
+def _test_min_target_sdk_version_api_fingerprint_min_sdk_version_specified():
+    name = "min_target_sdk_version_api_fingerprint_min_sdk_version_specified"
+    test_name = name + "_test"
+    min_sdk_version = "30"
+
+    test_apex(
+        name = name,
+        min_sdk_version = min_sdk_version,
+    )
+
+    min_target_sdk_version_api_fingerprint_test(
+        name = test_name,
+        target_under_test = name,
+        min_sdk_version = min_sdk_version,
+    )
+
+    return test_name
+
+def _test_min_target_sdk_version_api_fingerprint_min_sdk_version_not_specified():
+    name = "min_target_sdk_version_api_fingerprint_min_sdk_version_not_specified"
     test_name = name + "_test"
 
     test_apex(
         name = name,
-        min_sdk_version = "current",
     )
 
     min_target_sdk_version_api_fingerprint_test(
@@ -2559,6 +2585,7 @@ def apex_test_suite(name):
             _test_apex_in_bundled_build(),
             _test_apex_compression(),
             _test_apex_no_compression(),
-            _test_min_target_sdk_version_api_fingerprint(),
+            _test_min_target_sdk_version_api_fingerprint_min_sdk_version_specified(),
+            _test_min_target_sdk_version_api_fingerprint_min_sdk_version_not_specified(),
         ] + _test_apex_transition(),
     )

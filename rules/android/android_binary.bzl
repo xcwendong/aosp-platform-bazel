@@ -12,9 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_android//rules:rules.bzl", _android_binary = "android_binary")
+load("@rules_android//rules:common.bzl", "common")
+load("@rules_android//rules:migration_tag_DONOTUSE.bzl", "add_migration_tag")
+load(
+    "//build/bazel/rules/android/android_binary_aosp_internal:rule.bzl",
+    "android_binary_aosp_internal_macro",
+)
 load("android_app_certificate.bzl", "android_app_certificate_with_default_cert")
 load("android_app_keystore.bzl", "android_app_keystore")
+
+def _android_binary_helper(**attrs):
+    """Bazel android_binary rule.
+
+        https://docs.bazel.build/versions/master/be/android.html#android_binary
+
+        Args:
+          **attrs: Rule attributes
+    """
+    android_binary_aosp_internal_name = ":" + attrs["name"] + common.PACKAGED_RESOURCES_SUFFIX
+    android_binary_aosp_internal_macro(
+        **dict(
+            attrs,
+            name = android_binary_aosp_internal_name[1:],
+            visibility = ["//visibility:private"],
+        )
+    )
+
+    attrs.pop("$enable_manifest_merging", None)
+
+    native.android_binary(
+        application_resources = android_binary_aosp_internal_name,
+        **add_migration_tag(attrs)
+    )
 
 def android_binary(
         name,
@@ -56,7 +85,7 @@ def android_binary(
 
         debug_signing_keys.append(app_keystore_name)
 
-    _android_binary(
+    _android_binary_helper(
         name = name,
         debug_signing_keys = debug_signing_keys,
         **kwargs
