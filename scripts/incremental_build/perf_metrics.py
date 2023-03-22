@@ -168,6 +168,21 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
     def __str__(self):
       return f'#{self.indegree}->{self.header}->{self.nexts}'
 
+    def dfs(self, target: str, visited: set[str] = None) -> list[str]:
+      if not visited:
+        visited = set()
+      if target == self.header and self.header in visited:
+        return [self.header]
+      for n in self.nexts:
+        if n in visited:
+          continue
+        visited.add(n)
+        next_col = all_cols[n]
+        path = next_col.dfs(target, visited)
+        if path:
+          return [self.header, *path]
+      return []
+
   all_cols: dict[str, Column] = {}
   for row in rows:
     prev_col = None
@@ -187,11 +202,9 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
     entry = entries[0]
     # take only one to maintain alphabetical sort
     if entry.indegree != 0:
-      s = 'event ordering has cycles'
+      cycle = '->'.join(entry.dfs(entry.header))
+      s = f'event ordering has a cycle {cycle}'
       logging.warning(s)
-      s += ":\n\t"
-      s += "\n\t".join(str(c) for c in all_cols.values())
-      logging.debug(s)
       if not allow_cycles:
         raise ValueError(s)
     acc.append(entry.header)
@@ -225,7 +238,7 @@ def tabulate_metrics_csv(log_dir: Path):
     row = get_build_info_and_perf(d)
     rows.append(row)
 
-  headers: list[str] = _get_column_headers(rows, allow_cycles=False)
+  headers: list[str] = _get_column_headers(rows, allow_cycles=True)
 
   def row2line(r):
     return ','.join([str(r.get(col) or '') for col in headers])

@@ -36,11 +36,11 @@ class PerfMetricsTest(unittest.TestCase):
       expected_headers: str
 
     examples: list[Example] = [
-        Example(['a'], 'a'),
-        Example(['ac', 'bd'], 'abcd'),
-        Example(['abe', 'cde'], 'abcde'),
-        Example(['ab', 'ba'], 'ab'),
-        Example(['ac', 'abc'], 'abc')
+      Example(['a'], 'a'),
+      Example(['ac', 'bd'], 'abcd'),
+      Example(['abe', 'cde'], 'abcde'),
+      Example(['ab', 'ba'], 'ab'),
+      Example(['ac', 'abc'], 'abc')
     ]
     for e in examples:
       rows = [to_row(kz) for kz in e.row_keysets]
@@ -51,11 +51,12 @@ class PerfMetricsTest(unittest.TestCase):
 
   def test_cycles(self):
     examples = [
-        ['ab', 'ba'],
-        ['abcd', 'db'],
+      (['ab', 'ba'], 'a->b->a'),
+      (['abcd', 'db'], 'b->c->d->b')
     ]
-    for e in examples:
+    for (e, cycle) in examples:
       rows = [to_row(kz) for kz in e]
-      with self.subTest(rows=rows):
-        with self.assertRaisesRegex(ValueError, 'event ordering has cycles'):
+      with self.subTest(rows=rows, cycle=cycle):
+        with self.assertRaisesRegex(ValueError,
+                                    f'event ordering has a cycle {cycle}'):
           _get_column_headers(rows, allow_cycles=False)
