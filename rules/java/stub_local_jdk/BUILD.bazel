@@ -4,5 +4,5 @@ package(default_visibility = ["//visibility:public"])
 # keep this reference valid.
 alias(
     name = "jar",
-    actual = "@//prebuilts/jdk/jdk17/linux-x86:jar",
+    actual = "@//prebuilts/jdk/jdk17:jar",
 )

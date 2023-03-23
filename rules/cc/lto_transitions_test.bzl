@@ -14,6 +14,7 @@
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 
@@ -72,6 +73,13 @@ def _compile_action_argv_aspect_impl(target, ctx):
             argv_map,
             ctx.rule.attr.deps[0][ActionArgsInfo].argv_map,
         )
+    elif ctx.rule.kind == "stripped_binary":
+        # Checking `androidmk_deps` because that contains the root library
+        # where ths sources for the binary are ultimately compiled
+        argv_map = dicts.add(
+            argv_map,
+            ctx.rule.attr.androidmk_deps[0][ActionArgsInfo].argv_map,
+        )
     return ActionArgsInfo(
         argv_map = argv_map,
     )
@@ -83,13 +91,14 @@ def _compile_action_argv_aspect_impl(target, ctx):
 # transition takes effect.
 _compile_action_argv_aspect = aspect(
     implementation = _compile_action_argv_aspect_impl,
-    attr_aspects = ["root", "roots", "deps", "includes"],
+    attr_aspects = ["root", "roots", "deps", "includes", "androidmk_deps"],
     provides = [ActionArgsInfo],
 )
 
 lto_flag = "-flto=thin"
 static_cpp_suffix = "_cpp"
 shared_cpp_suffix = "__internal_root_cpp"
+binary_suffix = "__internal_root"
 
 def _lto_deps_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -259,6 +268,37 @@ def _test_deps_of_shared_deps_no_lto_if_disabled():
 
     return test_name
 
+def _test_binary_propagates_to_static_deps():
+    name = "binary_propagates_to_static_deps"
+    requested_target_name = name + "_requested_target"
+    dep_name = name + "_dep"
+    test_name = name + "_test"
+
+    cc_binary(
+        name = requested_target_name,
+        srcs = ["foo.cpp"],
+        deps = [dep_name],
+        features = ["android_thin_lto"],
+        tags = ["manual"],
+    )
+
+    cc_library_static(
+        name = dep_name,
+        srcs = ["bar.cpp"],
+        tags = ["manual"],
+    )
+
+    lto_deps_test(
+        name = test_name,
+        target_under_test = requested_target_name,
+        targets_with_lto = [
+            requested_target_name + binary_suffix + static_cpp_suffix,
+            dep_name + static_cpp_suffix,
+        ],
+    )
+
+    return test_name
+
 def lto_transition_test_suite(name):
     native.test_suite(
         name = name,
@@ -266,5 +306,6 @@ def lto_transition_test_suite(name):
             _test_static_deps_have_lto(),
             _test_deps_of_shared_have_lto_if_enabled(),
             _test_deps_of_shared_deps_no_lto_if_disabled(),
+            _test_binary_propagates_to_static_deps(),
         ],
     )

@@ -166,7 +166,7 @@ def _create_file_mapping(ctx):
                 "nativeExecutable",
                 dep.label,
                 arch,
-                unstripped = dep[CcUnstrippedInfo].unstripped.files.to_list()[0],
+                unstripped = dep[CcUnstrippedInfo].unstripped[0].files.to_list()[0],
             )
 
             # Add transitive shared lib deps of apex binaries to the apex.

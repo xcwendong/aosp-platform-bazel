@@ -15,8 +15,8 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "CcSharedLibraryOutputInfo", "CcStubLibrariesInfo")
-load("//build/bazel/rules/cc:stripped_cc_common.bzl", "CcUnstrippedInfo")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
+load("//build/bazel/rules/cc:stripped_cc_common.bzl", "CcUnstrippedInfo")
 
 ApexCcInfo = provider(
     "Info needed to use CC targets in APEXes",
@@ -230,7 +230,10 @@ def _apex_cc_aspect_impl(target, ctx):
                 transitive_deps.append(dep)
     elif ctx.rule.kind in rules_propagate_src and hasattr(ctx.rule.attr, "src"):
         # Propagate along the src edge
-        transitive_deps.append(ctx.rule.attr.src)
+        if ctx.rule.kind == "stripped_binary":
+            transitive_deps.append(ctx.rule.attr.src[0])
+        else:
+            transitive_deps.append(ctx.rule.attr.src)
 
     if ctx.rule.kind in ["stripped_binary", "_cc_library_shared_proxy", "_cc_library_combiner"] and hasattr(ctx.rule.attr, "runtime_deps"):
         for dep in ctx.rule.attr.runtime_deps:

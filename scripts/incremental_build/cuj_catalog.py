@@ -295,91 +295,93 @@ def _sequence(*vs: Verifier) -> Verifier:
   return f
 
 
-def _with_kept_build_file_verifications(
-    template: CujGroup, curated_file: Path, curated_content) -> CujGroup:
-  ws_file = util.get_out_dir().joinpath('soong/workspace').joinpath(
-    curated_file.with_name('BUILD.bazel'))
+def content_verfiers(
+    ws_build_file: Path, content: str) -> (Verifier, Verifier):
+  def search() -> bool:
+    with open(ws_build_file, "r") as f:
+      for line in f:
+        if line == content:
+          return True
+    return False
 
   @skip_when_soong_only
-  def verify_merged():
-    with open(ws_file, "r") as f:
-      for line in f:
-        if line == curated_content:
-          return  # found the line
-      raise AssertionError(f'{curated_file} not merged in {ws_file}')
+  def contains():
+    if not search():
+      raise AssertionError(
+        f'{de_src(ws_build_file)} expected to contain {content}')
+    logging.info(f'VERIFIED {de_src(ws_build_file)} contains {content}')
 
   @skip_when_soong_only
-  def verify_removed():
-    if not ws_file.exists():
-      return
-    with open(ws_file, "r") as f:
-      for line in f:
-        if line == curated_content:
-          raise AssertionError(f'{curated_file} still merged in {ws_file}')
+  def does_not_contain():
+    if search():
+      raise AssertionError(
+        f'{de_src(ws_build_file)} not expected to contain {content}')
+    logging.info(f'VERIFIED {de_src(ws_build_file)} does not contain {content}')
+
+  return contains, does_not_contain
+
+
+def modify_revert_kept_build_file(build_file: Path) -> CujGroup:
+  content = f'//BOGUS {uuid.uuid4()}\n'
+  step1, step2, *tail = modify_revert(build_file, content).steps
+  assert len(tail) == 0
+  ws_build_file = InWorkspace.ws_counterpart(build_file).with_name(
+    'BUILD.bazel')
+  merge_prover, merge_disprover = content_verfiers(ws_build_file, content)
+  return CujGroup(de_src(build_file), [
+    CujStep(step1.verb,
+            step1.apply_change,
+            _sequence(step1.verify, merge_prover)),
+    CujStep(step2.verb,
+            step2.apply_change,
+            _sequence(step2.verify, merge_disprover))
+  ])
+
+
+def create_delete_kept_build_file(build_file: Path) -> CujGroup:
+  content = f'//BOGUS {uuid.uuid4()}\n'
+  ws_build_file = InWorkspace.ws_counterpart(build_file).with_name(
+    'BUILD.bazel')
+  if build_file.name == 'BUILD.bazel':
+    ws = InWorkspace.NOT_UNDER_SYMLINK
+  elif build_file.name == 'BUILD':
+    ws = InWorkspace.SYMLINK
+  else:
+    raise RuntimeError(f'Illegal name for a build file {build_file}')
+
+  merge_prover, merge_disprover = content_verfiers(ws_build_file, content)
 
   step1: CujStep
   step2: CujStep
-  step1, step2, *tail = template.steps
+  step1, step2, *tail = create_delete(build_file, ws, content).steps
   assert len(tail) == 0
-
-  step1 = CujStep(step1.verb,
-                  step1.apply_change,
-                  _sequence(step1.verify, verify_merged))
-  step2 = CujStep(step2.verb,
-                  step2.apply_change,
-                  _sequence(step2.verify, verify_removed))
-  return CujGroup(template.description, [step1, step2])
-
-
-def modify_revert_kept_build_file(curated_file: Path) -> CujGroup:
-  curated_content = f'//BOGUS {uuid.uuid4()}\n'
-  template = modify_revert(curated_file, curated_content)
-  return _with_kept_build_file_verifications(template,
-                                             curated_file,
-                                             curated_content)
+  return CujGroup(de_src(build_file), [
+    CujStep(step1.verb,
+            step1.apply_change,
+            _sequence(step1.verify, merge_prover)),
+    CujStep(step2.verb,
+            step2.apply_change,
+            _sequence(step2.verify, merge_disprover))
+  ])
 
 
-def create_delete_kept_build_file(curated_file: Path,
-    ws: InWorkspace) -> CujGroup:
-  curated_content = f'//BOGUS {uuid.uuid4()}\n'
-  template: CujGroup = create_delete(curated_file,
-                                     ws,
-                                     curated_content)
-  return _with_kept_build_file_verifications(template,
-                                             curated_file,
-                                             curated_content)
-
-
-def create_delete_unkept_build_file(buildfile) -> CujGroup:
-  sibling_bp = buildfile.with_name('Android.bp')
-  if sibling_bp.exists():
-    raise AssertionError('for simplicity, try BUILD without sibling Android.bp')
-  create_bp: CujStep
-  delete_bp: CujStep
-  create_bp, delete_bp, *tail = create_delete_bp(sibling_bp).steps
+def create_delete_unkept_build_file(build_file) -> CujGroup:
+  content = f'//BOGUS {uuid.uuid4()}\n'
+  ws_build_file = InWorkspace.ws_counterpart(build_file).with_name(
+    'BUILD.bazel')
+  step1: CujStep
+  step2: CujStep
+  step1, step2, *tail = create_delete(
+    build_file, InWorkspace.SYMLINK, content).steps
   assert len(tail) == 0
-  curated_content = '//gibberish'
-
-  def create_files():
-    create_bp.apply_change()
-    with open(buildfile, mode="w") as f:
-      f.write(curated_content)
-
-  @skip_when_soong_only
-  def verify():
-    generated = InWorkspace.ws_counterpart(buildfile.with_name('BUILD.bazel'))
-    with open(generated, "r") as f:
-      for line in f:
-        if line == curated_content:
-          raise AssertionError(f'{buildfile} merged in {generated}')
-
-  return CujGroup(de_src(buildfile), [
-    CujStep('create',
-            create_files,
-            _sequence(create_bp.verify,
-                      InWorkspace.OMISSION.verifier(buildfile),
-                      verify)),
-    delete_bp
+  _, merge_disprover = content_verfiers(ws_build_file, content)
+  return CujGroup(de_src(build_file), [
+    CujStep(step1.verb,
+            step1.apply_change,
+            _sequence(step1.verify, merge_disprover)),
+    CujStep(step2.verb,
+            step2.apply_change,
+            _sequence(step2.verify, merge_disprover))
   ])
 
 
@@ -392,6 +394,36 @@ PKG = ['Android.bp', '!BUILD', '!BUILD.bazel']
 """limiting the candidate to Android.bp file with no sibling bazel files"""
 PKG_FREE = ['!**/Android.bp', '!**/BUILD', '!**/BUILD.bazel']
 """no Android.bp or BUILD or BUILD.bazel file anywhere"""
+
+
+def _kept_build_cujs() -> list[CujGroup]:
+  # Bp2BuildKeepExistingBuildFile(build/bazel) is True(recursive)
+  kept = src('build/bazel')
+  pkg = util.any_dir_under(kept, *PKG)
+  examples = [pkg.joinpath('BUILD'),
+              pkg.joinpath('BUILD.bazel')]
+
+  return [
+    *[create_delete_kept_build_file(build_file) for build_file in examples],
+    create_delete(pkg.joinpath('BUILD/kept-dir'), InWorkspace.SYMLINK),
+    modify_revert_kept_build_file(util.any_file_under(kept, 'BUILD'))]
+
+
+def _unkept_build_cujs() -> list[CujGroup]:
+  # Bp2BuildKeepExistingBuildFile(bionic) is False(recursive)
+  unkept = src('bionic')
+  pkg = util.any_dir_under(unkept, *PKG)
+  return [
+    *[create_delete_unkept_build_file(build_file) for build_file in [
+      pkg.joinpath('BUILD'),
+      pkg.joinpath('BUILD.bazel'),
+    ]],
+    *[create_delete(build_file, InWorkspace.OMISSION) for build_file in [
+      unkept.joinpath('bogus-unkept/BUILD'),
+      unkept.joinpath('bogus-unkept/BUILD.bazel'),
+    ]],
+    create_delete(pkg.joinpath('BUILD/unkept-dir'), InWorkspace.SYMLINK)
+  ]
 
 
 @functools.cache
@@ -410,46 +442,11 @@ def get_cujgroups() -> list[CujGroup]:
        package free: {de_src(pkg_free)} has {f_why} but no Android.bp anywhere
   leaf package free: {de_src(leaf_pkg_free)} has neither Android.bp nor sub-dirs
   '''))
+
   android_bp_cujs = [
     modify_revert(src('Android.bp')),
-
     *[create_delete_bp(d.joinpath('Android.bp')) for d in
       [ancestor, pkg_free, leaf_pkg_free]]
-  ]
-  bazel_file_cujs = [
-    # needs ShouldKeepExistingBuildFileForDir(pkg_free) = false
-    *[create_delete(d.joinpath('BUILD.bazel'), InWorkspace.OMISSION) for d in
-      [ancestor,
-       pkg_free,
-       leaf_pkg_free
-       ]],
-    # for pkg and leaf_pkg, BUILD.bazel will be created
-    # but BUILD will be either merged or ignored
-    create_delete(pkg.joinpath('BUILD'), InWorkspace.OMISSION),
-
-    *[create_delete(d.joinpath('BUILD/bogus-under-build-dir.txt'),
-                    InWorkspace.UNDER_SYMLINK) for
-      d in [pkg, ancestor, pkg_free, leaf_pkg_free]],
-
-    # external/guava Bp2BuildKeepExistingBuildFile set True(recursive)
-    create_delete_kept_build_file(
-      util.any_dir_under(src('external/guava'),
-                         '!Android.bp', '!BUILD', '!BUILD.bazel')
-      .joinpath('BUILD'),
-      InWorkspace.SYMLINK),
-    create_delete_kept_build_file(
-      util.any_dir_under(src('external/guava'), 'Android.bp',
-                         '!BUILD.bazel')
-      .joinpath('BUILD.bazel'),
-      InWorkspace.NOT_UNDER_SYMLINK),
-    create_delete_kept_build_file(
-      src('external/guava/bogus/BUILD'),
-      InWorkspace.UNDER_SYMLINK),
-    modify_revert_kept_build_file(
-      util.any_file_under(src('external/guava'), 'BUILD')),
-    # bionic doesn't have Bp2BuildKeepExistingBuildFile set True
-    create_delete_unkept_build_file(src('bionic/bogus-unkept/BUILD')),
-    modify_revert(util.any_file_under(src('bionic'), 'BUILD'))
   ]
   mixed_build_launch_cujs = [
     modify_revert(src('bionic/libc/tzcode/asctime.c')),
@@ -487,7 +484,8 @@ def get_cujgroups() -> list[CujGroup]:
     *unreferenced_file_cujs,
     *mixed_build_launch_cujs,
     *android_bp_cujs,
-    *bazel_file_cujs,
+    *_unkept_build_cujs(),
+    *_kept_build_cujs(),
     replace_link_with_dir(pkg.joinpath('bogus.txt')),
     # TODO(usta): add a dangling symlink
   ]

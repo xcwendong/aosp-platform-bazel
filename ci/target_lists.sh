@@ -36,16 +36,18 @@ BUILD_TARGETS=(
   # TODO(b/266459895): remove these after re-enabling libunwindstack
   -//bionic/libc/malloc_debug:libc_malloc_debug
   -//bionic/libfdtrack:libfdtrack
-  -//frameworks/av/services/mediacodec:mediaswcodec
   -//frameworks/av/media/codec2/hidl/1.0/utils:libcodec2_hidl@1.0
-  -//frameworks/native/opengl/libs:libEGL
-  -//frameworks/av/media/module/bqhelper:libstagefright_bufferqueue_helper_novndk
-  -//frameworks/native/opengl/libs:libGLESv2
   -//frameworks/av/media/codec2/hidl/1.1/utils:libcodec2_hidl@1.1
-  -//frameworks/av/media/module/codecserviceregistrant:libmedia_codecserviceregistrant
   -//frameworks/av/media/codec2/hidl/1.2/utils:libcodec2_hidl@1.2
-  -//system/unwinding/libunwindstack:all
+  -//frameworks/av/media/module/bqhelper:libstagefright_bufferqueue_helper_novndk
+  -//frameworks/av/media/module/codecserviceregistrant:libmedia_codecserviceregistrant
+  -//frameworks/av/services/mediacodec:mediaswcodec
+  -//frameworks/native/libs/gui:libgui
+  -//frameworks/native/libs/gui:libgui_bufferqueue_static
+  -//frameworks/native/opengl/libs:libEGL
+  -//frameworks/native/opengl/libs:libGLESv2
   -//system/core/libutils:all
+  -//system/unwinding/libunwindstack:all
 )
 
 TEST_TARGETS=(
