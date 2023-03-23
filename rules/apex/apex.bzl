@@ -120,8 +120,7 @@ def _create_file_mapping(ctx):
     if is_target_64_bit:
         _add_lib_files("lib64", ctx.attr.native_shared_libs_64, arch)
 
-        # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
-        secondary_arch = ctx.attr._device_secondary_arch[BuildSettingInfo].value
+        secondary_arch = platforms.get_target_secondary_arch(ctx.attr._platform_utils)
         if secondary_arch:
             _add_lib_files("lib", ctx.attr.native_shared_libs_32, secondary_arch)
     else:
@@ -166,7 +165,7 @@ def _create_file_mapping(ctx):
                 "nativeExecutable",
                 dep.label,
                 arch,
-                unstripped = dep[CcUnstrippedInfo].unstripped.files.to_list()[0],
+                unstripped = dep[CcUnstrippedInfo].unstripped[0].files.to_list()[0],
             )
 
             # Add transitive shared lib deps of apex binaries to the apex.
@@ -697,9 +696,24 @@ def _validate_apex_deps(ctx):
     )
     return transitive_deps, transitive_unvalidated_targets_output_file, validation_files
 
+def _verify_updatability(ctx):
+    # TODO(b/274732759): Add these checks as more APEXes are converted to Bazel.
+    #
+    # Keep this in sync with build/soong/apex/apex.go#checkUpdatable.
+    #
+    # - Cannot use platform APIs.
+    # - Cannot use external VNDK libs.
+    # - Does not set future_updatable.
+
+    if not ctx.attr.min_sdk_version:
+        fail("updatable APEXes must set min_sdk_version.")
+
 # See the APEX section in the README on how to use this rule.
 def _apex_rule_impl(ctx):
     verify_toolchain_exists(ctx, "//build/bazel/rules/apex:apex_toolchain_type")
+    if ctx.attr.updatable:
+        _verify_updatability(ctx)
+
     apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
 
     apexer_outputs = _run_apexer(ctx, apex_toolchain)
@@ -733,7 +747,7 @@ def _apex_rule_impl(ctx):
         ),
         apex_file = signed_apex,
         arch = arch,
-        secondary_arch = ctx.attr._device_secondary_arch[BuildSettingInfo].value,
+        secondary_arch = platforms.get_target_secondary_arch(ctx.attr._platform_utils),
     )
 
     transitive_apex_deps, transitive_unvalidated_targets_output_file, apex_deps_validation_files = _validate_apex_deps(ctx)
@@ -801,7 +815,10 @@ the SDK version that the APEX was first introduced.
 
 When not set, defaults to 10000 (or "current").""",
         ),
-        "updatable": attr.bool(default = True),
+        "updatable": attr.bool(default = True, doc = """Whether this APEX is considered updatable or not.
+
+When set to true, this will enforce additional rules for making sure that the
+APEX is truly updatable. To be updatable, min_sdk_version should be set as well."""),
         "installable": attr.bool(default = True),
         "compressible": attr.bool(default = False),
         "base_apex_name": attr.string(
@@ -896,10 +913,6 @@ When not set, defaults to 10000 (or "current").""",
         "_apex_global_min_sdk_version_override": attr.label(
             default = "//build/bazel/rules/apex:apex_global_min_sdk_version_override",
             doc = "If specified, override the min_sdk_version of this apex and in the transition and checks for dependencies.",
-        ),
-        "_device_secondary_arch": attr.label(
-            default = "//build/bazel/rules/apex:device_secondary_arch",
-            doc = "If specified, also include the libraries from the secondary arch.",
         ),
         "_compression_enabled": attr.label(
             default = "//build/bazel/rules/apex:compression_enabled",

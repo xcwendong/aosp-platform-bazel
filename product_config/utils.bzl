@@ -90,20 +90,38 @@ def product_variable_constraint_settings(variables):
 
     return constraints, attribute_vars
 
-# android_product integrates product variables into Bazel platforms.
-#
-# This uses soong.variables to create constraints, and platforms used by the
-# bazel build. The soong.variables file itself contains a post-processed list of
-# variables derived from Make variables, through soong_config.mk, generated
-# during the product config step.
-#
-# Some constraints used here are handcrafted in
-# //build/bazel/platforms/{arch,os}. The rest are dynamically generated.
-#
-# If you're looking for what --config=android, --config=linux_x86_64 or most
-# select statements in the BUILD files (ultimately) refer to, they're all
-# created here.
+def _define_platform_for_arch(name, common_constraints, arch, secondary_arch = None):
+    if secondary_arch == None:
+        # When there is no secondary arch, we'll pretend it exists but is the same as the primary arch
+        secondary_arch = arch
+    native.platform(
+        name = name,
+        constraint_values = common_constraints + [
+            "@//build/bazel/platforms/arch:" + arch.arch,
+            "@//build/bazel/platforms/arch:secondary_" + secondary_arch.arch,
+            "@//build/bazel/platforms/os:android",
+        ] + ["@" + v for v in variant_constraints(
+            arch,
+            _variant_constants.AndroidArchToVariantToFeatures[arch.arch],
+        )],
+    )
+
 def android_product(name, soong_variables):
+    """
+    android_product integrates product variables into Bazel platforms.
+
+    This uses soong.variables to create constraints and platforms used by the
+    bazel build. The soong.variables file itself contains a post-processed list of
+    variables derived from Make variables, through soong_config.mk, generated
+    during the product config step.
+
+    Some constraints used here are handcrafted in
+    //build/bazel/platforms/{arch,os}. The rest are dynamically generated.
+
+    If you're looking for what --config=android, --config=linux_x86_64 or most
+    select statements in the BUILD files (ultimately) refer to, they're all
+    created here.
+    """
     product_var_constraints, attribute_vars = product_variable_constraint_settings(soong_variables)
     arch_configs = determine_target_arches_from_config(soong_variables)
 
@@ -122,29 +140,15 @@ def android_product(name, soong_variables):
     # TODO(b/258802089): figure out how to deal with multiple arches for target
     if len(arch_configs) > 0:
         arch = arch_configs[0]
-        native.platform(
-            name = name,
-            constraint_values = common_constraints + [
-                "@//build/bazel/platforms/arch:" + arch.arch,
-                "@//build/bazel/platforms/os:android",
-            ] + ["@" + v for v in variant_constraints(
-                arch,
-                _variant_constants.AndroidArchToVariantToFeatures[arch.arch],
-            )],
-        )
+        secondary_arch = None
         if len(arch_configs) > 1:
             secondary_arch = arch_configs[1]
-            native.platform(
-                name = name + "_secondary",
-                constraint_values = common_constraints + [
-                    "@//build/bazel/platforms/arch:" + secondary_arch.arch,
-                    "@//build/bazel/platforms/os:android",
-                ] + ["@" + v for v in variant_constraints(
-                    secondary_arch,
-                    _variant_constants.AndroidArchToVariantToFeatures[secondary_arch.arch],
-                )],
-            )
+
+        if secondary_arch != None:
+            _define_platform_for_arch(name, common_constraints, arch, secondary_arch)
+            _define_platform_for_arch(name + "_secondary", common_constraints, secondary_arch)
         else:
+            _define_platform_for_arch(name, common_constraints, arch)
             native.alias(
                 name = name + "_secondary",
                 actual = ":" + name,
@@ -167,16 +171,7 @@ def android_product(name, soong_variables):
                     arch_variant = "",
                     cpu_variant = "",
                 )
-            native.platform(
-                name = name + "__internal_32_bit",
-                constraint_values = common_constraints + [
-                    "@//build/bazel/platforms/arch:" + newarch.arch,
-                    "@//build/bazel/platforms/os:android",
-                ] + ["@" + v for v in variant_constraints(
-                    newarch,
-                    _variant_constants.AndroidArchToVariantToFeatures[newarch.arch],
-                )],
-            )
+            _define_platform_for_arch(name + "__internal_32_bit", common_constraints, newarch)
         else:
             native.alias(
                 name = name + "__internal_32_bit",
@@ -191,6 +186,7 @@ def android_product(name, soong_variables):
                     name = name + "_android_" + arch + variant_name(variant),
                     constraint_values = common_constraints + [
                         "@//build/bazel/platforms/arch:" + arch,
+                        "@//build/bazel/platforms/arch:secondary_" + arch,
                         "@//build/bazel/platforms/os:android",
                     ] + ["@" + v for v in variant_constraints(
                         variant,
@@ -200,40 +196,73 @@ def android_product(name, soong_variables):
 
         arch_transitions = [
             struct(
-                arch = "x86",
-                arch_variant = "",
-                cpu_variant = "",
+                name = "arm",
+                arch = struct(
+                    arch = "arm",
+                    arch_variant = "armv7-a-neon",
+                    cpu_variant = "",
+                ),
+                secondary_arch = None,
             ),
             struct(
-                arch = "x86_64",
-                arch_variant = "",
-                cpu_variant = "",
+                name = "arm64",
+                arch = struct(
+                    arch = "arm64",
+                    arch_variant = "armv8-a",
+                    cpu_variant = "",
+                ),
+                secondary_arch = struct(
+                    arch = "arm",
+                    arch_variant = "armv7-a-neon",
+                    cpu_variant = "",
+                ),
             ),
             struct(
-                arch = "arm",
-                arch_variant = "armv7-a-neon",
-                cpu_variant = "",
+                name = "arm64only",
+                arch = struct(
+                    arch = "arm64",
+                    arch_variant = "armv8-a",
+                    cpu_variant = "",
+                ),
+                secondary_arch = None,
             ),
             struct(
-                arch = "arm64",
-                arch_variant = "armv8-a",
-                cpu_variant = "",
+                name = "x86",
+                arch = struct(
+                    arch = "x86",
+                    arch_variant = "",
+                    cpu_variant = "",
+                ),
+                secondary_arch = None,
+            ),
+            struct(
+                name = "x86_64",
+                arch = struct(
+                    arch = "x86_64",
+                    arch_variant = "",
+                    cpu_variant = "",
+                ),
+                secondary_arch = struct(
+                    arch = "x86",
+                    arch_variant = "",
+                    cpu_variant = "",
+                ),
+            ),
+            struct(
+                name = "x86_64only",
+                arch = struct(
+                    arch = "x86_64",
+                    arch_variant = "",
+                    cpu_variant = "",
+                ),
+                secondary_arch = None,
             ),
         ]
 
         # TODO(b/249685973): Remove this, this is currently just for aabs
         # to build each architecture
         for arch in arch_transitions:
-            native.platform(
-                name = name + "__internal_" + arch.arch,
-                constraint_values = common_constraints + [
-                    "@//build/bazel/platforms/arch:" + arch.arch,
-                    "@//build/bazel/platforms/os:android",
-                ] + ["@" + v for v in variant_constraints(
-                    arch,
-                    _variant_constants.AndroidArchToVariantToFeatures[arch.arch],
-                )],
-            )
+            _define_platform_for_arch(name + "__internal_" + arch.name, common_constraints, arch.arch, arch.secondary_arch)
 
     # Now define the host platforms. We need a host platform per product because
     # the host platforms still use the product variables.

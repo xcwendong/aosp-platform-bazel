@@ -26,7 +26,7 @@ load("@rules_android//rules/android_binary_internal:impl.bzl", "finalize", _PROC
 load("//build/bazel/rules/common:api.bzl", "api")
 
 def _process_manifest_aosp(ctx, **unused_ctxs):
-    manifest_ctx = _resources.set_default_sdk(
+    manifest_ctx = _resources.set_default_min_sdk(
         ctx,
         manifest = ctx.file.manifest,
         default = api.default_app_target_sdk(),

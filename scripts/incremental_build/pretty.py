@@ -100,10 +100,9 @@ def summarize_metrics(log_dir: Path):
     write_table(f, rows)
 
 
-def display_summarized_metrics(log_dir: Path, include_rebuilds: bool):
+def display_summarized_metrics(log_dir: Path):
   f = log_dir.joinpath(util.SUMMARY_TABLE)
-  cmd = f'column -t -s, {f}' if include_rebuilds \
-    else f'grep -v rebuild {f} | column -t -s,'
+  cmd = f'grep -v rebuild {f} | grep -v WARMUP | column -t -s,'
   output = subprocess.check_output(cmd, shell=True, text=True)
   logging.info(textwrap.dedent(f'''
   %s

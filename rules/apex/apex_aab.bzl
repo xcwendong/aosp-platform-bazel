@@ -35,28 +35,22 @@ def _arch_transition_impl(settings, _attr):
     return {
         # these key names must correspond to mainline_modules_<arch> product name suffixes.
         "arm": {
-            "//build/bazel/rules/apex:device_secondary_arch": "",
             "//command_line_option:platforms": old_platform + "__internal_arm",
         },
         "arm64": {
-            "//build/bazel/rules/apex:device_secondary_arch": "arm",
             "//command_line_option:platforms": old_platform + "__internal_arm64",
         },
         "arm64only": {
-            "//build/bazel/rules/apex:device_secondary_arch": "",  # don't include arm libs
-            "//command_line_option:platforms": old_platform + "__internal_arm64",
+            "//command_line_option:platforms": old_platform + "__internal_arm64only",
         },
         "x86": {
-            "//build/bazel/rules/apex:device_secondary_arch": "",
             "//command_line_option:platforms": old_platform + "__internal_x86",
         },
         "x86_64": {
-            "//build/bazel/rules/apex:device_secondary_arch": "x86",
             "//command_line_option:platforms": old_platform + "__internal_x86_64",
         },
         "x86_64only": {
-            "//build/bazel/rules/apex:device_secondary_arch": "",  # don't include x86 libs
-            "//command_line_option:platforms": old_platform + "__internal_x86_64",
+            "//command_line_option:platforms": old_platform + "__internal_x86_64only",
         },
     }
 
@@ -65,11 +59,9 @@ arch_transition = transition(
     implementation = _arch_transition_impl,
     inputs = [
         "//command_line_option:platforms",
-        "//build/bazel/rules/apex:device_secondary_arch",
     ],
     outputs = [
         "//command_line_option:platforms",
-        "//build/bazel/rules/apex:device_secondary_arch",
     ],
 )
 

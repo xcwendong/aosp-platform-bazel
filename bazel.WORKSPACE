@@ -132,7 +132,7 @@ local_repository(
     path = "build/bazel/rules/java/rules_java",
 )
 
-register_toolchains("//prebuilts/jdk/jdk17/linux-x86:all")
+register_toolchains("//prebuilts/jdk/jdk17:all")
 
 local_repository(
     name = "kotlin_maven_interface",

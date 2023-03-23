@@ -153,9 +153,9 @@ def is_ninja_dry_run(ninja_args: str = None) -> bool:
 
 def count_explanations(process_log_file: Path) -> int:
   """
-  Builds are run with '-d explain' flag and ninja's explanations for running an
-  action (except for phony outputs) are counted. The text of the explanations
-  helps debugging. The count is an over-approximation of actions run, but it
+  Builds are run with '-d explain' flag and ninja's explanations for running
+  build statements (except for phony outputs) are counted. The explanations
+  help debugging. The count is an over-approximation of actions run, but it
   will be ZERO for a no-op build.
   """
   explanations = 0
