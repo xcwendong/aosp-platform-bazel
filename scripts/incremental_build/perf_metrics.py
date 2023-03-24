@@ -289,7 +289,7 @@ def main():
   tabulate_metrics_csv(options.log_dir)
   display_tabulated_metrics(options.log_dir)
   pretty.summarize_metrics(options.log_dir)
-  pretty.display_summarized_metrics(options.log_dir, False)
+  pretty.display_summarized_metrics(options.log_dir)
 
 
 if __name__ == '__main__':

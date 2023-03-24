@@ -115,8 +115,10 @@ def _impl_shared_lib_transition_32(settings, attr):
     old_platform = (old_platform
         .removesuffix("__internal_arm")
         .removesuffix("__internal_arm64")
+        .removesuffix("__internal_arm64only")
         .removesuffix("__internal_x86")
-        .removesuffix("__internal_x86_64"))
+        .removesuffix("__internal_x86_64")
+        .removesuffix("__internal_x86_64only"))
 
     return _create_apex_configuration(settings, attr, {
         "//build/bazel/rules/apex:apex_direct_deps": direct_deps,

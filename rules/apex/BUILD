@@ -5,13 +5,11 @@ load("//build/bazel/flags:common.bzl", "is_env_true")
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load("//build/bazel/rules/apex:toolchain.bzl", "apex_toolchain")
 load("//build/bazel/rules/common:api.bzl", "api")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting", "string_list_setting", "string_setting")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load(":apex.bzl", "compression_enabled")
 load(":apex_aab_test.bzl", "apex_aab_test_suite")
 load(":apex_key_test.bzl", "apex_key_test_suite")
-load(":apex_test.bzl", "apex_test_suite")
 load(":apex_mk_test.bzl", "apex_mk_test_suite")
+load(":apex_test.bzl", "apex_test_suite")
 
 string_setting(
     name = "apex_name",
@@ -35,13 +33,6 @@ string_setting(
     name = "apex_global_min_sdk_version_override",
     # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
     build_setting_default = product_vars.get("ApexGlobalMinSdkVersionOverride", ""),
-    visibility = ["//visibility:public"],
-)
-
-string_setting(
-    name = "device_secondary_arch",
-    # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
-    build_setting_default = product_vars.get("DeviceSecondaryArch", ""),
     visibility = ["//visibility:public"],
 )
 
