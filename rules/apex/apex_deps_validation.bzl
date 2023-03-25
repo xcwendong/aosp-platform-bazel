@@ -43,12 +43,22 @@ _IGNORED_REPOSITORIES = [
     "bazel_tools",
 ]
 _IGNORED_RULE_KINDS = [
-    # No validation for language-agnostic aidl_library targets.
-    # aidl_library targets are included via cc_aidl_code_gen rule and
-    # apex_deps_validation aspect already validates against cc_aidl_code_gen targets
+    # No validation for language-agnostic targets.  In general language
+    # agnostic rules to support AIDL, HIDL, Sysprop do not have an analogous
+    # module type in Soong and do not have an apex_available property, often
+    # relying on language-specific apex_available properties.  Because a
+    # language-specific rule is required for a language-agnostic rule to be
+    # within the transitive deps of an apex and impact the apex contents, this
+    # is safe.
     "aidl_library",
+    "hidl_library",
+    "sysprop_library",
+
+    # Build settings, these have no built artifact and thus will not be
+    # included in an apex.
     "string_list_setting",
     "string_setting",
+
     # These rule kinds cannot be skipped by checking providers because most
     # targets have a License provider
     "_license",
