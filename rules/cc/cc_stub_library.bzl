@@ -172,20 +172,13 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, export_includes, so
         name = name,
         stub_target = name + "_files",
         library_target = name + "_so",
-        deps = [name + "_root"],
+        root = name + "_root",
         source_library_label = source_library_label,
         version = version,
         tags = tags,
     )
 
 def _cc_stub_library_shared_impl(ctx):
-    # Using a "deps" label_list instead of a single mandatory label attribute
-    # is a hack to support aspect propagation of graph_aspect of the native
-    # cc_shared_library. The aspect will only be applied and propagated along
-    # a label_list attribute named "deps".
-    if len(ctx.attr.deps) != 1:
-        fail("Exactly one 'deps' must be specified for cc_stub_library_shared")
-
     source_library_label = Label(ctx.attr.source_library_label)
     api_level = str(api.parse_api_level_from_version(ctx.attr.version))
     version_macro_name = "__" + source_library_label.name.upper() + "__API__=" + api_level
@@ -193,7 +186,7 @@ def _cc_stub_library_shared_impl(ctx):
         defines = depset([version_macro_name]),
     )
 
-    cc_infos = [ctx.attr.deps[0][CcInfo]]
+    cc_infos = [ctx.attr.root[CcInfo]]
     cc_infos.append(CcInfo(compilation_context = compilation_context))
     cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
 
@@ -216,9 +209,7 @@ _cc_stub_library_shared = rule(
     attrs = {
         "stub_target": attr.label(mandatory = True),
         "library_target": attr.label(mandatory = True),
-        # "deps" should be a single element: the root target of the stub library.
-        # See _cc_stub_library_shared_impl comment for explanation.
-        "deps": attr.label_list(mandatory = True),
+        "root": attr.label(mandatory = True),
         "source_library_label": attr.string(mandatory = True),
         "version": attr.string(mandatory = True),
         "_allowlist_function_transition": attr.label(
