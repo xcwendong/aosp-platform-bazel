@@ -106,6 +106,17 @@ def _define_platform_for_arch(name, common_constraints, arch, secondary_arch = N
         )],
     )
 
+def _define_platform_for_arch_with_secondary(name, common_constraints, arch, secondary_arch = None):
+    if secondary_arch != None:
+        _define_platform_for_arch(name, common_constraints, arch, secondary_arch)
+        _define_platform_for_arch(name + "_secondary", common_constraints, secondary_arch)
+    else:
+        _define_platform_for_arch(name, common_constraints, arch)
+        native.alias(
+            name = name + "_secondary",
+            actual = ":" + name,
+        )
+
 def android_product(name, soong_variables):
     """
     android_product integrates product variables into Bazel platforms.
@@ -144,15 +155,7 @@ def android_product(name, soong_variables):
         if len(arch_configs) > 1:
             secondary_arch = arch_configs[1]
 
-        if secondary_arch != None:
-            _define_platform_for_arch(name, common_constraints, arch, secondary_arch)
-            _define_platform_for_arch(name + "_secondary", common_constraints, secondary_arch)
-        else:
-            _define_platform_for_arch(name, common_constraints, arch)
-            native.alias(
-                name = name + "_secondary",
-                actual = ":" + name,
-            )
+        _define_platform_for_arch_with_secondary(name, common_constraints, arch, secondary_arch)
 
         # These variants are mostly for mixed builds, which may request a
         # module with a certain arch
@@ -238,7 +241,7 @@ def android_product(name, soong_variables):
         # TODO(b/249685973): Remove this, this is currently just for aabs
         # to build each architecture
         for arch in arch_transitions:
-            _define_platform_for_arch(name + "__internal_" + arch.name, common_constraints, arch.arch, arch.secondary_arch)
+            _define_platform_for_arch_with_secondary(name + "__internal_" + arch.name, common_constraints, arch.arch, arch.secondary_arch)
 
     # Now define the host platforms. We need a host platform per product because
     # the host platforms still use the product variables.
