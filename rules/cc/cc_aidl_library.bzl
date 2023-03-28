@@ -20,6 +20,8 @@ def cc_aidl_library(
         deps = [],
         implementation_deps = [],
         implementation_dynamic_deps = [],
+        tags = [],
+        min_sdk_version = None,
         **kwargs):
     """
     Generate AIDL stub code for C++ and wrap it in a cc_library_static target
@@ -38,6 +40,7 @@ def cc_aidl_library(
         name = aidl_code_gen,
         deps = deps,
         lang = "cpp",
+        tags = tags + ["manual"],
         **kwargs
     )
 
@@ -47,5 +50,7 @@ def cc_aidl_library(
         implementation_deps = implementation_deps,
         implementation_dynamic_deps = implementation_dynamic_deps,
         deps = [aidl_code_gen],
+        tags = tags,
+        min_sdk_version = min_sdk_version,
         **kwargs
     )

@@ -99,22 +99,6 @@ def _is_target_linux_bionic(utils):
     """Returns if the target platform runs (non-Android) Linux and uses the Bionic libc"""
     return _get_platform_info(utils).target_linux_bionic_constraint
 
-def _is_target_x86(utils):
-    """Returns if the target platform is 32-bit x86."""
-    return _get_platform_info(utils).target_x86_constraint
-
-def _is_target_x86_64(utils):
-    """Returns if the target platform is x86_64."""
-    return _get_platform_info(utils).target_x86_64_constraint
-
-def _is_target_arm(utils):
-    """Returns if the target platform is 32-bit arm."""
-    return _get_platform_info(utils).target_arm_constraint
-
-def _is_target_arm64(utils):
-    """Returns if the target platform is arm64."""
-    return _get_platform_info(utils).target_arm64_constraint
-
 def _get_target_bitness(utils):
     """Returns 32 or 64 depending on the bitness of the target platform."""
     platforminfo = _get_platform_info(utils)
@@ -176,10 +160,6 @@ platforms = struct(
     is_target_bionic = _is_target_bionic,
     is_target_darwin = _is_target_darwin,
     is_target_linux_or_android = _is_target_linux_or_android,
-    is_target_x86 = _is_target_x86,
-    is_target_x86_64 = _is_target_x86_64,
-    is_target_arm = _is_target_arm,
-    is_target_arm64 = _is_target_arm64,
     get_target_bitness = _get_target_bitness,
     get_target_arch = _get_target_arch,
     get_target_secondary_arch = _get_target_secondary_arch,
