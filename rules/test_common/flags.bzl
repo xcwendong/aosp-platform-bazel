@@ -14,6 +14,57 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
+def _assert_flags_present_in_action(env, action, expected_flags):
+    if action.argv == None:
+        asserts.true(
+            env,
+            False,
+            "expected %s action to have arguments, but argv was None" % (
+                action.mnemonic,
+            ),
+        )
+        return
+    for flag in expected_flags:
+        asserts.true(
+            env,
+            flag in action.argv,
+            "%s action did not contain flag %s; argv: %s" % (
+                action.mnemonic,
+                flag,
+                action.argv,
+            ),
+        )
+
+# Checks for the presence of a set of given flags in a set of given actions
+# non-exclusively. In other words, it confirms that the specified actions
+# contain the given flags, but does not confirm that other actions do not
+# contain them.
+def _action_flags_present_for_mnemonic_nonexclusive_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    for action in analysistest.target_actions(env):
+        if action.mnemonic in ctx.attr.mnemonics:
+            _assert_flags_present_in_action(
+                env,
+                action,
+                ctx.attr.expected_flags,
+            )
+
+    return analysistest.end(env)
+
+action_flags_present_for_mnemonic_nonexclusive_test = analysistest.make(
+    _action_flags_present_for_mnemonic_nonexclusive_test_impl,
+    attrs = {
+        "mnemonics": attr.string_list(
+            doc = """
+            Actions with these mnemonics will be expected to have the flags
+            specified in expected_flags
+            """,
+        ),
+        "expected_flags": attr.string_list(doc = "The flags to be checked for"),
+    },
+)
+
 # Checks for the presence of a set of given flags in a set of given actions
 # exclusively. In other words, it confirms that *only* the specified actions
 # contain the specified flags.
@@ -23,25 +74,11 @@ def _action_flags_present_only_for_mnemonic_test_impl(ctx):
     actions = analysistest.target_actions(env)
     for action in actions:
         if action.mnemonic in ctx.attr.mnemonics:
-            if action.argv == None:
-                asserts.true(
-                    env,
-                    False,
-                    "expected %s action to have arguments, but argv was None" % (
-                        action.mnemonic,
-                    ),
-                )
-                continue
-            for flag in ctx.attr.expected_flags:
-                asserts.true(
-                    env,
-                    flag in action.argv,
-                    "%s action did not contain flag %s; argv: %s" % (
-                        action.mnemonic,
-                        flag,
-                        action.argv,
-                    ),
-                )
+            _assert_flags_present_in_action(
+                env,
+                action,
+                ctx.attr.expected_flags,
+            )
         elif action.argv != None:
             for flag in ctx.attr.expected_flags:
                 asserts.false(
