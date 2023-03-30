@@ -23,8 +23,7 @@ def hidl_interface(
         deps = [],
         root = "",
         root_interface_file = "",
-        min_sdk_version = "",
-        tags = []):
+        min_sdk_version = ""):
     "Bazel macro to correspond with the hidl_interface Soong module."
 
     interface_name = name + INTERFACE_SUFFIX
@@ -44,5 +43,4 @@ def hidl_interface(
         interface = interface_name,
         dynamic_deps = deps,
         min_sdk_version = min_sdk_version,
-        tags = tags,
     )

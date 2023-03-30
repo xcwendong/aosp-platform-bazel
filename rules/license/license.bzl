@@ -74,6 +74,7 @@ def android_license(
         license_text = license_text,
         copyright_notice = copyright_notice,
         package_name = package_name,
+        applicable_licenses = [],
         visibility = visibility,
         tags = tags,
     )

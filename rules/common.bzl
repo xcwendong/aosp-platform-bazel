@@ -44,7 +44,6 @@ _BP2BUILD_LABEL_SUFFIXES = [
     "_bp2build_cc_library_static",
     "_cc_proto_lite",
     "_aidl_code_gen",
-    "_cc_aidl_library",
 ]
 
 def strip_bp2build_label_suffix(name):
