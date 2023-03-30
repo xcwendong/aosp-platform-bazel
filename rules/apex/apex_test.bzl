@@ -51,6 +51,17 @@ def _canned_fs_config_test(ctx):
             result += "  \"%s\",\n" % item
         return result + "]"
 
+    if ctx.attr.expected_extra_cat:
+        append_custom_fs_config = [a for a in actions if a.mnemonic == "AppendCustomFsConfig"]
+        asserts.true(env, len(append_custom_fs_config) == 1, "could not find the AppendCustomFsConfig action")
+        a = append_custom_fs_config[0]
+        args = a.argv[2].split(" ")  # first 2 are "/bin/bash" and "-c"
+        asserts.equals(env, args[0], "cat")
+        asserts.true(env, args[1].endswith("_canned_fs_config.txt"))
+        asserts.true(env, args[2].endswith(ctx.attr.expected_extra_cat), "expected %s, but got %s" % (ctx.attr.expected_extra_cat, args[2]))
+        asserts.equals(env, args[3], ">")
+        asserts.true(env, args[4].endswith("_combined_canned_fs_config.txt"))
+
     for a in actions:
         if a.mnemonic != "FileWrite":
             # The canned_fs_config uses ctx.actions.write.
@@ -73,7 +84,7 @@ def _canned_fs_config_test(ctx):
         break
 
     # Ensures that we actually found the canned_fs_config.txt generation action.
-    asserts.true(env, found_canned_fs_config_action)
+    asserts.true(env, found_canned_fs_config_action, "did not find the canned fs config generating action")
 
     return analysistest.end(env)
 
@@ -82,6 +93,9 @@ canned_fs_config_test = analysistest.make(
     attrs = {
         "expected_entries": attr.string_list(
             doc = "Expected lines in the canned_fs_config.txt",
+        ),
+        "expected_extra_cat": attr.string(
+            doc = "Filename of the custom canned fs config to be found in the AppendCustomFsConfig action",
         ),
         "_platform_utils": attr.label(
             default = Label("//build/bazel/platforms:platform_utils"),
@@ -104,6 +118,40 @@ def _test_canned_fs_config_basic():
             "/apex_manifest.pb 1000 1000 0644",
             "",  # ends with a newline
         ],
+    )
+
+    return test_name
+
+def _test_canned_fs_config_custom():
+    name = "apex_canned_fs_config_custom"
+    test_name = name + "_test"
+
+    native.genrule(
+        name = name + ".custom_config",
+        outs = [name + ".custom.config"],
+        cmd = "echo -e \"/2.bin 0 1000 0750\n/1.bin 0 1000 0777\n\" > $@",
+    )
+
+    test_apex(
+        name = name,
+        canned_fs_config = name + "_custom.config",
+    )
+
+    canned_fs_config_test(
+        name = test_name,
+        target_under_test = name,
+        expected_entries = [
+            "/ 1000 1000 0755",
+            "/apex_manifest.json 1000 1000 0644",
+            "/apex_manifest.pb 1000 1000 0644",
+            "",  # ends with a newline
+            # unfortunately, due to bazel analysis not being able to read the
+            # contents of inputs (i.e. dynamic dependencies), we cannot test for
+            # the contents of the custom config here. but, we can test that the
+            # custom config is concatenated in the action command with
+            # 'expected_extra_cat' below.
+        ],
+        expected_extra_cat = name + "_custom.config",
     )
 
     return test_name
@@ -136,11 +184,11 @@ def _test_canned_fs_config_binaries():
             "/ 1000 1000 0755",
             "/apex_manifest.json 1000 1000 0644",
             "/apex_manifest.pb 1000 1000 0644",
-            "/bin 0 2000 0755",
+            "/lib{64_OR_BLANK}/libc++.so 1000 1000 0644",
             "/bin/bin_cc 0 2000 0755",
             "/bin/bin_sh 0 2000 0755",
+            "/bin 0 2000 0755",
             "/lib{64_OR_BLANK} 0 2000 0755",
-            "/lib{64_OR_BLANK}/libc++.so 1000 1000 0644",
             "",  # ends with a newline
         ],
         target_compatible_with = ["//build/bazel/platforms/os:android"],
@@ -177,9 +225,9 @@ def _test_canned_fs_config_native_shared_libs_arm():
             "/ 1000 1000 0755",
             "/apex_manifest.json 1000 1000 0644",
             "/apex_manifest.pb 1000 1000 0644",
-            "/lib 0 2000 0755",
             "/lib/apex_canned_fs_config_native_shared_libs_arm_lib_cc.so 1000 1000 0644",
             "/lib/libc++.so 1000 1000 0644",
+            "/lib 0 2000 0755",
             "",  # ends with a newline
         ],
         target_compatible_with = ["//build/bazel/platforms/arch:arm"],
@@ -216,12 +264,12 @@ def _test_canned_fs_config_native_shared_libs_arm64():
             "/ 1000 1000 0755",
             "/apex_manifest.json 1000 1000 0644",
             "/apex_manifest.pb 1000 1000 0644",
-            "/lib 0 2000 0755",
             "/lib/apex_canned_fs_config_native_shared_libs_arm64_lib_cc.so 1000 1000 0644",
             "/lib/libc++.so 1000 1000 0644",
-            "/lib64 0 2000 0755",
             "/lib64/apex_canned_fs_config_native_shared_libs_arm64_lib2_cc.so 1000 1000 0644",
             "/lib64/libc++.so 1000 1000 0644",
+            "/lib 0 2000 0755",
+            "/lib64 0 2000 0755",
             "",  # ends with a newline
         ],
         target_compatible_with = ["//build/bazel/platforms/arch:arm64"],
@@ -271,11 +319,11 @@ def _test_canned_fs_config_prebuilts():
             "/ 1000 1000 0755",
             "/apex_manifest.json 1000 1000 0644",
             "/apex_manifest.pb 1000 1000 0644",
-            "/etc 0 2000 0755",
             "/etc/file 1000 1000 0644",
-            "/etc/nested 0 2000 0755",
             "/etc/nested/nested_file_in_dir 1000 1000 0644",
             "/etc/renamed_file3.txt 1000 1000 0644",
+            "/etc 0 2000 0755",
+            "/etc/nested 0 2000 0755",
             "",  # ends with a newline
         ],
     )
@@ -323,13 +371,13 @@ def _test_canned_fs_config_prebuilts_sort_order():
             "/ 1000 1000 0755",
             "/apex_manifest.json 1000 1000 0644",
             "/apex_manifest.pb 1000 1000 0644",
+            "/etc/a/c/file_a_c 1000 1000 0644",
+            "/etc/a/file_a 1000 1000 0644",
+            "/etc/b/file_b 1000 1000 0644",
             "/etc 0 2000 0755",
             "/etc/a 0 2000 0755",
             "/etc/a/c 0 2000 0755",
-            "/etc/a/c/file_a_c 1000 1000 0644",
-            "/etc/a/file_a 1000 1000 0644",
             "/etc/b 0 2000 0755",
-            "/etc/b/file_b 1000 1000 0644",
             "",  # ends with a newline
         ],
     )
@@ -386,13 +434,13 @@ def _test_canned_fs_config_runtime_deps():
             "/ 1000 1000 0755",
             "/apex_manifest.json 1000 1000 0644",
             "/apex_manifest.pb 1000 1000 0644",
-            "/bin 0 2000 0755",
-            "/bin/%s_bin_cc 0 2000 0755" % name,
-            "/lib{64_OR_BLANK} 0 2000 0755",
             "/lib{64_OR_BLANK}/%s_runtime_dep_1.so 1000 1000 0644" % name,
             "/lib{64_OR_BLANK}/%s_runtime_dep_2.so 1000 1000 0644" % name,
             "/lib{64_OR_BLANK}/%s_runtime_dep_3.so 1000 1000 0644" % name,
             "/lib{64_OR_BLANK}/libc++.so 1000 1000 0644",
+            "/bin/%s_bin_cc 0 2000 0755" % name,
+            "/bin 0 2000 0755",
+            "/lib{64_OR_BLANK} 0 2000 0755",
             "",  # ends with a newline
         ],
         target_compatible_with = ["//build/bazel/platforms/os:android"],
@@ -2380,7 +2428,7 @@ def _apex_compression_test(ctx):
 apex_compression_test = analysistest.make(
     _apex_compression_test,
     config_settings = {
-        "@//build/bazel/rules/apex:compression_enabled": True,
+        "//command_line_option:platforms": "@soong_injection//product_config_platforms/products/aosp_arm64_for_testing",
     },
 )
 
@@ -2415,7 +2463,7 @@ def _apex_no_compression_test(ctx):
 apex_no_compression_test = analysistest.make(
     _apex_no_compression_test,
     config_settings = {
-        "@//build/bazel/rules/apex:compression_enabled": False,
+        "//command_line_option:platforms": "@soong_injection//product_config_platforms/products/aosp_arm64_for_testing_no_compression",
     },
 )
 
@@ -2539,6 +2587,7 @@ def apex_test_suite(name):
         name = name,
         tests = [
             _test_canned_fs_config_basic(),
+            _test_canned_fs_config_custom(),
             _test_canned_fs_config_binaries(),
             _test_canned_fs_config_native_shared_libs_arm(),
             _test_canned_fs_config_native_shared_libs_arm64(),

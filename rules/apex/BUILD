@@ -5,7 +5,6 @@ load("//build/bazel/flags:common.bzl", "is_env_true")
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load("//build/bazel/rules/apex:toolchain.bzl", "apex_toolchain")
 load("//build/bazel/rules/common:api.bzl", "api")
-load(":apex.bzl", "compression_enabled")
 load(":apex_aab_test.bzl", "apex_aab_test_suite")
 load(":apex_key_test.bzl", "apex_key_test_suite")
 load(":apex_mk_test.bzl", "apex_mk_test_suite")
@@ -140,12 +139,6 @@ bool_setting(
     name = "unbundled_build",
     # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
     build_setting_default = product_vars.get("Unbundled_build", False),
-    visibility = ["//visibility:public"],
-)
-
-bool_setting(
-    name = "compression_enabled",
-    build_setting_default = compression_enabled(),
     visibility = ["//visibility:public"],
 )
 

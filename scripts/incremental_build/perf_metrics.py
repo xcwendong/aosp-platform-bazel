@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import argparse
 import dataclasses
 import datetime
 import glob
@@ -24,10 +23,14 @@ import shutil
 import subprocess
 import textwrap
 from pathlib import Path
-from typing import Optional
+from typing import Iterable
+
+from bp2build_metrics_proto.bp2build_metrics_pb2 import Bp2BuildMetrics
+from metrics_proto.metrics_pb2 import MetricsBase
+from metrics_proto.metrics_pb2 import PerfInfo
+from metrics_proto.metrics_pb2 import SoongBuildMetrics
 
 import util
-import pretty
 
 
 @dataclasses.dataclass
@@ -53,16 +56,6 @@ class PerfInfoOrEvent:
 SOONG_PB = 'soong_metrics'
 SOONG_BUILD_PB = 'soong_build_metrics.pb'
 BP2BUILD_PB = 'bp2build_metrics.pb'
-
-SOONG_PROTO = 'build/soong/ui/metrics/' \
-              'metrics_proto/metrics.proto'
-SOONG_BUILD_PROTO = SOONG_PROTO
-BP2BUILD_PROTO = 'build/soong/ui/metrics/' \
-                 'bp2build_metrics_proto/bp2build_metrics.proto'
-
-SOONG_MSG = 'soong_build_metrics.MetricsBase'
-SOONG_BUILD_MSG = 'soong_build_metrics.SoongBuildMetrics'
-BP2BUILD_MSG = 'soong_build_bp2build_metrics.Bp2BuildMetrics'
 
 
 def _move_pbs_to(d: Path):
@@ -90,22 +83,46 @@ def read_pbs(d: Path) -> dict[str, str]:
   Soong_build event names may contain "mixed_build" event. To normalize the
   event names between mixed builds and soong-only build, convert
     `soong_build/soong_build.xyz` and `soong_build/soong_build.mixed_build.xyz`
-  both to simply `soong_build/_.xyz`
+  both to simply `soong_build/*.xyz`
   """
   soong_pb = d.joinpath(SOONG_PB)
   soong_build_pb = d.joinpath(SOONG_BUILD_PB)
   bp2build_pb = d.joinpath(BP2BUILD_PB)
-  soong_proto = util.get_top_dir().joinpath(SOONG_PROTO)
-  soong_build_proto = soong_proto
-  bp2build_proto = util.get_top_dir().joinpath(BP2BUILD_PROTO)
 
   events: list[PerfInfoOrEvent] = []
+
+  def extract_perf_info(root_obj):
+    for field_name in dir(root_obj):
+      if field_name.startswith('__'):
+        continue
+      field_value = getattr(root_obj, field_name)
+      if isinstance(field_value, Iterable):
+        for item in field_value:
+          if not isinstance(item, PerfInfo):
+            break
+          events.append(
+            PerfInfoOrEvent(item.name, item.real_time, item.start_time,
+                            item.description))
+
   if soong_pb.exists():
-    events.extend(_read_pb(soong_pb, soong_proto, SOONG_MSG))
+    metrics_base = MetricsBase()
+    with open(soong_pb, "rb") as f:
+      metrics_base.ParseFromString(f.read())
+    extract_perf_info(metrics_base)
+
   if soong_build_pb.exists():
-    events.extend(_read_pb(soong_build_pb, soong_build_proto, SOONG_BUILD_MSG))
+    soong_build_metrics = SoongBuildMetrics()
+    with open(soong_build_pb, "rb") as f:
+      soong_build_metrics.ParseFromString(f.read())
+    extract_perf_info(soong_build_metrics)
+
   if bp2build_pb.exists():
-    events.extend(_read_pb(bp2build_pb, bp2build_proto, BP2BUILD_MSG))
+    bp2build_metrics = Bp2BuildMetrics()
+    with open(bp2build_pb, "rb") as f:
+      bp2build_metrics.ParseFromString(f.read())
+    for event in bp2build_metrics.events:
+      events.append(
+        PerfInfoOrEvent(event.name, event.real_time, event.start_time, ''))
 
   events.sort(key=lambda e: e.start_time)
 
@@ -114,38 +131,6 @@ def read_pbs(d: Path) -> dict[str, str]:
 
   return {f'{m.name}/{normalize(m.description)}': util.hhmmss(m.real_time) for m
           in events}
-
-
-def _read_pb(
-    pb_file: Path,
-    proto_file: Path,
-    proto_message: str
-) -> list[PerfInfoOrEvent]:
-  """
-  Loads PerfInfo or Event from the file sorted chronologically
-  Note we are not using protoc-generated classes for simplicity (e.g. dependency
-  on `google.protobuf`)
-  Note dict keeps insertion order in python 3.7+
-  """
-  cmd = (f'''printproto --proto2  --raw_protocol_buffer \
-  --message={proto_message} \
-  --proto="{proto_file}" \
-  --multiline \
-  --json --json_accuracy_loss_reaction=ignore \
-  "{pb_file}" \
-  | jq ".. | objects | select(.real_time) | select(.name)" \
-  | jq -s ". | sort_by(.start_time)"''')
-  result = subprocess.check_output(cmd, shell=True, cwd=util.get_top_dir(),
-                                   text=True)
-
-  fields: set[str] = {f.name for f in dataclasses.fields(PerfInfoOrEvent)}
-
-  def parse(d: dict) -> Optional[PerfInfoOrEvent]:
-    filtered = {k: v for (k, v) in d.items() if k in fields}
-    return PerfInfoOrEvent(**filtered)
-
-  events: list[PerfInfoOrEvent] = [parse(d) for d in json.loads(result)]
-  return events
 
 
 Row = dict[str, any]
@@ -261,37 +246,3 @@ def display_tabulated_metrics(log_dir: Path):
   2 To view column headers:
     %s
     '''), output, cmd_str, util.get_csv_columns_cmd(log_dir))
-
-
-def main():
-  p = argparse.ArgumentParser(
-      formatter_class=argparse.RawTextHelpFormatter,
-      description='read archived perf metrics from [LOG_DIR] and '
-                  f'summarize them into {util.METRICS_TABLE}')
-  default_log_dir = util.get_default_log_dir()
-  p.add_argument('-l', '--log-dir', type=Path, default=default_log_dir,
-                 help=textwrap.dedent('''
-                 Directory for timing logs. Defaults to %(default)s
-                 TIPS: Specify a directory outside of the source tree
-                 ''').strip())
-  p.add_argument('-m', '--add-manual-build',
-                 help='If you want to add the metrics from the last manual '
-                      f'build to {util.METRICS_TABLE}, provide a description')
-  options = p.parse_args()
-
-  if options.add_manual_build:
-    build_info = {'build_type': 'MANUAL',
-                  'description': options.add_manual_build}
-    run_dir = next(util.next_path(options.log_dir.joinpath('run')))
-    run_dir.mkdir(parents=True, exist_ok=False)
-    archive_run(run_dir, build_info)
-
-  tabulate_metrics_csv(options.log_dir)
-  display_tabulated_metrics(options.log_dir)
-  pretty.summarize_metrics(options.log_dir)
-  pretty.display_summarized_metrics(options.log_dir)
-
-
-if __name__ == '__main__':
-  logging.root.setLevel(logging.INFO)
-  main()

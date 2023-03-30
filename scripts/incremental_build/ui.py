@@ -18,13 +18,12 @@ import functools
 import logging
 import os
 import re
+import sys
 import textwrap
 from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Optional
-
-from future.moves import sys
 
 import cuj_catalog
 import util
