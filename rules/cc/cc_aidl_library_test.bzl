@@ -15,7 +15,7 @@
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/bazel/rules/aidl:library.bzl", "aidl_library")
+load("//build/bazel/rules/aidl:aidl_library.bzl", "aidl_library")
 load("//build/bazel/rules/cc:cc_aidl_library.bzl", "cc_aidl_library")
 
 aidl_library_label_name = "foo_aidl_library"

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@//build/bazel/tests/products:product_labels.bzl", _test_product_labels = "product_labels")
+load("@soong_injection//product_config_platforms:product_labels.bzl", _product_labels = "product_labels")
 load("//build/bazel/platforms/arch/variants:constants.bzl", _arch_constants = "constants")
 load("//build/bazel/product_variables:constants.bzl", "constants")
 load(
@@ -21,6 +23,8 @@ load(
     "variant_name",
 )
 load(":product_variables_providing_rule.bzl", "product_variables_providing_rule")
+
+all_android_product_labels = _product_labels + _test_product_labels
 
 def _is_variant_default(arch, variant):
     return variant == None or variant in (arch, "generic")
@@ -195,6 +199,24 @@ def _define_platform_for_arch_with_secondary(name, common_constraints, arch, sec
             actual = ":" + name,
         )
 
+def _verify_product_is_registered(name):
+    """
+    Verifies that this android_product() is listed in all_android_product_labels.
+
+    all_android_product_labels is used to build a select statement from each product to its
+    _product_vars rule. This is because we store most product configuration in a rule instead of
+    constraint settings or build settings due to limitations in bazel. (constraint settings can't
+    be unbounded, typed, or have dependencies, build settings can't be set with --platforms)
+    """
+    my_label = native.repository_name() + "//" + native.package_name() + ":" + name
+    for label in all_android_product_labels:
+        if my_label == label:
+            return
+    fail("All android_product() instances must be listed in all_android_product_labels in " +
+         "//build/bazel/product_config/android_product.bzl. By default the products generated " +
+         "from legacy android product configurations are included, additional platforms (like " +
+         "testing-specific platforms) must be manually listed.")
+
 def android_product(name, soong_variables):
     """
     android_product integrates product variables into Bazel platforms.
@@ -211,6 +233,8 @@ def android_product(name, soong_variables):
     select statements in the BUILD files (ultimately) refer to, they're all
     created here.
     """
+    _verify_product_is_registered(name)
+
     product_var_constraints, attribute_vars = _product_variable_constraint_settings(soong_variables)
     arch_configs = _determine_target_arches_from_config(soong_variables)
 

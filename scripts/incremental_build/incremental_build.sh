@@ -1,4 +1,4 @@
-#!/bin/bash -eux
+#!/bin/bash -eu
 readonly TOP="$(realpath "$(dirname "$0")/../../../..")"
 "$TOP/build/soong/soong_ui.bash" \
   --build-mode \

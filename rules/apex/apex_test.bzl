@@ -19,7 +19,7 @@ load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
 load("//build/bazel/rules:prebuilt_file.bzl", "prebuilt_file")
 load("//build/bazel/rules:sh_binary.bzl", "sh_binary")
-load("//build/bazel/rules/aidl:interface.bzl", "aidl_interface")
+load("//build/bazel/rules/aidl:aidl_interface.bzl", "aidl_interface")
 load("//build/bazel/rules/android:android_app_certificate.bzl", "android_app_certificate")
 load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/cc:cc_library_headers.bzl", "cc_library_headers")
@@ -2428,7 +2428,7 @@ def _apex_compression_test(ctx):
 apex_compression_test = analysistest.make(
     _apex_compression_test,
     config_settings = {
-        "//command_line_option:platforms": "@soong_injection//product_config_platforms/products/aosp_arm64_for_testing",
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing",
     },
 )
 
@@ -2463,7 +2463,7 @@ def _apex_no_compression_test(ctx):
 apex_no_compression_test = analysistest.make(
     _apex_no_compression_test,
     config_settings = {
-        "//command_line_option:platforms": "@soong_injection//product_config_platforms/products/aosp_arm64_for_testing_no_compression",
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_no_compression",
     },
 )
 

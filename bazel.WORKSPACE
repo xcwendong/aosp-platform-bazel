@@ -93,7 +93,7 @@ bind(
 # for Android app building, whereas the d8.jar in prebuilts/sdk/tools doesn't.
 bind(
     name = "android/d8_jar_import",
-    actual = "//prebuilts/r8:r8_jar_import",
+    actual = "//prebuilts/bazel/common/r8:r8_jar_import",
 )
 
 # TODO(b/201242197): Avoid downloading remote_coverage_tools (on CI) by creating

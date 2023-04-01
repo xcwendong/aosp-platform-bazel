@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/bazel/rules/aidl:library.bzl", "aidl_library")
+load("//build/bazel/rules/aidl:aidl_library.bzl", "aidl_library")
 load("//build/bazel/rules/cc:cc_aidl_code_gen.bzl", "cc_aidl_code_gen")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
-load("//build/bazel/rules/java:aidl_library.bzl", "java_aidl_library")
+load("//build/bazel/rules/java:java_aidl_library.bzl", "java_aidl_library")
 
 JAVA = "java"
 CPP = "cpp"
@@ -297,6 +297,7 @@ def create_aidl_binding_for_backends(
             )
         elif lang == CPP or lang == NDK:
             dynamic_deps = []
+            cppflags = []
 
             # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface_backends.go;l=564;drc=0517d97079d4b08f909e7f35edfa33b88fcc0d0e
             if deps != None:
@@ -316,6 +317,9 @@ def create_aidl_binding_for_backends(
                     "//conditions:default": ["//frameworks/native/libs/binder/ndk:libbinder_ndk"],
                 })
 
+                # https://source.corp.google.com/android/system/tools/aidl/build/aidl_interface_backends.go;l=120;rcl=18dd931bde35b502545b7a52987e2363042c151c
+                cppflags = ["-DBINDER_STABILITY_SUPPORT"]
+
             _cc_aidl_libraries(
                 name = "{}-{}".format(aidl_library_name, lang),
                 aidl_library = ":" + aidl_library_name,
@@ -323,6 +327,7 @@ def create_aidl_binding_for_backends(
                 lang = lang,
                 min_sdk_version = min_sdk_version,
                 tags = tags + config.get("tags", []),
+                cppflags = cppflags,
                 **kwargs
             )
 
@@ -341,6 +346,7 @@ def _cc_aidl_libraries(
         lang = None,
         min_sdk_version = "",
         tags = [],
+        cppflags = [],
         **kwargs):
     """
     Generate AIDL stub code for cpp or ndk backend and wrap it in cc libraries (both shared and static variant)
@@ -390,6 +396,7 @@ def _cc_aidl_libraries(
         tidy_checks_as_errors = tidy_checks_as_errors,
         tidy_gen_header_filter = True,
         tags = tags,
+        cppflags = cppflags,
     )
 
     cc_library_shared(

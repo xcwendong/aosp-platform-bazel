@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//build/bazel/rules/aidl:library.bzl", "AidlGenInfo")
+load("//build/bazel/rules/aidl:aidl_library.bzl", "AidlGenInfo")
 load(":cc_library_common.bzl", "create_ccinfo_for_includes")
 
 _SOURCES = "sources"

@@ -1,13 +1,12 @@
+load(":android_product.bzl", "all_android_product_labels")
+
 package(default_visibility = ["//visibility:public"])
 
-# The current product we're building for.
-# We could've chosen this product via a --platforms flag,
-# or transitioned into it. This is used to select() on
-# the current product. Note that this represents the current
-# android _product_ as defined in pre-bazel terms.
-# There are several bazel platforms that can resolve to
-# the same product, for example the host platform and the
-# device platform.
+# The current product we're building for. We could've chosen this product via a --platforms flag,
+# or transitioned into it. This is used to select() on the current product in the product_vars
+# target below. Note that this represents the current android _product_ as defined in pre-bazel
+# terms. There are several bazel platforms that can resolve to the same product, for example the
+# host platform and the device platform.
 constraint_setting(name = "current_product")
 
 # This target can be used to read product variables that aren't represented by other constraint
@@ -33,7 +32,12 @@ constraint_setting(name = "current_product")
 # This method of accessing product variables can't be used from macros / the bazel loading phase.
 # This is intentional, because if you could read them during the loading phase, you wouldn't be
 # able to transition into new values. Instead, please defer accesses to the analysis phase.
+#
+# All android_product()s must register their label here.
 alias(
     name = "product_vars",
-    actual = "@soong_injection//product_config_platforms:product_vars",
+    actual = select({
+        label + "_constraint_value": label + "_product_vars"
+        for label in all_android_product_labels
+    }),
 )
