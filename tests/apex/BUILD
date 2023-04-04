@@ -67,6 +67,43 @@ diff_test(
     file2 = "adbd_aab_zipinfo.actual",
 )
 
+py_binary(
+    name = "apks_binary_arches",
+    srcs = ["apks_binary_arches.py"],
+)
+
+genrule(
+    name = "adbd_apks_arches",
+    testonly = True,
+    srcs = ["//build/bazel/vendor/google:com.android.adbd_apks"],
+    outs = ["adb_apks_arches.actual"],
+    cmd = " ".join([
+        "$(location :apks_binary_arches)",
+        "--deapexer-path $(location //system/apex/tools:deapexer)",
+        "--readelf-path $(location //prebuilts/clang/host/linux-x86:llvm-readelf)",
+        "--debugfs-path $(location //external/e2fsprogs/debugfs)",
+        "--blkid-path $(location //external/e2fsprogs/misc:blkid)",
+        "--fsckerofs-path $(location //external/erofs-utils:fsck.erofs)",
+        "$<",
+        "$@",
+    ]),
+    tags = ["manual"],
+    tools = [
+        ":apks_binary_arches",
+        "//external/e2fsprogs/debugfs",
+        "//external/e2fsprogs/misc:blkid",
+        "//external/erofs-utils:fsck.erofs",
+        "//prebuilts/clang/host/linux-x86:llvm-readelf",
+        "//system/apex/tools:deapexer",
+    ],
+)
+
+diff_test(
+    name = "apks_arch_diff_test",
+    file1 = "adb_apks_arches.golden",
+    file2 = "adb_apks_arches.actual",
+)
+
 genrule(
     name = "adbd_apks_zipinfo",
     testonly = True,
