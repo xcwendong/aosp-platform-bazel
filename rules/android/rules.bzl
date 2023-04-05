@@ -48,7 +48,7 @@ load(
 )
 load(
     ":android_library.bzl",
-    _android_library = "android_library_macro",
+    _android_library = "android_library",
 )
 
 aar_import = _aar_import

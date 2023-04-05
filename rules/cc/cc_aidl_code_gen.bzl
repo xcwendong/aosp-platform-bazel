@@ -162,6 +162,11 @@ def _compile_aidl_srcs(ctx, aidl_info, lang):
     if ctx.attr.min_sdk_version != "":
         args.add("--min_sdk_version={}".format(ctx.attr.min_sdk_version))
 
+    if aidl_info.hash_file == None:
+        args.add("--hash=notfrozen")
+    else:
+        args.add("--hash=$(tail -1 {})".format(aidl_info.hash_file))
+
     args.add_all([
         "--ninja",
         "--lang={}".format(lang),

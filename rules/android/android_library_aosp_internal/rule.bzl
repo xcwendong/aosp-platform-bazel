@@ -14,15 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("@rules_android//rules/android_binary_internal:rule.bzl", "make_rule", "sanitize_attrs")
-load(":impl.bzl", _impl = "impl")
+load(
+    "@rules_android//rules/android_library:rule.bzl",
+    _attrs_metadata = "attrs_metadata",
+    _make_rule = "make_rule",
+)
+load("@rules_kotlin//toolchains/kotlin_jvm:kt_jvm_toolchains.bzl", _kt_jvm_toolchains = "kt_jvm_toolchains")
+load(":attrs.bzl", "ATTRS")
+load(
+    ":impl.bzl",
+    _impl = "impl",
+)
 
-android_binary_aosp_internal = make_rule(implementation = _impl)
+android_library = _make_rule(
+    attrs = ATTRS,
+    implementation = _impl,
+    additional_toolchains = [_kt_jvm_toolchains.type],
+)
 
-def android_binary_aosp_internal_macro(**attrs):
-    """android_binary_internal rule.
+def android_library_aosp_internal_macro(**attrs):
+    """AOSP android_library rule.
 
     Args:
       **attrs: Rule attributes
     """
-    android_binary_aosp_internal(**sanitize_attrs(attrs))
+    android_library(**_attrs_metadata(attrs))

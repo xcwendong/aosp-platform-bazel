@@ -20,6 +20,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@soong_injection//api_levels:api_levels.bzl", "api_levels_released_versions")
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 
+_NONE_API_LEVEL_INT = -1
 _PREVIEW_API_LEVEL_BASE = 9000  # Base constant for preview API levels.
 _FUTURE_API_LEVEL_INT = 10000  # API Level associated with an arbitrary future release
 
@@ -118,6 +119,8 @@ def _default_app_target_sdk():
     return _parse_api_level_from_version(codename)
 
 api = struct(
+    NONE_API_LEVEL = _NONE_API_LEVEL_INT,
+    FUTURE_API_LEVEL = _FUTURE_API_LEVEL_INT,
     is_preview = _is_preview,
     final_or_future = _final_or_future,
     default_app_target_sdk = _default_app_target_sdk,

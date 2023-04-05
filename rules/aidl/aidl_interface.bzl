@@ -23,6 +23,9 @@ CPP = "cpp"
 NDK = "ndk"
 #TODO(b/246803961) Add support for rust backend
 
+def _hash_file(name, version):
+    return "aidl_api/{}/{}/.hash".format(name, version)
+
 def _check_versions(versions):
     sorted_versions = sorted([int(i) for i in versions])  # ensure that all versions are ints
 
@@ -176,9 +179,11 @@ def aidl_interface(
         _check_versions_with_info(versions_with_info)
         next_version = _next_version(versions, False)
         for version_with_info in versions_with_info:
+            hash_file = _hash_file(name, version_with_info["version"])
             create_aidl_binding_for_backends(
                 name = name,
                 version = version_with_info["version"],
+                hash_file = hash_file,
                 deps = version_with_info.get("deps"),
                 aidl_flags = aidl_flags,
                 backend_configs = enabled_backend_configs,
@@ -197,9 +202,11 @@ def aidl_interface(
         versions = _check_versions(versions)
         next_version = _next_version(versions, False)
         for version in versions:
+            hash_file = _hash_file(name, version)
             create_aidl_binding_for_backends(
                 name = name,
                 version = version,
+                hash_file = hash_file,
                 deps = deps,
                 aidl_flags = aidl_flags,
                 backend_configs = enabled_backend_configs,
@@ -235,6 +242,7 @@ def aidl_interface(
 def create_aidl_binding_for_backends(
         name,
         version = None,
+        hash_file = None,
         srcs = None,
         strip_import_prefix = "",
         deps = None,
@@ -273,6 +281,7 @@ def create_aidl_binding_for_backends(
     aidl_library(
         name = aidl_library_name,
         deps = deps,
+        hash_file = hash_file,
         strip_import_prefix = strip_import_prefix,
         srcs = srcs,
         flags = aidl_flags,

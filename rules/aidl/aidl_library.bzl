@@ -18,6 +18,7 @@ AidlGenInfo = provider(
     fields = [
         "srcs",
         "hdrs",
+        "hash_file",
         "transitive_srcs",
         "transitive_include_dirs",
         "flags",
@@ -64,6 +65,7 @@ def _aidl_library_rule_impl(ctx):
         AidlGenInfo(
             srcs = depset(srcs),
             hdrs = depset(hdrs),
+            hash_file = ctx.file.hash_file,
             transitive_srcs = depset(
                 direct = srcs + hdrs,
                 transitive = transitive_srcs,
@@ -93,6 +95,9 @@ aidl_library = rule(
             doc = "AIDL source files that contain UnstructuredParcelable" +
                   " AIDL defintions. These files cannot be compiled to language" +
                   " bindings, but can be referenced by other AIDL sources.",
+        ),
+        "hash_file": attr.label(
+            allow_single_file = [".hash"],
         ),
         "deps": attr.label_list(
             providers = [AidlGenInfo],

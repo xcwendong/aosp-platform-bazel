@@ -22,7 +22,9 @@ load("android_app_certificate.bzl", "android_app_certificate_with_default_cert")
 load("android_app_keystore.bzl", "android_app_keystore")
 
 def _android_binary_helper(**attrs):
-    """Bazel android_binary rule.
+    """ Duplicates the logic in top-level android_binary macro in
+        rules_android/rules/android_binary.bzl but uses
+        android_binary_aosp_internal_macro instead of android_binary_internal_macro.
 
         https://docs.bazel.build/versions/master/be/android.html#android_binary
 
@@ -50,7 +52,8 @@ def android_binary(
         certificate = None,
         certificate_name = None,
         **kwargs):
-    """Bazel macro to find and create a keystore to use for debug_signing_keys
+    """ android_binary macro wrapper that handles custom attrs needed in AOSP
+       Bazel macro to find and create a keystore to use for debug_signing_keys
        with @rules_android android_binary.
 
     This module emulates the Soong behavior which allows a developer to specify
@@ -74,7 +77,10 @@ def android_binary(
     if certificate or certificate_name:
         if certificate_name:
             app_cert_name = name + "_app_certificate"
-            android_app_certificate_with_default_cert(app_cert_name, certificate_name)
+            android_app_certificate_with_default_cert(
+                name = app_cert_name,
+                cert_name = certificate_name,
+            )
             certificate = ":" + app_cert_name
 
         app_keystore_name = name + "_keystore"

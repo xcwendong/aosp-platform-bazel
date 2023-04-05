@@ -52,6 +52,7 @@ BUILD_TARGETS=(
 
 TEST_TARGETS=(
   //build/bazel/...
+  //prebuilts/clang/host/linux-x86:all
 )
 
 HOST_ONLY_TEST_TARGETS=(

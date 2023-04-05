@@ -125,6 +125,12 @@ local_repository(
     path = "prebuilts/bazel/linux-x86_64/remote_java_tools_linux",
 )
 
+# The following repository contains android_tools prebuilts.
+local_repository(
+    name = "android_tools",
+    path = "prebuilts/bazel/common/android_tools",
+)
+
 # The rules_java repository is stubbed and points to the native Java rules until
 # it can be properly vendored.
 local_repository(

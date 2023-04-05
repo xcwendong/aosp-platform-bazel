@@ -181,7 +181,7 @@ def cc_stub_library_shared(name, stubs_symbol_file, version, export_includes, so
 def _cc_stub_library_shared_impl(ctx):
     source_library_label = Label(ctx.attr.source_library_label)
     api_level = str(api.parse_api_level_from_version(ctx.attr.version))
-    version_macro_name = "__" + source_library_label.name.upper() + "__API__=" + api_level
+    version_macro_name = "__" + source_library_label.name.upper() + "_API__=" + api_level
     compilation_context = cc_common.create_compilation_context(
         defines = depset([version_macro_name]),
     )

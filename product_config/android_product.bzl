@@ -241,7 +241,7 @@ def android_product(name, soong_variables):
     product_variables_providing_rule(
         name = name + "_product_vars",
         attribute_vars = attribute_vars,
-        product_vars = json.encode(soong_variables),
+        product_vars = soong_variables,
     )
 
     native.constraint_value(
