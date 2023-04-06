@@ -1,7 +1,0 @@
-apex {
-    name: "build.bazel.examples.apex.certificate_name",
-    defaults: [
-        "build.bazel.examples.apex.minimal_defaults",
-    ],
-    certificate: "platform",
-}

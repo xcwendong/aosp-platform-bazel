@@ -1014,16 +1014,13 @@ def apex(
     app_cert_name = name + "_app_certificate"
     if certificate_name:
         # use the name key in the default cert dir
-        android_app_certificate_with_default_cert(
-            name = app_cert_name,
-            cert_name = certificate_name,
-        )
+        android_app_certificate_with_default_cert(app_cert_name, certificate_name)
         certificate_label = ":" + app_cert_name
     elif certificate:
         certificate_label = certificate
     else:
         # use the default testkey
-        android_app_certificate_with_default_cert(name = app_cert_name)
+        android_app_certificate_with_default_cert(app_cert_name)
         certificate_label = ":" + app_cert_name
 
     target_compatible_with = select({

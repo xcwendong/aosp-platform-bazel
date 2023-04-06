@@ -46,7 +46,6 @@ cc_library {
     srcs: ["dummy_cc_lib.cc"],
 
     apex_available: [
-        "build.bazel.examples.apex.certificate_name",
         "build.bazel.examples.apex.minimal",
         "build.bazel.examples.apex.minimal_compressed",
     ],
@@ -64,7 +63,6 @@ cc_library {
     srcs: ["dummy_cc_lib_2.cc"],
 
     apex_available: [
-        "build.bazel.examples.apex.certificate_name",
         "build.bazel.examples.apex.minimal",
         "build.bazel.examples.apex.minimal_compressed",
     ],
@@ -82,7 +80,6 @@ cc_library {
     srcs: ["dummy_cc_lib_3.cc"],
 
     apex_available: [
-        "build.bazel.examples.apex.certificate_name",
         "build.bazel.examples.apex.minimal",
         "build.bazel.examples.apex.minimal_compressed",
     ],
@@ -117,7 +114,6 @@ cc_binary {
     srcs: ["main.cc"],
 
     apex_available: [
-        "build.bazel.examples.apex.certificate_name",
         "build.bazel.examples.apex.minimal",
         "build.bazel.examples.apex.minimal_compressed",
     ],

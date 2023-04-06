@@ -21,6 +21,7 @@ load(":bootclasspath_test.bzl", "bootclasspath_test_suite")
 load(":versions_test.bzl", "versions_test_suite")
 load(":versions.bzl", "java_versions")
 load(":sdk_transition_test.bzl", "sdk_transition_test_suite")
+load(":host_for_device_test.bzl", "host_for_device_test_suite")
 load("@bazel_skylib//rules:common_settings.bzl", "string_setting")
 
 package(
@@ -38,6 +39,8 @@ bootclasspath_test_suite(name = "bootclasspath_tests")
 versions_test_suite(name = "versions_tests")
 
 sdk_transition_test_suite(name = "sdk_transition_tests")
+
+host_for_device_test_suite(name = "host_for_device_test_suite")
 
 string_setting(
     name = "version",

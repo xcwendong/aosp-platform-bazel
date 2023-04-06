@@ -77,10 +77,7 @@ def android_binary(
     if certificate or certificate_name:
         if certificate_name:
             app_cert_name = name + "_app_certificate"
-            android_app_certificate_with_default_cert(
-                name = app_cert_name,
-                cert_name = certificate_name,
-            )
+            android_app_certificate_with_default_cert(app_cert_name, certificate_name)
             certificate = ":" + app_cert_name
 
         app_keystore_name = name + "_keystore"

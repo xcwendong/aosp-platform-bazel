@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//build/bazel/product_config:product_variables_providing_rule.bzl", "ProductVariablesDepsInfo", "ProductVariablesInfo")
+load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 
 AndroidAppCertificateInfo = provider(
     "Info needed for Android app certificates",
@@ -53,76 +53,46 @@ def android_app_certificate(
     )
 
 default_cert_directory = "build/make/target/product/security"
+_default_cert_package = "//" + default_cert_directory
 
-def _android_app_certificate_with_default_cert_impl(ctx):
-    product_var_cert = ctx.attr._product_variables[ProductVariablesInfo].DefaultAppCertificate
+# Set up the android_app_certificate dependency pointing to the .pk8 and
+# .x509.pem files in the source tree.
+#
+# Every caller who use this function will have their own android_app_certificate
+# target, even if the underlying certs are shared by many.
+#
+# If cert_name is used, then it will be looked up from the app certificate
+# package as determined by the DefaultAppCertificate variable, or the hardcoded
+# directory.
+#
+# Otherwise, if the DefaultAppCertificate variable is used, then an
+# android_app_certificate target will be created to point to the path value, and
+# the .pk8 and .x509.pem suffixes are added automatically.
+#
+# Finally (cert_name not used AND DefaultAppCertificate not specified), use the
+# testkey.
+def android_app_certificate_with_default_cert(name, cert_name = None):
+    default_cert = product_vars.get("DefaultAppCertificate")
 
-    cert_name = ctx.attr.cert_name
-
-    if cert_name and product_var_cert:
-        cert_dir = paths.dirname(product_var_cert)
+    if cert_name and default_cert:
+        certificate = "".join(["//", paths.dirname(default_cert), ":", cert_name])
     elif cert_name:
-        cert_dir = default_cert_directory
-    elif product_var_cert:
-        cert_name = paths.basename(product_var_cert)
-        cert_dir = paths.dirname(product_var_cert)
+        # if a specific certificate name is given, check the default directory
+        # for that certificate.
+        certificate = _default_cert_package + ":" + cert_name
+    elif default_cert:
+        # This assumes that there is a BUILD file marking the directory of
+        # the default cert as a package.
+        certificate = "".join([
+            "//",
+            paths.dirname(default_cert),
+            ":",
+            paths.basename(default_cert),
+        ])
     else:
-        cert_name = "testkey"
-        cert_dir = default_cert_directory
+        certificate = _default_cert_package + ":testkey"
 
-    if cert_dir != default_cert_directory:
-        cert_files_to_search = ctx.attr._product_variables[ProductVariablesDepsInfo].DefaultAppCertificateFiles
-    else:
-        cert_files_to_search = ctx.files._hardcoded_certs
-
-    pk8 = None
-    pem = None
-    for file in cert_files_to_search:
-        if file.basename == cert_name + ".pk8":
-            pk8 = file
-        elif file.basename == cert_name + ".x509.pem":
-            pem = file
-    if not pk8 or not pem:
-        fail("Could not find .x509.pem and/or .pk8 file with name '%s' in package '%s'" % (cert_name, cert_dir))
-
-    return [
-        AndroidAppCertificateInfo(
-            pk8 = pk8,
-            pem = pem,
-            key_name = "//" + cert_dir + ":" + cert_name,
-        ),
-    ]
-
-android_app_certificate_with_default_cert = rule(
-    doc = """
-    This rule is the equivalent of an android_app_certificate, but uses the
-    certificate with the given name from a certain folder, or the default
-    certificate.
-
-    Modules can give a simple name of a certificate instead of a full label to
-    an android_app_certificate. This certificate will be looked for either in
-    the package determined by the DefaultAppCertificate product config variable,
-    or the hardcoded default directory. (build/make/target/product/security)
-
-    If a name is not given, it will fall back to using the certificate termined
-    by DefaultAppCertificate. (DefaultAppCertificate can function as both the
-    default certificate to use if none is specified, and the folder to look for
-    certificates in)
-
-    If neither the name nor DefaultAppCertificate is given,
-    build/make/target/product/security/testkey.{pem,pk8} will be used.
-
-    Since this rule is intended to be used from other macros, it's common to have
-    multiple android_app_certificate targets pointing to the same pem/pk8 files.
-    """,
-    implementation = _android_app_certificate_with_default_cert_impl,
-    attrs = {
-        "cert_name": attr.string(),
-        "_product_variables": attr.label(
-            default = "//build/bazel/product_config:product_vars",
-        ),
-        "_hardcoded_certs": attr.label(
-            default = "//build/make/target/product/security:android_certificate_directory",
-        ),
-    },
-)
+    android_app_certificate(
+        name = name,
+        certificate = certificate,
+    )
