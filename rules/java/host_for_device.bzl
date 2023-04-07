@@ -34,4 +34,5 @@ This is rarely necessary and restricted to a few allowed projects.
             doc = "List of targets whose contents will be visible to targets that depend on this target.",
         ),
     },
+    provides = [JavaInfo],
 )
