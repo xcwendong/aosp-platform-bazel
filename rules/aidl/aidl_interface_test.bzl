@@ -19,6 +19,7 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/aidl:aidl_interface.bzl", "aidl_interface")
 load("//build/bazel/rules/aidl:aidl_library.bzl", "AidlGenInfo")
 load("//build/bazel/rules/test_common:rules.bzl", "target_under_test_exist_test")
+load("//build/bazel/rules/test_common:flags.bzl", "action_flags_present_only_for_mnemonic_test_with_config_settings")
 
 def _ndk_backend_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -327,6 +328,50 @@ def _test_aidl_interface_generated_header_filter():
         static_test_name,
     ]
 
+_action_flags_present_with_tidy_test = action_flags_present_only_for_mnemonic_test_with_config_settings({
+    "@//build/bazel/flags/cc/tidy:allow_local_tidy_true": True,
+})
+
+def _test_aidl_interface_generated_cc_library_has_correct_tidy_checks_as_errors():
+    name = "aidl_interface_generated_cc_library_has_correct_tidy_checks_as_errors"
+    test_name = name + "_test"
+    aidl_library_target = name + "-cpp"
+    shared_target_under_test = aidl_library_target + "__internal_root"
+    shared_test_name = test_name + "_shared"
+    static_target_under_test = aidl_library_target + "_bp2build_cc_library_static"
+    static_test_name = test_name + "_static"
+
+    aidl_interface(
+        name = name,
+        cpp_config = {
+            "enabled": True,
+        },
+        unstable = True,
+        srcs = ["a/b/Foo.aidl"],
+        tags = ["manual"],
+    )
+
+    _action_flags_present_with_tidy_test(
+        name = shared_test_name,
+        target_under_test = shared_target_under_test,
+        mnemonics = ["ClangTidy"],
+        expected_flags = [
+            "-warnings-as-errors=*,-clang-analyzer-deadcode.DeadStores,-clang-analyzer-cplusplus.NewDeleteLeaks,-clang-analyzer-optin.performance.Padding,-bugprone-assignment-in-if-condition,-bugprone-branch-clone,-bugprone-signed-char-misuse,-misc-const-correctness",
+        ],
+    )
+    _action_flags_present_with_tidy_test(
+        name = static_test_name,
+        target_under_test = static_target_under_test,
+        mnemonics = ["ClangTidy"],
+        expected_flags = [
+            "-warnings-as-errors=*,-clang-analyzer-deadcode.DeadStores,-clang-analyzer-cplusplus.NewDeleteLeaks,-clang-analyzer-optin.performance.Padding,-bugprone-assignment-in-if-condition,-bugprone-branch-clone,-bugprone-signed-char-misuse,-misc-const-correctness",
+        ],
+    )
+    return [
+        shared_test_name,
+        static_test_name,
+    ]
+
 def _cc_library_has_flags_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)
@@ -406,6 +451,7 @@ def aidl_interface_test_suite(name):
             ] +
             _test_aidl_interface_generated_header_filter() +
             _test_aidl_interface_passes_flags_to_aidl_libraries() +
-            _test_aidl_interface_sets_flags_to_cc_libraries()
+            _test_aidl_interface_sets_flags_to_cc_libraries() +
+            _test_aidl_interface_generated_cc_library_has_correct_tidy_checks_as_errors()
         ),
     )

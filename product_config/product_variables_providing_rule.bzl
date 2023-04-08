@@ -18,6 +18,7 @@ ProductVariablesInfo = provider(
     fields = {
         "CompressedApex": "Boolean indicating if apexes are compressed or not.",
         "DefaultAppCertificate": "The default certificate to sign APKs and APEXes with. The $(dirname) of this certificate will also be used to find additional certificates when modules only give their names.",
+        "TidyChecks": "List of clang tidy checks to enable.",
         "Unbundled_apps": "List of apps to build as unbundled.",
     },
 )
@@ -31,11 +32,16 @@ ProductVariablesDepsInfo = provider(
 
 def _product_variables_providing_rule_impl(ctx):
     vars = json.decode(ctx.attr.product_vars)
+
+    tidy_checks = vars.get("TidyChecks", "")
+    tidy_checks = tidy_checks.split(",") if tidy_checks else []
+
     return [
         platform_common.TemplateVariableInfo(ctx.attr.attribute_vars),
         ProductVariablesInfo(
             CompressedApex = vars.get("CompressedApex", False),
             DefaultAppCertificate = vars.get("DefaultAppCertificate", None),
+            TidyChecks = tidy_checks,
             Unbundled_apps = vars.get("Unbundled_apps", []),
         ),
         ProductVariablesDepsInfo(

@@ -533,6 +533,52 @@ def _cc_library_static_link_action_should_not_have_arch_cflags():
         cpp_link_test_name,
     ]
 
+def _cc_library_static_defines_do_not_check_manual_binder_interfaces():
+    name = "_cc_library_static_defines_do_not_check_manual_binder_interfaces"
+    cpp_lib_name = name + "_cpp"
+    cpp_test_name = cpp_lib_name + "_test"
+    c_lib_name = name + "_c"
+    c_test_name = c_lib_name + "_test"
+
+    cc_library_static(
+        name = name,
+        srcs = ["a.cpp"],
+        srcs_c = ["b.c"],
+        tags = ["manual"],
+    )
+    action_flags_present_only_for_mnemonic_test(
+        name = cpp_test_name,
+        target_under_test = cpp_lib_name,
+        mnemonics = ["CppCompile"],
+        expected_flags = [
+            "-DDO_NOT_CHECK_MANUAL_BINDER_INTERFACES",
+        ],
+    )
+    action_flags_present_only_for_mnemonic_test(
+        name = c_test_name,
+        target_under_test = c_lib_name,
+        mnemonics = ["CppCompile"],
+        expected_flags = [
+            "-DDO_NOT_CHECK_MANUAL_BINDER_INTERFACES",
+        ],
+    )
+
+    non_allowlisted_package_cpp_name = name + "_non_allowlisted_package_cpp"
+    action_flags_absent_for_mnemonic_test(
+        name = non_allowlisted_package_cpp_name,
+        target_under_test = "//build/bazel/examples/cc:foo_static_cpp",
+        mnemonics = ["CppCompile"],
+        expected_absent_flags = [
+            "-DDO_NOT_CHECK_MANUAL_BINDER_INTERFACES",
+        ],
+    )
+
+    return [
+        cpp_test_name,
+        c_test_name,
+        non_allowlisted_package_cpp_name,
+    ]
+
 def cc_library_static_test_suite(name):
     native.genrule(name = "hdr", cmd = "null", outs = ["f.h"], tags = ["manual"])
 
@@ -550,6 +596,7 @@ def cc_library_static_test_suite(name):
         ] + (
             _cc_rules_do_not_allow_absolute_includes() +
             _cc_library_static_provides_androidmk_info() +
-            _cc_library_static_link_action_should_not_have_arch_cflags()
+            _cc_library_static_link_action_should_not_have_arch_cflags() +
+            _cc_library_static_defines_do_not_check_manual_binder_interfaces()
         ),
     )

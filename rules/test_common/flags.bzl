@@ -72,8 +72,10 @@ def _action_flags_present_only_for_mnemonic_test_impl(ctx):
     env = analysistest.begin(ctx)
 
     actions = analysistest.target_actions(env)
+    found_at_least_one_action = False
     for action in actions:
         if action.mnemonic in ctx.attr.mnemonics:
+            found_at_least_one_action = True
             _assert_flags_present_in_action(
                 env,
                 action,
@@ -90,21 +92,31 @@ def _action_flags_present_only_for_mnemonic_test_impl(ctx):
                         action.argv,
                     ),
                 )
-
+    asserts.true(
+        env,
+        found_at_least_one_action,
+        "did not find any actions with mnemonic %s" % (
+            ctx.attr.mnemonics,
+        ),
+    )
     return analysistest.end(env)
 
-action_flags_present_only_for_mnemonic_test = analysistest.make(
-    _action_flags_present_only_for_mnemonic_test_impl,
-    attrs = {
-        "mnemonics": attr.string_list(
-            doc = """
-            Actions with these mnemonics will be expected to have the flags
-            specified in expected_flags
-            """,
-        ),
-        "expected_flags": attr.string_list(doc = "The flags to be checked for"),
-    },
-)
+def action_flags_present_only_for_mnemonic_test_with_config_settings(config_settings = {}):
+    return analysistest.make(
+        _action_flags_present_only_for_mnemonic_test_impl,
+        attrs = {
+            "mnemonics": attr.string_list(
+                doc = """
+                Actions with these mnemonics will be expected to have the flags
+                specified in expected_flags
+                """,
+            ),
+            "expected_flags": attr.string_list(doc = "The flags to be checked for"),
+        },
+        config_settings = config_settings,
+    )
+
+action_flags_present_only_for_mnemonic_test = action_flags_present_only_for_mnemonic_test_with_config_settings()
 
 # Checks that a given set of flags are NOT present in a given set of actions.
 # Unlike the above test, this test does NOT confirm the absence of flags

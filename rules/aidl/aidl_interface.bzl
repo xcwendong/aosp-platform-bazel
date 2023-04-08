@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("//build/bazel/rules/aidl:aidl_library.bzl", "aidl_library")
-load("//build/bazel/rules/cc:cc_aidl_code_gen.bzl", "cc_aidl_code_gen")
+load("//build/bazel/rules/cc:cc_aidl_library.bzl", "cc_aidl_library")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/java:java_aidl_library.bzl", "java_aidl_library")
@@ -329,90 +329,26 @@ def create_aidl_binding_for_backends(
                 # https://source.corp.google.com/android/system/tools/aidl/build/aidl_interface_backends.go;l=120;rcl=18dd931bde35b502545b7a52987e2363042c151c
                 cppflags = ["-DBINDER_STABILITY_SUPPORT"]
 
-            _cc_aidl_libraries(
+            if hasattr(kwargs, "tidy_checks_as_errors"):
+                fail("tidy_checks_as_errors cannot be overriden for aidl_interface cc_libraries")
+            tidy_checks_as_errors = [
+                "*",
+                "-clang-analyzer-deadcode.DeadStores",  # b/253079031
+                "-clang-analyzer-cplusplus.NewDeleteLeaks",  # b/253079031
+                "-clang-analyzer-optin.performance.Padding",  # b/253079031
+            ]
+
+            cc_aidl_library(
                 name = "{}-{}".format(aidl_library_name, lang),
-                aidl_library = ":" + aidl_library_name,
+                make_shared = True,
+                cppflags = cppflags,
+                deps = [":" + aidl_library_name],
                 dynamic_deps = dynamic_deps,
                 lang = lang,
                 min_sdk_version = min_sdk_version,
+                tidy = "local",
+                tidy_checks_as_errors = tidy_checks_as_errors,
+                tidy_gen_header_filter = True,
                 tags = tags + config.get("tags", []),
-                cppflags = cppflags,
                 **kwargs
             )
-
-# _cc_aidl_libraries is slightly different from cc_aidl_library macro provided
-# from //bazel/bulid/rules/cc:cc_aidl_libray.bzl.
-#
-# Instead of creating one cc_library_static target, _cc_aidl_libraries creates
-# both static and shared variants of cc library so that the upstream modules
-# can reference the aidl interface with ndk or cpp backend as either static
-# or shared lib
-def _cc_aidl_libraries(
-        name,
-        aidl_library = None,
-        implementation_deps = [],
-        dynamic_deps = [],
-        lang = None,
-        min_sdk_version = "",
-        tags = [],
-        cppflags = [],
-        **kwargs):
-    """
-    Generate AIDL stub code for cpp or ndk backend and wrap it in cc libraries (both shared and static variant)
-
-    Args:
-        name:                (String) name of the cc_library_static target
-        aidl_library:        (AidlGenInfo) aidl_library that this cc_aidl_library depends on
-        implementation_deps: (list[CcInfo]) internal cpp/ndk dependencies of the created cc_library_static target
-        dynamic_deps:        (list[CcInfo])  dynamic dependencies of the created cc_library_static and cc_library_shared targets
-        lang:                (String) lang to be passed into --lang flag of aidl generator
-        **kwargs:            extra arguments that will be passesd to cc_aidl_code_gen and cc library rules.
-    """
-
-    if lang == None:
-        fail("lang must be set")
-    if lang != "cpp" and lang != "ndk":
-        fail("lang {} is unsupported. Allowed lang: ndk, cpp.")
-
-    aidl_code_gen = name + "_aidl_code_gen"
-
-    cc_aidl_code_gen(
-        name = aidl_code_gen,
-        deps = [aidl_library],
-        lang = lang,
-        min_sdk_version = min_sdk_version,
-        tags = tags,
-        **kwargs
-    )
-
-    if hasattr(kwargs, "tidy_checks_as_errors"):
-        fail("tidy_checks_as_errors cannot be overriden for aidl_interface cc_libraries")
-    tidy_checks_as_errors = [
-        "*",
-        "-clang-analyzer-deadcode.DeadStores",  # b/253079031
-        "-clang-analyzer-cplusplus.NewDeleteLeaks",  # b/253079031
-        "-clang-analyzer-optin.performance.Padding",  # b/253079031
-    ]
-
-    shared_arguments_with_kwargs = dict(
-        kwargs,
-        srcs = [":" + aidl_code_gen],
-        implementation_deps = implementation_deps,
-        deps = [aidl_code_gen],
-        dynamic_deps = dynamic_deps,
-        min_sdk_version = min_sdk_version,
-        tidy = "local",
-        tidy_checks_as_errors = tidy_checks_as_errors,
-        tidy_gen_header_filter = True,
-        tags = tags,
-        cppflags = cppflags,
-    )
-
-    cc_library_shared(
-        name = name,
-        **shared_arguments_with_kwargs
-    )
-    cc_library_static(
-        name = name + "_bp2build_cc_library_static",
-        **shared_arguments_with_kwargs
-    )

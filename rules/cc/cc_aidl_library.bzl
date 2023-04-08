@@ -14,14 +14,13 @@
 
 load("//build/bazel/rules/cc:cc_aidl_code_gen.bzl", "cc_aidl_code_gen")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
+load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 
 def cc_aidl_library(
         name,
         deps = [],
-        implementation_deps = [],
-        implementation_dynamic_deps = [],
-        tags = [],
-        min_sdk_version = None,
+        lang = "cpp",
+        make_shared = False,
         **kwargs):
     """
     Generate AIDL stub code for C++ and wrap it in a cc_library_static target
@@ -29,28 +28,36 @@ def cc_aidl_library(
     Args:
         name:                        (String) name of the cc_library_static target
         deps:                        (list[AidlGenInfo]) list of all aidl_libraries that this cc_aidl_library depends on
-        implementation_deps:         (list[CcInfo]) list of cc_library_static needed to compile the created cc_library_static target
-        implementation_dynamic_deps: (list[CcInfo]) list of cc_library_shared needed to compile the created cc_library_static target
-        **kwargs:                    extra arguments that will be passesd to cc_aidl_code_gen and cc_library_static.
+        **kwargs:                    extra arguments that will be passesd to cc_library_{static,shared}.
     """
 
-    aidl_code_gen = name + "_aidl_code_gen"
+    if lang not in ["cpp", "ndk"]:
+        fail("lang {} is unsupported. Allowed lang: ndk, cpp.".format(lang))
 
+    aidl_code_gen = name + "_aidl_code_gen"
     cc_aidl_code_gen(
         name = aidl_code_gen,
         deps = deps,
-        lang = "cpp",
-        tags = tags + ["manual"],
-        **kwargs
+        lang = lang,
+        min_sdk_version = kwargs.get("min_sdk_version", None),
+        tags = kwargs.get("tags", []) + ["manual"],
     )
 
-    cc_library_static(
-        name = name,
+    arguments_with_kwargs = dict(
+        kwargs,
         srcs = [":" + aidl_code_gen],
-        implementation_deps = implementation_deps,
-        implementation_dynamic_deps = implementation_dynamic_deps,
         deps = [aidl_code_gen],
-        tags = tags,
-        min_sdk_version = min_sdk_version,
-        **kwargs
+    )
+
+    static_name = name
+    if make_shared:
+        cc_library_shared(
+            name = name,
+            **arguments_with_kwargs
+        )
+        static_name = name + "_bp2build_cc_library_static"
+
+    cc_library_static(
+        name = static_name,
+        **arguments_with_kwargs
     )
