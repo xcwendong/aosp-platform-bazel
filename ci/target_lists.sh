@@ -3,7 +3,7 @@
 ###############
 # Build and test targets for device target platform.
 ###############
-BUILD_TARGETS_LIST=(
+BUILD_TARGETS=(
   //art/...
   //bionic/...
   //bootable/recovery/tools/recovery_l10n/...
@@ -29,13 +29,43 @@ BUILD_TARGETS_LIST=(
   -//external/e2fsprogs/resize:all
   -//external/e2fsprogs/debugfs:all
   -//external/e2fsprogs/e2fsck:all
-)
-BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
 
-TEST_TARGETS_LIST=(
-  //build/bazel/...
+  # TODO(b/215230098): remove after handling sdk_version for aidl
+  -//frameworks/av:av-types-aidl-java
+
+  # TODO(b/266459895): remove these after re-enabling libunwindstack
+  -//bionic/libc/malloc_debug:libc_malloc_debug
+  -//bionic/libfdtrack:libfdtrack
+  -//frameworks/av/media/codec2/hidl/1.0/utils:libcodec2_hidl@1.0
+  -//frameworks/av/media/codec2/hidl/1.1/utils:libcodec2_hidl@1.1
+  -//frameworks/av/media/codec2/hidl/1.2/utils:libcodec2_hidl@1.2
+  -//frameworks/av/media/module/bqhelper:libstagefright_bufferqueue_helper_novndk
+  -//frameworks/av/media/module/codecserviceregistrant:libmedia_codecserviceregistrant
+  -//frameworks/av/services/mediacodec:mediaswcodec
+  -//frameworks/native/libs/gui:libgui
+  -//frameworks/native/libs/gui:libgui_bufferqueue_static
+  -//frameworks/native/opengl/libs:libEGL
+  -//frameworks/native/opengl/libs:libGLESv2
+  -//system/core/libutils:all
+  -//system/unwinding/libunwindstack:all
 )
-TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
+
+TEST_TARGETS=(
+  //build/bazel/...
+  //prebuilts/clang/host/linux-x86:all
+)
+
+HOST_ONLY_TEST_TARGETS=(
+  //tools/trebuchet:AnalyzerKt
+  //tools/metalava:metalava
+  # Test both unstripped and stripped versions of a host native unit test
+  //system/core/libcutils:libcutils_test
+  //system/core/libcutils:libcutils_test__test_binary_unstripped
+  # TODO(b/268186228): adb_test fails only on CI
+  -//packages/modules/adb:adb_test
+  # TODO(b/268185249): libbase_test asserts on the Soong basename of the test
+  -//system/libbase:libbase_test
+)
 
 HOST_INCOMPATIBLE_TARGETS=(
   # TODO(b/216626461): add support for host_ldlibs

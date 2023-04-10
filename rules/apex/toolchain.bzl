@@ -1,18 +1,16 @@
-"""
-Copyright (C) 2021 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 ApexToolchainInfo = provider(
     doc = "APEX toolchain",
@@ -67,25 +65,25 @@ apex_toolchain = rule(
     implementation = _apex_toolchain_impl,
     attrs = {
         "aapt2": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
-        "avbtool": attr.label(cfg = "exec", executable = True, mandatory = True),
-        "apexer": attr.label(cfg = "exec", executable = True, mandatory = True),
-        "mke2fs": attr.label(cfg = "exec", executable = True, mandatory = True),
-        "resize2fs": attr.label(cfg = "exec", executable = True, mandatory = True),
-        "e2fsdroid": attr.label(cfg = "exec", executable = True, mandatory = True),
-        "sefcontext_compile": attr.label(cfg = "exec", executable = True, mandatory = True),
-        "conv_apex_manifest": attr.label(cfg = "exec", executable = True, mandatory = True),
         "android_jar": attr.label(allow_single_file = True, cfg = "exec", mandatory = True),
         "apex_compression_tool": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "apexer": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "avbtool": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "conv_apex_manifest": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "dexdeps": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "e2fsdroid": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "gen_java_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
+        "gen_ndk_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
         "jsonmodify": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "manifest_fixer": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "mke2fs": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "notice_generator": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
+        "readelf": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = True),
+        "resize2fs": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "sefcontext_compile": attr.label(cfg = "exec", executable = True, mandatory = True),
         # soong_zip is added as a dependency of apex_compression_tool which uses
         # soong_zip to compress APEX files. avbtool is also used in apex_compression tool
         # and has been added to apex toolchain previously.
         "soong_zip": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
-        "manifest_fixer": attr.label(cfg = "exec", executable = True, mandatory = True),
-        "gen_ndk_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
-        "readelf": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = True),
-        "gen_java_usedby_apex": attr.label(cfg = "exec", executable = True, mandatory = True, allow_single_file = [".sh"]),
-        "dexdeps": attr.label(cfg = "exec", executable = True, mandatory = True),
-        "notice_generator": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
     },
 )

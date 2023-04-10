@@ -14,13 +14,15 @@ fi
 
 TARGETS=(
   CaptivePortalLogin
-  bluetoothtbd
-  com.android.media
-  com.android.media.swcodec
   com.android.neuralnetworks
-  com.android.runtime
   framework-minus-apex
   libsimpleperf
+
+
+  # TODO(b/266459895): uncomment these after re-enabling libunwindstack
+  # com.android.media
+  # com.android.media.swcodec
+  # com.android.runtime
 )
 
 # Run a mixed build of "libc"

@@ -1,29 +1,22 @@
-"""
-Copyright (C) 2021 The Android Open Source Project
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-load("//build/bazel/product_variables:constants.bzl", "constants")
-load(
-    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
-    "CPP_COMPILE_ACTION_NAME",
-    "C_COMPILE_ACTION_NAME",
-)
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
-load("@soong_injection//api_levels:api_levels.bzl", "api_levels")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("@soong_injection//android:constants.bzl", android_constants = "constants")
+load("@soong_injection//product_config:product_variables.bzl", "product_vars")
+load("//build/bazel/rules:common.bzl", "strip_bp2build_label_suffix")
+load("//build/bazel/rules/common:api.bzl", "api")
 
 _bionic_targets = ["//bionic/libc", "//bionic/libdl", "//bionic/libm"]
 _static_bionic_targets = ["//bionic/libc:libc_bp2build_cc_library_static", "//bionic/libdl:libdl_bp2build_cc_library_static", "//bionic/libm:libm_bp2build_cc_library_static"]
@@ -129,13 +122,17 @@ sanitizer_deps = rule(
                   "behavior sanitizer library to be used",
         ),
     },
+    provides = [CcInfo],
 )
+
+def sdk_version_feature_from_parsed_version(version):
+    return "sdk_version_" + str(version)
 
 def _create_sdk_version_features_map():
     version_feature_map = {}
-    for api in api_levels.values():
-        version_feature_map["//build/bazel/rules/apex:min_sdk_version_" + str(api)] = ["sdk_version_" + str(api)]
-    version_feature_map["//conditions:default"] = ["sdk_version_" + str(future_version)]
+    for level in api.api_levels.values():
+        version_feature_map["//build/bazel/rules/apex:min_sdk_version_" + str(level)] = [sdk_version_feature_from_parsed_version(level)]
+    version_feature_map["//conditions:default"] = [sdk_version_feature_from_parsed_version(future_version)]
 
     return version_feature_map
 
@@ -151,10 +148,6 @@ def add_lists_defaulting_to_none(*args):
             combined += arg
 
     return combined
-
-# By default, crtbegin/crtend linking is enabled for shared libraries and cc_binary.
-def disable_crt_link(features):
-    return features + ["-link_crt"]
 
 # get_includes_paths expects a rule context, a list of directories, and
 # whether the directories are package-relative and returns a list of exec
@@ -202,7 +195,7 @@ def create_ccinfo_for_includes(
     # Combine this target's compilation context with those of the deps; use only
     # the compilation context of the combined CcInfo.
     cc_infos = [dep[CcInfo] for dep in deps]
-    cc_infos += [CcInfo(compilation_context = compilation_context)]
+    cc_infos.append(CcInfo(compilation_context = compilation_context))
     combined_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
 
     return CcInfo(compilation_context = combined_info.compilation_context)
@@ -231,36 +224,36 @@ def is_external_directory(package_name):
 def parse_sdk_version(version):
     if version == "apex_inherit":
         # use the version determined by the transition value.
-        return sdk_version_features + ["sdk_version_apex_inherit"]
+        return sdk_version_features + [sdk_version_feature_from_parsed_version("apex_inherit")]
 
-    return ["sdk_version_" + str(parse_apex_sdk_version(version))]
+    return [sdk_version_feature_from_parsed_version(parse_apex_sdk_version(version))]
 
 def parse_apex_sdk_version(version):
-    if version == "" or version == "current":
+    if version == "" or version == "current" or version == "10000":
         return future_version
-    elif version in api_levels.keys():
-        return api_levels[version]
+    elif version in api.api_levels.keys():
+        return api.api_levels[version]
     elif version.isdigit():
         version = int(version)
-        if version in api_levels.values():
+        if version in api.api_levels.values():
             return version
         elif version == product_vars["Platform_sdk_version"]:
             # For internal branch states, support parsing a finalized version number
             # that's also still in
-            # product_vars["Platform_version_active_codenames"], but not api_levels.
+            # product_vars["Platform_version_active_codenames"], but not api.api_levels.
             #
             # This happens a few months each year on internal branches where the
             # internal master branch has a finalized API, but is not released yet,
             # therefore the Platform_sdk_version is usually latest AOSP dessert
-            # version + 1. The generated api_levels map sets these to 9000 + i,
+            # version + 1. The generated api.api_levels map sets these to 9000 + i,
             # where i is the index of the current/future version, so version is not
-            # in the api_levels.values() list, but it is a valid sdk version.
+            # in the api.api_levels.values() list, but it is a valid sdk version.
             #
             # See also b/234321488#comment2
             return version
     fail("Unknown sdk version: %s, could not be parsed as " % version +
          "an integer and/or is not a recognized codename. Valid api levels are:" +
-         str(api_levels))
+         str(api.api_levels))
 
 CPP_EXTENSIONS = ["cc", "cpp", "c++"]
 
@@ -376,3 +369,36 @@ def is_bionic_lib(name):
 
 def is_bootstrap_lib(name):
     return name in _bootstrap_libs
+
+CcAndroidMkInfo = provider(
+    "Provides information to be passed to AndroidMk in Soong",
+    fields = {
+        "local_static_libs": "list of target names passed to LOCAL_STATIC_LIBRARIES AndroidMk variable",
+        "local_whole_static_libs": "list of target names passed to LOCAL_WHOLE_STATIC_LIBRARIES AndroidMk variable",
+        "local_shared_libs": "list of target names passed to LOCAL_SHARED_LIBRARIES AndroidMk variable",
+    },
+)
+
+def create_cc_androidmk_provider(*, static_deps, whole_archive_deps, dynamic_deps):
+    # Since this information is provided to Soong for mixed builds,
+    # we are just taking the Soong module name rather than the Bazel
+    # label.
+    # TODO(b/266197834) consider moving this logic to the mixed builds
+    # handler in Soong
+    local_static_libs = [
+        strip_bp2build_label_suffix(d.label.name)
+        for d in static_deps
+    ]
+    local_whole_static_libs = [
+        strip_bp2build_label_suffix(d.label.name)
+        for d in whole_archive_deps
+    ]
+    local_shared_libs = [
+        strip_bp2build_label_suffix(d.label.name)
+        for d in dynamic_deps
+    ]
+    return CcAndroidMkInfo(
+        local_static_libs = local_static_libs,
+        local_whole_static_libs = local_whole_static_libs,
+        local_shared_libs = local_shared_libs,
+    )

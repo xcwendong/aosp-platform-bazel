@@ -14,13 +14,13 @@ limitations under the License.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load(":flex.bzl", "genlex")
 load("//build/bazel/rules/test_common:args.bzl", "get_arg_value")
 load(
     "//build/bazel/rules/test_common:paths.bzl",
     "get_output_and_package_dir_based_path",
     "get_package_dir_based_path",
 )
+load(":flex.bzl", "genlex")
 
 def _single_l_file_to_c_test_impl(ctx):
     env = analysistest.begin(ctx)

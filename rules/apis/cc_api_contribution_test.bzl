@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":cc_api_contribution.bzl", "CcApiContributionInfo", "CcApiHeaderInfo", "CcApiHeaderInfoList", "cc_api_contribution", "cc_api_headers", "cc_api_library_headers")
 
 def _empty_include_dir_test_impl(ctx):
@@ -221,13 +221,13 @@ def _api_surfaces_attr_test():
     cc_api_contribution(
         name = subject_name,
         api = "libfoo.map.txt",
-        api_surfaces = ["publicapi", "systemapi"],
+        api_surfaces = ["publicapi", "module-libapi"],
         tags = ["manual"],
     )
     api_surfaces_attr_test(
         name = test_name,
         target_under_test = subject_name,
-        expected_api_surfaces = ["publicapi", "systemapi"],
+        expected_api_surfaces = ["publicapi", "module-libapi"],
     )
     return test_name
 

@@ -17,74 +17,43 @@
 #
 # Gather and print top-line performance metrics for the android build
 #
+readonly TOP="$(realpath "$(dirname "$0")/../../../..")"
 
-readonly log_dir=$1
-if [[ ! $log_dir ]]; then
-  echo usage: canonical_perf.sh LOG_DIR
-  echo Must be run from root of tree.
-  echo LOG_DIR directory should be outside of tree, including not in out/,
-  echo because the whole tree will be cleaned during testing.
+usage() {
+  cat <<EOF
+usage: $0 [-l LOG_DIR] [BUILD_TYPES]
+  -l    LOG_DIR should be outside of source tree, including not in out/,
+        because the whole tree will be cleaned during testing.
+example:
+ $0 soong prod
+EOF
   exit 1
-fi
-
-# Pretty print the results
-function pretty() {
-  python3 "$(dirname "$0")/pretty.py" "$1"
 }
 
-function clean_tree() {
-  m clean
-  rm -rf out
-}
-
-rm -rf "$log_dir"
-mkdir -p "$log_dir"
-
-source build/envsetup.sh
-
-# TODO: Switch to oriole when it works
-if [[ -e vendor/google/build ]]; then
-  export TARGET_PRODUCT=cf_x86_64_phone
-else
-  export TARGET_PRODUCT=aosp_cf_x86_64_phone
-fi
-
-export TARGET_BUILD_VARIANT=eng
+declare -a build_types
+while getopts "l:" opt; do
+  case "$opt" in
+  l) log_dir=$OPTARG ;;
+  ?) usage ;;
+  esac
+done
+shift $((OPTIND - 1))
+readonly -a build_types=("$@")
 
 function build() {
   date
   set -x
-  ./build/bazel/scripts/incremental_build/incremental_build.py \
-    --ignore-repo-diff \
-    --log-dir="$log_dir" \
-    "$@"
+  if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.sh" \
+    --ignore-repo-diff ${log_dir:+--log-dir "$log_dir"} \
+    ${build_types:+--build-types "${build_types[@]}"} \
+    "$@"; then
+    echo "See logs for errors"
+    exit 1
+  fi
   set +x
 }
+build --cujs clean 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
+build --cujs 'modify bionic/.*/stdio.cpp' --append-csv libc
+build --cujs 'modify .*/adb/daemon/main.cpp' --append-csv adbd
+build --cujs 'modify frameworks/.*/View.java' --append-csv framework
 
-function run() {
-  local -r bazel_mode="${1:-}"
-
-  # Clear the cache by doing a build. There are probably better ways of clearing the
-  # cache, but this does reduce the variance of the first full build.
-  clean_tree
-  date
-  file="$log_dir/output${bazel_mode:+"$bazel_mode"}.txt"
-  echo "logging to $file"
-  m droid >"$file"
-
-  clean_tree
-
-  # Clean full build, then a no-change build
-  build ${bazel_mode:+"$bazel_mode"} -c 0 0 -- droid
-
-  build ${bazel_mode:+"$bazel_mode"} -c 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
-  build ${bazel_mode:+"$bazel_mode"} -c 'modify bionic/.*/stdio.cpp' -- libc
-  build ${bazel_mode:+"$bazel_mode"} -c 'modify .*/adb/daemon/main.cpp' -- adbd
-  build ${bazel_mode:+"$bazel_mode"} -c 'modify frameworks/.*/View.java' -- framework
-
-  pretty "$log_dir/summary.csv"
-}
-
-BUILD_BROKEN_DISABLE_BAZEL=1 run
-run --bazel-mode
-run --bazel-mode-staging

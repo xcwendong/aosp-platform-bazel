@@ -1,24 +1,25 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
+load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
+load("//build/bazel/rules/test_common:flags.bzl", "action_flags_present_only_for_mnemonic_test")
 load("//build/bazel/rules/test_common:paths.bzl", "get_package_dir_based_path")
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
 
 def _cc_library_shared_suffix_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -691,6 +692,134 @@ def _cc_library_disable_fdo_optimization_if_coverage_is_enabled_test():
     )
     return test_name
 
+def _cc_library_set_defines_for_stubs():
+    name = "cc_library_set_defines_for_stubs"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_libfoo",
+        system_dynamic_deps = [],
+        stl = "none",
+        tags = ["manual"],
+        stubs_symbol_file = name + "_libfoo.map.txt",
+    )
+
+    cc_stub_suite(
+        name = name + "_libfoo_stub_libs",
+        soname = name + "_libfoo.so",
+        source_library_label = ":" + name + "_libfoo",
+        symbol_file = name + "_libfoo.map.txt",
+        versions = ["30", "40"],
+    )
+
+    cc_library_shared(
+        name = name + "_libbar",
+        system_dynamic_deps = [],
+        stl = "none",
+        tags = ["manual"],
+        stubs_symbol_file = name + "_libbar.map.txt",
+    )
+
+    cc_stub_suite(
+        name = name + "_libbar_stub_libs",
+        soname = name + "_libbar.so",
+        source_library_label = ":" + name + "_libbar",
+        symbol_file = name + "_libbar.map.txt",
+        versions = ["current"],
+    )
+
+    cc_library_shared(
+        name = name + "_libbaz",
+        system_dynamic_deps = [],
+        stl = "none",
+        tags = ["manual"],
+        stubs_symbol_file = name + "_libbaz.map.txt",
+    )
+
+    cc_stub_suite(
+        name = name + "_libbaz_stub_libs",
+        soname = name + "_libbaz.so",
+        source_library_label = ":" + name + "_libbaz",
+        symbol_file = name + "_libbaz.map.txt",
+        versions = ["30"],
+    )
+
+    cc_library_shared(
+        name = name + "_lib_with_stub_deps",
+        srcs = ["foo.cpp"],
+        implementation_dynamic_deps = [
+            name + "_libfoo_stub_libs_current",
+            name + "_libbar_stub_libs_current",
+            name + "_libbaz_stub_libs-30",  # depend on an old version explicitly
+        ],
+        tags = ["manual"],
+    )
+
+    action_flags_present_only_for_mnemonic_test(
+        name = test_name,
+        target_under_test = name + "_lib_with_stub_deps__internal_root_cpp",
+        mnemonics = ["CppCompile"],
+        expected_flags = [
+            "-D__CC_LIBRARY_SET_DEFINES_FOR_STUBS_LIBFOO_API__=10000",
+            "-D__CC_LIBRARY_SET_DEFINES_FOR_STUBS_LIBBAR_API__=10000",
+            "-D__CC_LIBRARY_SET_DEFINES_FOR_STUBS_LIBBAZ_API__=30",
+        ],
+    )
+    return test_name
+
+def _cc_library_shared_provides_androidmk_info():
+    name = "cc_library_shared_provides_androidmk_info"
+    dep_name = name + "_static_dep"
+    whole_archive_dep_name = name + "_whole_archive_dep"
+    dynamic_dep_name = name + "_dynamic_dep"
+    test_name = name + "_test"
+
+    cc_library_static(
+        name = dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_static(
+        name = whole_archive_dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_shared(
+        name = dynamic_dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_shared(
+        name = name,
+        srcs = ["foo.cc"],
+        deps = [dep_name],
+        whole_archive_deps = [whole_archive_dep_name],
+        dynamic_deps = [dynamic_dep_name],
+        tags = ["manual"],
+    )
+    android_test_name = test_name + "_android"
+    linux_test_name = test_name + "_linux"
+    target_provides_androidmk_info_test(
+        name = android_test_name,
+        target_under_test = name,
+        expected_static_libs = [dep_name, "libc++demangle"],
+        expected_whole_static_libs = [whole_archive_dep_name],
+        expected_shared_libs = [dynamic_dep_name, "libc++", "libc", "libdl", "libm"],
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
+    )
+    target_provides_androidmk_info_test(
+        name = linux_test_name,
+        target_under_test = name,
+        expected_static_libs = [dep_name],
+        expected_whole_static_libs = [whole_archive_dep_name],
+        expected_shared_libs = [dynamic_dep_name, "libc++"],
+        target_compatible_with = ["//build/bazel/platforms/os:linux"],
+    )
+    return [
+        android_test_name,
+        linux_test_name,
+    ]
+
 def cc_library_shared_test_suite(name):
     native.genrule(name = "cc_library_shared_hdr", cmd = "null", outs = ["cc_shared_f.h"], tags = ["manual"])
 
@@ -710,5 +839,6 @@ def cc_library_shared_test_suite(name):
             _fdo_profile_transition_correctly_set_and_unset_fdo_profile(),
             _cc_library_with_fdo_profile_link_flags(),
             _cc_library_disable_fdo_optimization_if_coverage_is_enabled_test(),
-        ],
+            _cc_library_set_defines_for_stubs(),
+        ] + _cc_library_shared_provides_androidmk_info(),
     )

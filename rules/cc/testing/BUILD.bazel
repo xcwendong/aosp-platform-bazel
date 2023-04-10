@@ -23,3 +23,11 @@ filegroup(
         "test.cpp",
     ],
 )
+
+# for use by tests that need a non-blank gunit test
+filegroup(
+    name = "gunit_test_srcs",
+    srcs = [
+        "gunit_test.cpp",
+    ],
+)

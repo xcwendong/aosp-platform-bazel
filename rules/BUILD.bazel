@@ -1,7 +1,7 @@
 load(":gensrcs_test.bzl", "gensrcs_tests_suite")
 load(":linker_config_test.bzl", "linker_config_test_suite")
-load(":prebuilt_xml_test.bzl", "prebuilt_xml_test_suite")
 load(":prebuilt_file_test.bzl", "prebuilt_file_test_suite")
+load(":prebuilt_xml_test.bzl", "prebuilt_xml_test_suite")
 
 exports_files(["lunch.bzl"])
 

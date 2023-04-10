@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("//build/bazel/rules/aidl:interface.bzl", "aidl_interface")
-load("//build/bazel/rules/aidl:library.bzl", "aidl_library")
+load("//build/bazel/rules/aidl:aidl_interface.bzl", "aidl_interface")
+load("//build/bazel/rules/aidl:aidl_library.bzl", "aidl_library")
 
 test_scope = [
     "//build/bazel/rules/aidl/testing:aidl_interface_test-java",

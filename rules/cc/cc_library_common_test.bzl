@@ -1,21 +1,22 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "unittest", skylib_asserts = "asserts")
+load("//build/bazel/rules/test_common:asserts.bzl", roboleaf_asserts = "asserts")
+load(":cc_library_common.bzl", "CcAndroidMkInfo", "is_external_directory")
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load(":cc_library_common.bzl", "is_external_directory")
+asserts = skylib_asserts + roboleaf_asserts
 
 def _is_external_directory_test(ctx):
     env = unittest.begin(ctx)
@@ -104,6 +105,50 @@ def _is_external_directory_tests():
             expected_value = test_case.expected_value,
         )
     return test_cases.keys()
+
+def _target_provides_androidmk_info_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    target_under_test = analysistest.target_under_test(env)
+    mkinfo = target_under_test[CcAndroidMkInfo]
+    asserts.list_equals(
+        env,
+        ctx.attr.expected_static_libs,
+        mkinfo.local_static_libs,
+        "expected static_libs to be %s, but got %s" % (
+            ctx.attr.expected_static_libs,
+            mkinfo.local_static_libs,
+        ),
+    )
+    asserts.list_equals(
+        env,
+        ctx.attr.expected_whole_static_libs,
+        mkinfo.local_whole_static_libs,
+        "expected whole_static_libs to be %s, but got %s" % (
+            ctx.attr.expected_whole_static_libs,
+            mkinfo.local_whole_static_libs,
+        ),
+    )
+    asserts.list_equals(
+        env,
+        ctx.attr.expected_shared_libs,
+        mkinfo.local_shared_libs,
+        "expected shared_libs to be %s, but got %s" % (
+            ctx.attr.expected_shared_libs,
+            mkinfo.local_shared_libs,
+        ),
+    )
+
+    return analysistest.end(env)
+
+target_provides_androidmk_info_test = analysistest.make(
+    _target_provides_androidmk_info_test_impl,
+    attrs = {
+        "expected_static_libs": attr.string_list(),
+        "expected_whole_static_libs": attr.string_list(),
+        "expected_shared_libs": attr.string_list(),
+    },
+)
 
 def cc_library_common_test_suites(name):
     native.test_suite(

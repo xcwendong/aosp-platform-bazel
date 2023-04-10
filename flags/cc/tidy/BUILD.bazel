@@ -47,3 +47,8 @@ string_flag(
     name = "tidy_timeout",
     build_setting_default = env.get("TIDY_TIMEOUT", ""),
 )
+
+bool_flag(
+    name = "tidy_external_vendor",
+    build_setting_default = is_env_true(env.get("TIDY_EXTERNAL_VENDOR")),
+)

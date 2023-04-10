@@ -91,28 +91,28 @@ def _make_nested_events(root_event, event):
   node.duration_ns = event["real_time"]
 
 
-def _write_events(out, events, indent=""):
+def _write_events(out, events, parent=None):
   """Writes the list of events.
 
   Args:
     out: The stream to write to
     events: The list of events to write
-    indent: Prefix for indentation
+    parent: Prefix parent's name
   """
   for event in events:
-    _write_event(out, event, indent)
+    _write_event(out, event, parent)
 
 
-def _write_event(out, event, indent=""):
+def _write_event(out, event, parent=None):
   "Writes an event. See _write_events for args."
+  full_event_name = parent + "." + event.name if parent else event.name
   out.write(
-      "%(start)9s  %(duration)9s  %(indent)s%(name)s\n" % {
+      "%(start)9s  %(duration)9s  %(name)s\n" % {
           "start": _format_ns(event.start_time_relative_ns),
           "duration": _format_ns(event.duration_ns),
-          "indent": indent,
-          "name": event.name,
+          "name": full_event_name,
       })
-  _write_events(out, event.children, indent + "  ")
+  _write_events(out, event.children, full_event_name)
 
 
 def _format_ns(duration_ns):

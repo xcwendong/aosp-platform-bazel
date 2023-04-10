@@ -1,21 +1,22 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":cc_binary.bzl", "cc_binary")
+load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
+load(":cc_library_shared.bzl", "cc_library_shared")
+load(":cc_library_static.bzl", "cc_library_static")
 
 def strip_test_assert_flags(env, strip_action, strip_flags):
     # Extract these flags from strip_action (for example):
@@ -70,25 +71,6 @@ def _cc_binary_strip_default():
         name = name,
         srcs = ["main.cc"],
         tags = ["manual"],
-    )
-
-    cc_binary_strip_test(
-        name = test_name,
-        target_under_test = name,
-        strip_flags = [],
-    )
-
-    return test_name
-
-def _cc_binary_strip_none():
-    name = "cc_binary_strip_none"
-    test_name = name + "_test"
-
-    cc_binary(
-        name = name,
-        srcs = ["main.cc"],
-        tags = ["manual"],
-        strip = {"none": True},
     )
 
     cc_binary_strip_test(
@@ -245,6 +227,59 @@ def _cc_binary_empty_suffix():
     )
     return test_name
 
+def _cc_binary_provides_androidmk_info():
+    name = "cc_binary_provides_androidmk_info"
+    dep_name = name + "_static_dep"
+    whole_archive_dep_name = name + "_whole_archive_dep"
+    dynamic_dep_name = name + "_dynamic_dep"
+    test_name = name + "_test"
+
+    cc_library_static(
+        name = dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_static(
+        name = whole_archive_dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_library_shared(
+        name = dynamic_dep_name,
+        srcs = ["foo.c"],
+        tags = ["manual"],
+    )
+    cc_binary(
+        name = name,
+        srcs = ["foo.cc"],
+        deps = [dep_name],
+        whole_archive_deps = [whole_archive_dep_name],
+        dynamic_deps = [dynamic_dep_name],
+        tags = ["manual"],
+    )
+    android_test_name = test_name + "_android"
+    linux_test_name = test_name + "_linux"
+    target_provides_androidmk_info_test(
+        name = android_test_name,
+        target_under_test = name,
+        expected_static_libs = [dep_name, "libc++demangle", "libunwind"],
+        expected_whole_static_libs = [whole_archive_dep_name],
+        expected_shared_libs = [dynamic_dep_name, "libc++", "libc", "libdl", "libm"],
+        target_compatible_with = ["//build/bazel/platforms/os:android"],
+    )
+    target_provides_androidmk_info_test(
+        name = linux_test_name,
+        target_under_test = name,
+        expected_static_libs = [dep_name],
+        expected_whole_static_libs = [whole_archive_dep_name],
+        expected_shared_libs = [dynamic_dep_name, "libc++"],
+        target_compatible_with = ["//build/bazel/platforms/os:linux"],
+    )
+    return [
+        android_test_name,
+        linux_test_name,
+    ]
+
 def cc_binary_test_suite(name):
     native.test_suite(
         name = name,
@@ -256,5 +291,5 @@ def cc_binary_test_suite(name):
             _cc_binary_strip_all(),
             _cc_binary_suffix(),
             _cc_binary_empty_suffix(),
-        ],
+        ] + _cc_binary_provides_androidmk_info(),
     )

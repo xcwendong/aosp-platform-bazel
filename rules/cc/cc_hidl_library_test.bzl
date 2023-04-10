@@ -15,10 +15,10 @@ limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("//build/bazel/rules:hidl_file_utils.bzl", "INTERFACE_HEADER_PREFIXES", "TYPE_HEADER_PREFIXES")
 load("//build/bazel/rules/hidl:hidl_interface.bzl", "INTERFACE_SUFFIX")
 load("//build/bazel/rules/hidl:hidl_library.bzl", "hidl_library")
-load(":cc_hidl_library.bzl", "CC_HEADER_SUFFIX", "CC_SOURCE_SUFFIX", "cc_hidl_library")
-load("//build/bazel/rules:hidl_file_utils.bzl", "INTERFACE_HEADER_PREFIXES", "TYPE_HEADER_PREFIXES")
+load(":cc_hidl_library.bzl", "CC_HEADER_SUFFIX", "cc_hidl_library")
 
 HIDL_GEN = "prebuilts/build-tools/linux-x86/bin/hidl-gen"
 
@@ -47,7 +47,6 @@ INTERFACE_VERSION_1_1 = "1.1"
 
 def _cc_code_gen_test_impl(ctx):
     env = analysistest.begin(ctx)
-    target_under_test = analysistest.target_under_test(env)
     actions = analysistest.target_actions(env)
     package_root = paths.dirname(ctx.build_file_path)
     header_gen_actions = [a for a in actions if a.mnemonic == "HidlGenCcHeader"]
