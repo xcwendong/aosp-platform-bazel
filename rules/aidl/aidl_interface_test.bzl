@@ -169,7 +169,14 @@ def _test_aidl_interface_passes_flags_to_aidl_libraries():
         name = name,
         srcs = ["Foo.aidl"],
         tags = ["manual"],
-        versions = ["1", "2"],
+        versions_with_info = [
+            {
+                "version": "1",
+            },
+            {
+                "version": "2",
+            },
+        ],
     )
 
     target_v1_test_name = name + "_test-V1"
@@ -231,7 +238,14 @@ def _next_version_for_versioned_stable_interface_test():
 
     aidl_interface(
         name = name,
-        versions = ["1", "2"],
+        versions_with_info = [
+            {
+                "version": "1",
+            },
+            {
+                "version": "2",
+            },
+        ],
         srcs = ["Foo.aidl"],
         tags = ["manual"],
     )

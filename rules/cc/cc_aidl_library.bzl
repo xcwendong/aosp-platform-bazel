@@ -26,9 +26,12 @@ def cc_aidl_library(
     Generate AIDL stub code for C++ and wrap it in a cc_library_static target
 
     Args:
-        name:                        (String) name of the cc_library_static target
-        deps:                        (list[AidlGenInfo]) list of all aidl_libraries that this cc_aidl_library depends on
-        **kwargs:                    extra arguments that will be passesd to cc_library_{static,shared}.
+        name (str):               name of the cc_library_static target
+        deps (list[AidlGenInfo]): list of all aidl_libraries that this cc_aidl_library depends on
+        make_shared (bool):       if true, `name` will refer to a cc_library_shared,
+                                  and an additional cc_library_static will be created
+                                  if false, `name` will refer to a cc_library_static
+        **kwargs:                 extra arguments that will be passesd to cc_library_{static,shared}.
     """
 
     if lang not in ["cpp", "ndk"]:

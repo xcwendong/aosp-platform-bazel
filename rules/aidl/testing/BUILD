@@ -15,7 +15,6 @@ limitations under the License.
 """
 
 load("//build/bazel/rules/aidl:aidl_interface.bzl", "aidl_interface")
-load("//build/bazel/rules/aidl:aidl_library.bzl", "aidl_library")
 
 test_scope = [
     "//build/bazel/rules/aidl/testing:aidl_interface_test-java",
@@ -27,8 +26,8 @@ test_scope = [
     "//build/bazel/rules/aidl/testing:aidl_interface_test-latest-java",
 ]
 
-aidl_library(
-    name = "aidl_library_test",
+aidl_interface(
+    name = "foo",
     srcs = ["Test.aidl"],
     tags = ["manual"],
 )
@@ -39,11 +38,16 @@ aidl_interface(
         "enabled": True,
     },
     tags = ["manual"],
-    versions = [
-        "1",
-        "2",
+    versions_with_info = [
+        {
+            "version": "1",
+            "deps": [":foo-V1"],
+        },
+        {
+            "version": "2",
+            "deps": [":foo-V1"],
+        },
     ],
-    deps = [":aidl_library_test"],
 )
 
 genquery(
