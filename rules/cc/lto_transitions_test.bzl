@@ -12,87 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
-
-# TODO(b/270583469): Extract this and the equivalent logic for FDO
-ActionArgsInfo = provider(
-    fields = {
-        "argv_map": "A dict with compile action arguments keyed by the target label",
-    },
-)
-
-def _compile_action_argv_aspect_impl(target, ctx):
-    argv_map = {}
-    if ctx.rule.kind == "cc_library":
-        cpp_compile_commands_args = []
-        for action in target.actions:
-            if action.mnemonic == "CppCompile":
-                cpp_compile_commands_args.extend(action.argv)
-
-        if len(cpp_compile_commands_args):
-            argv_map = dicts.add(
-                argv_map,
-                {
-                    target.label.name: cpp_compile_commands_args,
-                },
-            )
-    elif ctx.rule.kind == "_cc_library_combiner":
-        # propagate compile actions flags from [implementation_]whole_archive_deps upstream
-        for dep in ctx.rule.attr.deps:
-            argv_map = dicts.add(
-                argv_map,
-                dep[ActionArgsInfo].argv_map,
-            )
-
-        # propagate compile actions flags from roots (e.g. _cpp) upstream
-        for root in ctx.rule.attr.roots:
-            argv_map = dicts.add(
-                argv_map,
-                root[ActionArgsInfo].argv_map,
-            )
-
-        # propagate action flags from locals and exports
-        for include in ctx.rule.attr.includes:
-            argv_map = dicts.add(
-                argv_map,
-                include[ActionArgsInfo].argv_map,
-            )
-    elif ctx.rule.kind == "_cc_includes":
-        for dep in ctx.rule.attr.deps:
-            argv_map = dicts.add(
-                argv_map,
-                dep[ActionArgsInfo].argv_map,
-            )
-    elif ctx.rule.kind == "_cc_library_shared_proxy":
-        # propagate compile actions flags from root upstream
-        argv_map = dicts.add(
-            argv_map,
-            ctx.rule.attr.deps[0][ActionArgsInfo].argv_map,
-        )
-    elif ctx.rule.kind == "stripped_binary":
-        # Checking `androidmk_deps` because that contains the root library
-        # where ths sources for the binary are ultimately compiled
-        argv_map = dicts.add(
-            argv_map,
-            ctx.rule.attr.androidmk_deps[0][ActionArgsInfo].argv_map,
-        )
-    return ActionArgsInfo(
-        argv_map = argv_map,
-    )
-
-# _compile_action_argv_aspect is used to examine compile action from static deps
-# as the result of the fdo transition attached to the cc_library_shared's deps
-# and __internal_root_cpp which have cc compile actions.
-# Checking the deps directly using their names give us the info before
-# transition takes effect.
-_compile_action_argv_aspect = aspect(
-    implementation = _compile_action_argv_aspect_impl,
-    attr_aspects = ["root", "roots", "deps", "includes", "androidmk_deps"],
-    provides = [ActionArgsInfo],
+load(
+    "//build/bazel/rules/cc/testing:transitions.bzl",
+    "ActionArgsInfo",
+    "compile_action_argv_aspect_generator",
 )
 
 lto_flag = "-flto=thin"
@@ -111,29 +38,38 @@ def _lto_deps_test_impl(ctx):
             target in argv_map,
             "can't find {} in argv map".format(target),
         )
-        argv = argv_map[target]
-        asserts.true(
-            env,
-            lto_flag in argv,
-            "Compile action of {} didn't have LTO but it was expected".format(
-                target,
-            ),
-        )
+        if target in argv_map:
+            argv = argv_map[target]
+            asserts.true(
+                env,
+                lto_flag in argv,
+                "Compile action of {} didn't have LTO but it was expected".format(
+                    target,
+                ),
+            )
     for target in ctx.attr.targets_without_lto:
         asserts.true(
             env,
             target in argv_map,
             "can't find {} in argv map".format(target),
         )
-        argv = argv_map[target]
-        asserts.true(
-            env,
-            lto_flag not in argv,
-            "Compile action of {} had LTO but it wasn't expected".format(
-                target,
-            ),
-        )
+        if target in argv_map:
+            argv = argv_map[target]
+            asserts.true(
+                env,
+                lto_flag not in argv,
+                "Compile action of {} had LTO but it wasn't expected".format(
+                    target,
+                ),
+            )
     return analysistest.end(env)
+
+_compile_action_argv_aspect = compile_action_argv_aspect_generator({
+    "_cc_library_combiner": ["deps", "roots", "includes"],
+    "_cc_includes": ["deps"],
+    "_cc_library_shared_proxy": ["deps"],
+    "stripped_binary": ["androidmk_deps"],
+})
 
 lto_deps_test = analysistest.make(
     _lto_deps_test_impl,
