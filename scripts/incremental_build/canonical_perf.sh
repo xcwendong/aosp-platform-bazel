@@ -43,7 +43,7 @@ readonly -a build_types=("$@")
 function build() {
   date
   set -x
-  if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.py" \
+  if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.sh" \
     --ignore-repo-diff ${log_dir:+--log-dir "$log_dir"} \
     ${build_types:+--build-types "${build_types[@]}"} \
     "$@"; then

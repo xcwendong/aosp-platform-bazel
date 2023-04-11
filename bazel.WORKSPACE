@@ -93,7 +93,7 @@ bind(
 # for Android app building, whereas the d8.jar in prebuilts/sdk/tools doesn't.
 bind(
     name = "android/d8_jar_import",
-    actual = "//prebuilts/r8:r8_jar_import",
+    actual = "//prebuilts/bazel/common/r8:r8_jar_import",
 )
 
 # TODO(b/201242197): Avoid downloading remote_coverage_tools (on CI) by creating
@@ -123,6 +123,12 @@ local_repository(
 local_repository(
     name = "remote_java_tools_linux",
     path = "prebuilts/bazel/linux-x86_64/remote_java_tools_linux",
+)
+
+# The following repository contains android_tools prebuilts.
+local_repository(
+    name = "android_tools",
+    path = "prebuilts/bazel/common/android_tools",
 )
 
 # The rules_java repository is stubbed and points to the native Java rules until

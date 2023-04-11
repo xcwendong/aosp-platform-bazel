@@ -15,9 +15,9 @@ limitations under the License.
 """
 
 load("@rules_android//rules/android_binary_internal:rule.bzl", "make_rule", "sanitize_attrs")
-load(":impl.bzl", "impl")
+load(":impl.bzl", _impl = "impl")
 
-android_binary_aosp_internal = make_rule(implementation = impl)
+android_binary_aosp_internal = make_rule(implementation = _impl)
 
 def android_binary_aosp_internal_macro(**attrs):
     """android_binary_internal rule.

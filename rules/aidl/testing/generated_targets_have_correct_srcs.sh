@@ -20,11 +20,13 @@
 
 readonly expected_query_v1="\
 //build/bazel/rules/aidl/testing:Test.aidl
+//build/bazel/rules/aidl/testing:aidl_api/aidl_interface_test/1/.hash
 //build/bazel/rules/aidl/testing:aidl_api/aidl_interface_test/1/android/net/Test.aidl
 //build/bazel/rules/aidl/testing:aidl_api/aidl_interface_test/1/android/net/Test2.aidl
 //build/bazel/rules/aidl/testing:aidl_api/aidl_interface_test/1/android/net/Test3.aidl"
 readonly expected_query_v2="\
 //build/bazel/rules/aidl/testing:Test.aidl
+//build/bazel/rules/aidl/testing:aidl_api/aidl_interface_test/2/.hash
 //build/bazel/rules/aidl/testing:aidl_api/aidl_interface_test/2/Test2Only.aidl"
 
 readonly query_path_v1="__main__/build/bazel/rules/aidl/testing/generated_target_V1_has_correct_srcs_query"

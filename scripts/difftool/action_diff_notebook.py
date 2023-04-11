@@ -85,6 +85,7 @@ def get_ninja_actions(*, lunch_target: str, target: str, mnemonic: str):
 
 
 # %%
+# Example 1: Comparing link actions
 # This example gets all of the "CppLink" actions from the adb_test module, and
 # also gets the build actions that are needed to build the same module from
 # through Ninja.
@@ -95,6 +96,7 @@ def get_ninja_actions(*, lunch_target: str, target: str, mnemonic: str):
 # happened to be the last one (this is pretty typical).
 #
 # Then we set a new variable to keep track of each of these action strings.
+
 bzl_actions = get_bazel_actions(
     config="linux_x86_64",
     expr="//packages/modules/adb:adb_test__test_binary_unstripped",
@@ -109,6 +111,7 @@ bazel_action = bzl_actions[0]["arguments"]
 ninja_action = ninja_actions[-1].split()
 
 # %%
+# Example 2: Comparing compile actions
 # This example is similar and gets all of the "CppCompile" actions from the
 # internal sub-target of adb_test. There is a "CppCompile" action for every
 # .cc file that goes into the target, so we just pick one of these files and
@@ -117,31 +120,33 @@ ninja_action = ninja_actions[-1].split()
 # Similarly, we select an action from the Bazel list and its corresponding
 # Ninja action.
 
-bzl_actions = get_bazel_actions(
-    config="linux_x86_64",
-    expr="//packages/modules/adb:adb_test__test_binary__internal_root_cpp",
-    mnemonic="CppCompile",
-)
-ninja_actions = get_ninja_actions(
-    lunch_target=LUNCH_TARGET,
-    target="out/soong/.intermediates/packages/modules/adb/adb_test/linux_glibc_x86_64/obj/packages/modules/adb/adb_io_test.o",
-    mnemonic="clang++",
-)
-bazel_action = bzl_actions[0]["arguments"]
-ninja_action = ninja_actions[-1].split()
+# bzl_actions = get_bazel_actions(
+#     config="linux_x86_64",
+#     expr="//packages/modules/adb:adb_test__test_binary__internal_root_cpp",
+#     mnemonic="CppCompile",
+# )
+# ninja_actions = get_ninja_actions(
+#     lunch_target=LUNCH_TARGET,
+#     target="out/soong/.intermediates/packages/modules/adb/adb_test/linux_glibc_x86_64/obj/packages/modules/adb/adb_io_test.o",
+#     mnemonic="clang++",
+# )
+# bazel_action = bzl_actions[0]["arguments"]
+# ninja_action = ninja_actions[-1].split()
 
 # %%
+# Example 3: more complex expressions in the Bazel action
 # This example gets all of the "CppCompile" actions from the deps of everything
 # under the //packages/modules/adb package, but it uses the additional_args
 # to exclude "manual" internal targets.
-bzl_actions = get_bazel_actions(
-    config="linux_x86_64",
-    expr="deps(//packages/modules/adb/...)",
-    mnemonic="CppCompile",
-    additional_args=[
-        "--build_tag_filters=-manual",
-    ],
-)
+
+# bzl_actions = get_bazel_actions(
+#     config="linux_x86_64",
+#     expr="deps(//packages/modules/adb/...)",
+#     mnemonic="CppCompile",
+#     additional_args=[
+#         "--build_tag_filters=-manual",
+#     ],
+# )
 
 # %%
 # Once we have the command-line string for each action from Bazel and Ninja,

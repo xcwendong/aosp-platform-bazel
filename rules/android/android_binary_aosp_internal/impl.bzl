@@ -22,7 +22,7 @@ load(
 )
 load("@rules_android//rules:resources.bzl", _resources = "resources")
 load("@rules_android//rules:utils.bzl", "get_android_toolchain")
-load("@rules_android//rules/android_binary_internal:impl.bzl", "finalize", _PROCESSORS = "PROCESSORS")
+load("@rules_android//rules/android_binary_internal:impl.bzl", "finalize", _BASE_PROCESSORS = "PROCESSORS")
 load("//build/bazel/rules/common:api.bzl", "api")
 
 def _process_manifest_aosp(ctx, **unused_ctxs):
@@ -39,8 +39,10 @@ def _process_manifest_aosp(ctx, **unused_ctxs):
     )
 
 # (b/274150785)  validation processor does not allow min_sdk that are a string
-PROCESSORS = dict(_PROCESSORS)
-PROCESSORS.update(dict(ManifestProcessor = _process_manifest_aosp))
+PROCESSORS = processing_pipeline.replace(
+    _BASE_PROCESSORS,
+    ManifestProcessor = _process_manifest_aosp,
+)
 
 _PROCESSING_PIPELINE = processing_pipeline.make_processing_pipeline(
     processors = PROCESSORS,

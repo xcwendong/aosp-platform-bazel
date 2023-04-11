@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/bazel/rules/aidl:library.bzl", "AidlGenInfo", "aidl_file_utils")
+load("//build/bazel/rules/aidl:aidl_library.bzl", "AidlGenInfo", "aidl_file_utils")
 
 JavaAidlAspectInfo = provider("JavaAidlAspectInfo", fields = ["jars"])
 

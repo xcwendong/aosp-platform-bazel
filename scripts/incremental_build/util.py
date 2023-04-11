@@ -37,8 +37,9 @@ def _is_important(column) -> bool:
   patterns = {
       'description', 'build_type', r'build\.ninja(\.size)?', 'targets',
       'log', 'actions', 'time',
-      r'soong_build/\*\.bazel', 'bp2build/', r'symlink_forest/', 'ninja/ninja',
-      r'.*write_files.*'}
+      'soong/soong', 'bp2build/', 'symlink_forest/', r'soong_build/\*',
+      r'soong_build/\*\.bazel', 'bp2build/', 'kati/kati build', 'ninja/ninja'
+      }
   for pattern in patterns:
     if re.fullmatch(pattern, column):
       return True
@@ -75,13 +76,17 @@ def get_cmd_to_display_tabulated_metrics(d: Path) -> str:
 @functools.cache
 def get_top_dir(d: Path = Path('.').absolute()) -> Path:
   """Get the path to the root of the Android source tree"""
+  top_dir = os.environ.get('ANDROID_BUILD_TOP')
+  if top_dir:
+    logging.info('ANDROID BUILD TOP = %s', d)
+    return Path(top_dir)
   logging.debug('Checking if Android source tree root is %s', d)
   if d.parent == d:
     sys.exit('Unable to find ROOT source directory, specifically,'
              f'{INDICATOR_FILE} not found anywhere. '
              'Try `m nothing` and `repo sync`')
   if d.joinpath(INDICATOR_FILE).is_file():
-    logging.info('Android source tree root = %s', d)
+    logging.info('ANDROID BUILD TOP assumed to be %s', d)
     return d
   return get_top_dir(d.parent)
 

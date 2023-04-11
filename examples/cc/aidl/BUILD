@@ -1,4 +1,4 @@
-load("//build/bazel/rules/aidl:library.bzl", "aidl_library")
+load("//build/bazel/rules/aidl:aidl_library.bzl", "aidl_library")
 load("//build/bazel/rules/cc:cc_aidl_library.bzl", "cc_aidl_library")
 
 aidl_library(

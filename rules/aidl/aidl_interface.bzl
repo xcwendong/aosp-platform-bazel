@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/bazel/rules/aidl:library.bzl", "aidl_library")
+load("//build/bazel/rules/aidl:aidl_library.bzl", "aidl_library")
 load("//build/bazel/rules/cc:cc_aidl_code_gen.bzl", "cc_aidl_code_gen")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
-load("//build/bazel/rules/java:aidl_library.bzl", "java_aidl_library")
+load("//build/bazel/rules/java:java_aidl_library.bzl", "java_aidl_library")
 
 JAVA = "java"
 CPP = "cpp"
 NDK = "ndk"
 #TODO(b/246803961) Add support for rust backend
+
+def _hash_file(name, version):
+    return "aidl_api/{}/{}/.hash".format(name, version)
 
 def _check_versions(versions):
     sorted_versions = sorted([int(i) for i in versions])  # ensure that all versions are ints
@@ -176,9 +179,11 @@ def aidl_interface(
         _check_versions_with_info(versions_with_info)
         next_version = _next_version(versions, False)
         for version_with_info in versions_with_info:
+            hash_file = _hash_file(name, version_with_info["version"])
             create_aidl_binding_for_backends(
                 name = name,
                 version = version_with_info["version"],
+                hash_file = hash_file,
                 deps = version_with_info.get("deps"),
                 aidl_flags = aidl_flags,
                 backend_configs = enabled_backend_configs,
@@ -197,9 +202,11 @@ def aidl_interface(
         versions = _check_versions(versions)
         next_version = _next_version(versions, False)
         for version in versions:
+            hash_file = _hash_file(name, version)
             create_aidl_binding_for_backends(
                 name = name,
                 version = version,
+                hash_file = hash_file,
                 deps = deps,
                 aidl_flags = aidl_flags,
                 backend_configs = enabled_backend_configs,
@@ -235,6 +242,7 @@ def aidl_interface(
 def create_aidl_binding_for_backends(
         name,
         version = None,
+        hash_file = None,
         srcs = None,
         strip_import_prefix = "",
         deps = None,
@@ -273,6 +281,7 @@ def create_aidl_binding_for_backends(
     aidl_library(
         name = aidl_library_name,
         deps = deps,
+        hash_file = hash_file,
         strip_import_prefix = strip_import_prefix,
         srcs = srcs,
         flags = aidl_flags,
@@ -297,6 +306,7 @@ def create_aidl_binding_for_backends(
             )
         elif lang == CPP or lang == NDK:
             dynamic_deps = []
+            cppflags = []
 
             # https://cs.android.com/android/platform/superproject/+/master:system/tools/aidl/build/aidl_interface_backends.go;l=564;drc=0517d97079d4b08f909e7f35edfa33b88fcc0d0e
             if deps != None:
@@ -316,6 +326,9 @@ def create_aidl_binding_for_backends(
                     "//conditions:default": ["//frameworks/native/libs/binder/ndk:libbinder_ndk"],
                 })
 
+                # https://source.corp.google.com/android/system/tools/aidl/build/aidl_interface_backends.go;l=120;rcl=18dd931bde35b502545b7a52987e2363042c151c
+                cppflags = ["-DBINDER_STABILITY_SUPPORT"]
+
             _cc_aidl_libraries(
                 name = "{}-{}".format(aidl_library_name, lang),
                 aidl_library = ":" + aidl_library_name,
@@ -323,6 +336,7 @@ def create_aidl_binding_for_backends(
                 lang = lang,
                 min_sdk_version = min_sdk_version,
                 tags = tags + config.get("tags", []),
+                cppflags = cppflags,
                 **kwargs
             )
 
@@ -341,6 +355,7 @@ def _cc_aidl_libraries(
         lang = None,
         min_sdk_version = "",
         tags = [],
+        cppflags = [],
         **kwargs):
     """
     Generate AIDL stub code for cpp or ndk backend and wrap it in cc libraries (both shared and static variant)
@@ -390,6 +405,7 @@ def _cc_aidl_libraries(
         tidy_checks_as_errors = tidy_checks_as_errors,
         tidy_gen_header_filter = True,
         tags = tags,
+        cppflags = cppflags,
     )
 
     cc_library_shared(
