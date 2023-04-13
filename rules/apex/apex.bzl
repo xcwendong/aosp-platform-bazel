@@ -15,7 +15,6 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@soong_injection//apex_toolchain:constants.bzl", "default_manifest_version")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load("//build/bazel/product_config:product_variables_providing_rule.bzl", "ProductVariablesInfo")
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
@@ -451,6 +450,10 @@ def _run_apexer(ctx, apex_toolchain):
     # Override the package name, if it's expicitly specified
     if ctx.attr.package_name:
         args.add_all(["--override_apk_package_name", ctx.attr.package_name])
+    else:
+        override_package_name = _override_manifest_package_name(ctx)
+        if override_package_name:
+            args.add_all(["--override_apk_package_name", override_package_name])
 
     if ctx.attr.logging_parent:
         args.add_all(["--logging_parent", ctx.attr.logging_parent])
@@ -581,6 +584,24 @@ def _run_signapk(ctx, unsigned_file, signed_file, private_key, public_key, mnemo
     )
 
     return signed_file
+
+# See also getOverrideManifestPackageName
+# https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/builder.go;l=1000;drc=241e738c7156d928e9a993b15993cb3297face45
+def _override_manifest_package_name(ctx):
+    apex_name = ctx.attr.name
+    overrides = ctx.attr._product_variables[ProductVariablesInfo].ManifestPackageNameOverrides
+    if not overrides:
+        return None
+
+    matches = [o for o in overrides if o.split(":")[0] == apex_name]
+
+    if not matches:
+        return None
+
+    if len(matches) > 1:
+        fail("unexpected multiple manifest package overrides for %s, %s" % (apex_name, matches))
+
+    return matches[0].split(":")[1]
 
 # https://cs.android.com/android/platform/superproject/+/master:build/soong/android/config.go;drc=5ca657189aac546af0aafaba11bbc9c5d889eab3;l=1501
 # In Soong, we don't check whether the current apex is part of Unbundled_apps.
@@ -738,7 +759,7 @@ def _apex_rule_impl(ctx):
     apexer_outputs = _run_apexer(ctx, apex_toolchain)
     unsigned_apex = apexer_outputs.unsigned_apex
 
-    apex_cert_info = ctx.attr.certificate[AndroidAppCertificateInfo]
+    apex_cert_info = ctx.attr.certificate[0][AndroidAppCertificateInfo]
     private_key = apex_cert_info.pk8
     public_key = apex_cert_info.pem
 
@@ -842,6 +863,7 @@ file mode, and cap is hexadecimal value for the capability.""",
         "certificate": attr.label(
             providers = [AndroidAppCertificateInfo],
             mandatory = True,
+            cfg = apex_transition,
         ),
         "min_sdk_version": attr.string(
             default = "current",

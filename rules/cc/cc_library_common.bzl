@@ -14,7 +14,7 @@
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("@soong_injection//android:constants.bzl", android_constants = "constants")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
+load("@soong_injection//api_levels:platform_versions.bzl", "platform_versions")
 load("//build/bazel/rules:common.bzl", "strip_bp2build_label_suffix")
 load("//build/bazel/rules/common:api.bzl", "api")
 
@@ -237,10 +237,10 @@ def parse_apex_sdk_version(version):
         version = int(version)
         if version in api.api_levels.values():
             return version
-        elif version == product_vars["Platform_sdk_version"]:
+        elif version == platform_versions.platform_sdk_version:
             # For internal branch states, support parsing a finalized version number
             # that's also still in
-            # product_vars["Platform_version_active_codenames"], but not api.api_levels.
+            # platform_versions.platform_version_active_codenames, but not api.api_levels.
             #
             # This happens a few months each year on internal branches where the
             # internal master branch has a finalized API, but is not released yet,

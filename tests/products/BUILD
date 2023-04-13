@@ -45,3 +45,20 @@ android_product(
         {"CompressedApex": False},
     ),
 )
+
+android_product(
+    name = "aosp_arm64_for_testing_with_overrides_and_app_cert",
+    soong_variables = dicts.add(
+        _soong_variables_arm64,
+        {
+            "ManifestPackageNameOverrides": [
+                "apex_certificate_label_with_overrides:another",
+                "package_name_override_from_config:another.package",
+            ],
+            "CertificateOverrides": [
+                "apex_certificate_label_with_overrides:another.certificate",
+            ],
+            "DefaultAppCertificate": "build/bazel/rules/apex/testdata/devkey",
+        },
+    ),
+)

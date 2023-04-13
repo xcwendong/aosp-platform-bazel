@@ -1063,6 +1063,53 @@ def _test_default_apex_manifest_version():
 
     return test_name
 
+action_args_with_overrides_test = analysistest.make(
+    _action_args_test,
+    attrs = _action_args_test_attrs,
+    config_settings = {
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_with_overrides_and_app_cert",
+    },
+)
+
+def _test_package_name():
+    name = "package_name"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+        package_name = "my.package.name",
+    )
+
+    action_args_test(
+        name = test_name,
+        target_under_test = name,
+        action_mnemonic = "Apexer",
+        expected_args = [
+            "--override_apk_package_name",
+            "my.package.name",
+        ],
+    )
+
+    return test_name
+
+def _test_package_name_override_from_config():
+    name = "package_name_override_from_config"
+    test_name = name + "_test"
+
+    test_apex(name = name)
+
+    action_args_with_overrides_test(
+        name = test_name,
+        target_under_test = name,
+        action_mnemonic = "Apexer",
+        expected_args = [
+            "--override_apk_package_name",
+            "another.package",
+        ],
+    )
+
+    return test_name
+
 action_args_with_override_apex_manifest_default_version_test = analysistest.make(
     _action_args_test,
     attrs = _action_args_test_attrs,
@@ -1235,6 +1282,17 @@ apex_certificate_test = analysistest.make(
     },
 )
 
+apex_certificate_with_overrides_test = analysistest.make(
+    _apex_certificate_test,
+    attrs = {
+        "expected_pem_path": attr.string(),
+        "expected_pk8_path": attr.string(),
+    },
+    config_settings = {
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_with_overrides_and_app_cert",
+    },
+)
+
 def _test_apex_certificate_none():
     name = "apex_certificate_none"
     test_name = name + "_test"
@@ -1292,6 +1350,30 @@ def _test_apex_certificate_label():
         target_under_test = name,
         expected_pem_path = "build/bazel/rules/apex/apex_certificate_label.x509.pem",
         expected_pk8_path = "build/bazel/rules/apex/apex_certificate_label.pk8",
+    )
+
+    return test_name
+
+def _test_apex_certificate_label_with_overrides():
+    name = "apex_certificate_label_with_overrides"
+    test_name = name + "_test"
+
+    android_app_certificate(
+        name = name + "_cert",
+        certificate = name,
+        tags = ["manual"],
+    )
+
+    test_apex(
+        name = name,
+        certificate = name + "_cert",
+    )
+
+    apex_certificate_with_overrides_test(
+        name = test_name,
+        target_under_test = name,
+        expected_pem_path = "build/bazel/rules/apex/testdata/another.x509.pem",
+        expected_pk8_path = "build/bazel/rules/apex/testdata/another.pk8",
     )
 
     return test_name
@@ -2606,6 +2688,8 @@ def apex_test_suite(name):
             _test_apex_manifest_dependencies_selfcontained(),
             _test_apex_manifest_dependencies_cc_binary(),
             _test_logging_parent_flag(),
+            _test_package_name(),
+            _test_package_name_override_from_config(),
             _test_generate_file_contexts(),
             _test_default_apex_manifest_version(),
             _test_override_apex_manifest_version(),
@@ -2614,6 +2698,7 @@ def apex_test_suite(name):
             _test_apex_certificate_none(),
             _test_apex_certificate_name(),
             _test_apex_certificate_label(),
+            _test_apex_certificate_label_with_overrides(),
             _test_min_sdk_version_apex_inherit(),
             _test_min_sdk_version_apex_inherit_override_min_sdk_tiramisu(),
             _test_apex_testonly_with_manifest(),

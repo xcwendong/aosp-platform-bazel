@@ -64,9 +64,7 @@ function clean_build {
 function save_hash {
   local -r filepath="$1"
   find $OUT_DIR/soong/workspace -type f,l -iname "BUILD.bazel" -o -iname "*.bzl" | xargs "${PREBUILTS}"/md5sum > $filepath
-  # TODO(b/232407080): Uncomment this line once buildroot.cquery is
-  # deterministic.
-  #find $OUT_DIR/soong/soong_injection -type f,l | xargs "${PREBUILTS}"/md5sum >> $FIRST_FILE
+  find $OUT_DIR/soong/soong_injection -type f,l | xargs "${PREBUILTS}"/md5sum >> $filepath
 }
 
 TESTDIR=$(mktemp -t testdir.XXXXXX -d)
