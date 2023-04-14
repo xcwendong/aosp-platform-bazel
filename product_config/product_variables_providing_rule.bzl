@@ -17,10 +17,12 @@ load("@soong_injection//metrics:converted_modules_path_map.bzl", "modules")
 ProductVariablesInfo = provider(
     "ProductVariablesInfo provides the android product config variables.",
     fields = {
+        "Always_use_prebuilt_sdks": "Boolean to always use a prebuilt sdk instead of source-built.",
         "CompressedApex": "Boolean indicating if apexes are compressed or not.",
         "DefaultAppCertificate": "The default certificate to sign APKs and APEXes with. The $(dirname) of this certificate will also be used to find additional certificates when modules only give their names.",
         "TidyChecks": "List of clang tidy checks to enable.",
         "Unbundled_apps": "List of apps to build as unbundled.",
+        "Unbundled_build": "True if this is an unbundled build",
         "ManifestPackageNameOverrides": "A list of string:string mapping from APEX/APK name to package name to override the AndroidManifest.xml package of the module.",
         "CertificateOverrides": "A list of string:string mapping from APEX/APK name to the certificate name to override the certificate used to sign the APEX/APK container.",
     },
@@ -43,10 +45,12 @@ def _product_variables_providing_rule_impl(ctx):
     return [
         platform_common.TemplateVariableInfo(ctx.attr.attribute_vars),
         ProductVariablesInfo(
+            Always_use_prebuilt_sdks = vars.get("Always_use_prebuilt_sdks", False),
             CompressedApex = vars.get("CompressedApex", False),
             DefaultAppCertificate = vars.get("DefaultAppCertificate", None),
             TidyChecks = tidy_checks,
             Unbundled_apps = vars.get("Unbundled_apps", []),
+            Unbundled_build = vars.get("Unbundled_build", False),
             ManifestPackageNameOverrides = vars.get("ManifestPackageNameOverrides", []),
             CertificateOverrides = vars.get("CertificateOverrides", []),
         ),

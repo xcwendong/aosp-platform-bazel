@@ -20,7 +20,9 @@ load(
 )
 load("android_app_certificate.bzl", "android_app_certificate_with_default_cert")
 load("android_app_keystore.bzl", "android_app_keystore")
+load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition", "sdk_transition_attrs")
 
+# TODO(b/277801336): document these attributes.
 def _android_binary_helper(**attrs):
     """ Duplicates the logic in top-level android_binary macro in
         rules_android/rules/android_binary.bzl but uses
@@ -51,6 +53,11 @@ def android_binary(
         name,
         certificate = None,
         certificate_name = None,
+        sdk_version = None,
+        java_version = None,
+        tags = [],
+        target_compatible_with = [],
+        visibility = None,
         **kwargs):
     """ android_binary macro wrapper that handles custom attrs needed in AOSP
        Bazel macro to find and create a keystore to use for debug_signing_keys
@@ -91,8 +98,50 @@ def android_binary(
 
         debug_signing_keys.append(app_keystore_name)
 
+    bin_name = name + "_private"
     _android_binary_helper(
-        name = name,
+        name = bin_name,
         debug_signing_keys = debug_signing_keys,
+        target_compatible_with = target_compatible_with,
+        tags = tags + ["manual"],
+        visibility = ["//visibility:private"],
         **kwargs
     )
+
+    android_binary_sdk_transition(
+        name = name,
+        sdk_version = sdk_version,
+        java_version = java_version,
+        exports = bin_name,
+        tags = tags,
+        target_compatible_with = target_compatible_with,
+        visibility = visibility,
+    )
+
+# The list of providers to forward was determined using cquery on one
+# of the example targets listed under EXAMPLE_WRAPPER_TARGETS at
+# //build/bazel/ci/target_lists.sh. It may not be exhaustive. A unit
+# test ensures that the wrapper's providers and the wrapped rule's do
+# match.
+def _android_binary_sdk_transition_impl(ctx):
+    return struct(
+        android = ctx.attr.exports[0].android,
+        JavaGenJarsProvider = ctx.attr.exports[0][JavaInfo].annotation_processing,
+        providers = [
+            ctx.attr.exports[0][AndroidIdlInfo],
+            ctx.attr.exports[0][InstrumentedFilesInfo],
+            ctx.attr.exports[0][DataBindingV2Info],
+            ctx.attr.exports[0][JavaInfo],
+            ctx.attr.exports[0][AndroidIdeInfo],
+            ctx.attr.exports[0][ApkInfo],
+            ctx.attr.exports[0][AndroidPreDexJarInfo],
+            ctx.attr.exports[0][AndroidFeatureFlagSet],
+            ctx.attr.exports[0][OutputGroupInfo],
+            ctx.attr.exports[0][DefaultInfo],
+        ],
+    )
+
+android_binary_sdk_transition = rule(
+    implementation = _android_binary_sdk_transition_impl,
+    attrs = sdk_transition_attrs,
+)

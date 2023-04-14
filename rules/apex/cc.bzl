@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("//build/bazel/product_config:product_variables_providing_rule.bzl", "ProductVariablesInfo")
 load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "CcSharedLibraryOutputInfo", "CcStubLibrariesInfo")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
@@ -185,7 +186,7 @@ def _apex_cc_aspect_impl(target, ctx):
             # If a stub library is in the "provides" of the apex, it doesn't need to be in the "requires"
             if not is_apex_direct_dep(source_library_label, ctx):
                 requires.append(source_library_label)
-                if not ctx.attr._unbundled_build[BuildSettingInfo].value and not _installed_to_bootstrap(source_library_label):
+                if not ctx.attr._product_variables[ProductVariablesInfo].Unbundled_build and not _installed_to_bootstrap(source_library_label):
                     # It's sufficient to pass the make module name, not the fully qualified bazel label.
                     make_modules_to_install.append(source_library_label.name)
 
@@ -292,7 +293,7 @@ apex_cc_aspect = aspect(
         "_apex_direct_deps": attr.label(default = "//build/bazel/rules/apex:apex_direct_deps"),
         "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
         "_min_sdk_version": attr.label(default = "//build/bazel/rules/apex:min_sdk_version"),
-        "_unbundled_build": attr.label(default = "//build/bazel/rules/apex:unbundled_build"),
+        "_product_variables": attr.label(default = "//build/bazel/product_config:product_vars"),
     },
     attr_aspects = CC_ATTR_ASPECTS,
     # TODO: Have this aspect also propagate along attributes of native_shared_libs?

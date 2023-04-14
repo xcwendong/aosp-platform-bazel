@@ -15,7 +15,7 @@
 """Starlark rules for building Android apps."""
 
 load(
-    "@rules_android//rules:rules.bzl",
+    ":aar_import.bzl",
     _aar_import = "aar_import",
 )
 load(

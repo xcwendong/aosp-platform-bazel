@@ -29,9 +29,8 @@ BUILD_TARGETS=(
   -//external/e2fsprogs/resize:all
   -//external/e2fsprogs/debugfs:all
   -//external/e2fsprogs/e2fsck:all
-
-  # TODO(b/215230098): remove after handling sdk_version for aidl
-  -//frameworks/av:av-types-aidl-java
+  # TODO(b/277616982): These modules depend on private java APIs, but maybe they don't need to.
+  -//external/ow2-asm:all
 
   # TODO(b/266459895): remove these after re-enabling libunwindstack
   -//bionic/libc/malloc_debug:libc_malloc_debug
@@ -53,6 +52,7 @@ BUILD_TARGETS=(
 TEST_TARGETS=(
   //build/bazel/...
   //prebuilts/clang/host/linux-x86:all
+  //prebuilts/sdk:toolchains_have_all_prebuilts
 )
 
 HOST_ONLY_TEST_TARGETS=(
@@ -71,4 +71,21 @@ HOST_INCOMPATIBLE_TARGETS=(
   # TODO(b/216626461): add support for host_ldlibs
   -//packages/modules/adb:all
   -//packages/modules/adb/pairing_connection:all
+)
+
+# These targets are used to ensure that the aosp-specific rule wrappers forward
+# all providers of the underlying rule.
+EXAMPLE_WRAPPER_TARGETS=(
+  # java_import wrapper
+  //build/bazel/examples/java/com/bazel:hello_java_import
+  # java_library wrapper
+  //build/bazel/examples/java/com/bazel:hello_java_lib
+  # kt_jvm_library wrapper
+  //build/bazel/examples/java/com/bazel:some_kotlin_lib
+  # android_library wrapper
+  //build/bazel/examples/android_app/java/com/app:applib
+  # android_binary wrapper
+  //build/bazel/examples/android_app/java/com/app:app
+  # aar_import wrapper
+  //build/bazel/examples/android_app/java/com/app:import
 )

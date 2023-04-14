@@ -2409,7 +2409,7 @@ def _apex_in_unbundled_build_test(ctx):
 apex_in_unbundled_build_test = analysistest.make(
     _apex_in_unbundled_build_test,
     config_settings = {
-        "@//build/bazel/rules/apex:unbundled_build": True,
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_unbundled_build",
     },
 )
 
@@ -2460,7 +2460,7 @@ def _apex_in_bundled_build_test(ctx):
 apex_in_bundled_build_test = analysistest.make(
     _apex_in_bundled_build_test,
     config_settings = {
-        "@//build/bazel/rules/apex:unbundled_build": False,
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing",
     },
 )
 
@@ -2624,8 +2624,7 @@ min_target_sdk_version_api_fingerprint_test = analysistest.make(
         ),
     },
     config_settings = {
-        "@//build/bazel/rules/apex:unbundled_build": True,
-        "@//build/bazel/rules/apex:always_use_prebuilt_sdks": False,
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_unbundled_build",
         "@//build/bazel/rules/apex:unbundled_build_target_sdk_with_api_fingerprint": True,
         "@//build/bazel/rules/apex:platform_sdk_codename": "123",
     },

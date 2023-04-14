@@ -389,9 +389,10 @@ def _generate_notices(ctx, apex_toolchain):
     return notice_file
 
 def _use_api_fingerprint(ctx):
-    if not ctx.attr._unbundled_build[BuildSettingInfo].value:
+    product_vars = ctx.attr._product_variables[ProductVariablesInfo]
+    if not product_vars.Unbundled_build:
         return False
-    if ctx.attr._always_use_prebuilt_sdks[BuildSettingInfo].value:
+    if product_vars.Always_use_prebuilt_sdks:
         return False
     if not ctx.attr._unbundled_build_target_sdk_with_api_fingerprint[BuildSettingInfo].value:
         return False
@@ -972,12 +973,6 @@ APEX is truly updatable. To be updatable, min_sdk_version should be set as well.
         ),
 
         # Api_fingerprint
-        "_unbundled_build": attr.label(
-            default = "//build/bazel/rules/apex:unbundled_build",
-        ),
-        "_always_use_prebuilt_sdks": attr.label(
-            default = "//build/bazel/rules/apex:always_use_prebuilt_sdks",
-        ),
         "_unbundled_build_target_sdk_with_api_fingerprint": attr.label(
             default = "//build/bazel/rules/apex:unbundled_build_target_sdk_with_api_fingerprint",
         ),

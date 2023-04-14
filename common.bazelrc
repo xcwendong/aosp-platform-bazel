@@ -84,6 +84,7 @@ try-import %workspace%/user.bazelrc
 build --experimental_output_directory_naming_scheme=diff_against_baseline
 common --experimental_google_legacy_api
 build --android_sdk=//prebuilts/sdk:android_sdk
+build --incompatible_enable_android_toolchain_resolution
 common --experimental_enable_android_migration_apis
 common --incompatible_java_common_parameters
 build --android_databinding_use_v3_4_args
@@ -91,8 +92,6 @@ build --experimental_android_databinding_v2
 build --define=android_incremental_dexing_tool=d8_dexbuilder
 build --define=android_dexmerger_tool=d8_dexmerger
 build --nouse_workers_with_dexbuilder
-# TODO(b/240761789): This flag should be abandoned in favor of platform/toolchain resolution.
-build --fat_apk_cpu=k8
 
 # TODO(b/199038020): Use a python_toolchain when we have Starlark rules_python.
 # This also means all python scripts are using py3 runtime.

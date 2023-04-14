@@ -65,12 +65,8 @@ local_repository(
 register_toolchains(
     "//prebuilts/build-tools:py_toolchain",
 
-    # For Starlark Android rules
-    "//prebuilts/sdk:android_default_toolchain",
-    "//prebuilts/sdk:android_sdk_tools",
-
-    # For native android_binary
-    "//prebuilts/sdk:android_sdk_tools_for_native_android_binary",
+    # For Android rules
+    "//prebuilts/sdk:all",
 
     # For APEX rules
     "//build/bazel/rules/apex:all",
@@ -138,7 +134,10 @@ local_repository(
     path = "build/bazel/rules/java/rules_java",
 )
 
-register_toolchains("//prebuilts/jdk/jdk17:all")
+register_toolchains(
+    "//prebuilts/jdk/jdk17:runtime_toolchain_definition",
+    "//build/bazel/rules/java:jdk17_host_toolchain_java_definition",
+)
 
 local_repository(
     name = "kotlin_maven_interface",

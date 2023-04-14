@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("//build/bazel/rules/java:versions.bzl", "java_versions")
-load("//build/bazel/rules/common:sdk_version.bzl", "sdk_spec_from")
+load("//build/bazel/rules/common:sdk_version.bzl", "sdk_version")
 load("//build/bazel/rules/common:api.bzl", "api")
 
 def _sdk_transition_impl(settings, attr):
@@ -27,10 +27,10 @@ def _sdk_transition_impl(settings, attr):
         return {
             "//build/bazel/rules/java:version": default_java_version,
             "//build/bazel/rules/java:host_version": str(java_versions.get_version(attr.java_version)),
-            "//build/bazel/rules/java/sdk:kind": "none",
+            "//build/bazel/rules/java/sdk:kind": sdk_version.KIND_NONE,
             "//build/bazel/rules/java/sdk:api_level": api.NONE_API_LEVEL,
         }
-    sdk_spec = sdk_spec_from(attr.sdk_version)
+    sdk_spec = sdk_version.sdk_spec_from(attr.sdk_version)
     java_version = str(java_versions.get_version(attr.java_version, sdk_spec.api_level))
 
     return {
@@ -53,3 +53,16 @@ sdk_transition = transition(
         "//build/bazel/rules/java/sdk:api_level",
     ],
 )
+
+sdk_transition_attrs = {
+    # This attribute must have a specific name to let the DexArchiveAspect propagate
+    # through it.
+    "exports": attr.label(
+        cfg = sdk_transition,
+    ),
+    "java_version": attr.string(),
+    "sdk_version": attr.string(),
+    "_allowlist_function_transition": attr.label(
+        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+    ),
+}

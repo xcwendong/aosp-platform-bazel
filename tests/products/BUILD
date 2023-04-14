@@ -47,6 +47,14 @@ android_product(
 )
 
 android_product(
+    name = "aosp_arm64_for_testing_unbundled_build",
+    soong_variables = dicts.add(
+        _soong_variables_arm64,
+        {"Unbundled_build": True},
+    ),
+)
+
+android_product(
     name = "aosp_arm64_for_testing_with_overrides_and_app_cert",
     soong_variables = dicts.add(
         _soong_variables_arm64,

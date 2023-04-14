@@ -59,6 +59,18 @@ def _compatible_versions_for_api_level(api_level):
         ]
     return _ALL_VERSIONS
 
+def _supports_pre_java_9(api_level):
+    return any([
+        version < 9
+        for version in _compatible_versions_for_api_level(api_level)
+    ])
+
+def _supports_post_java_9(api_level):
+    return any([
+        version >= 9
+        for version in _compatible_versions_for_api_level(api_level)
+    ])
+
 _NORMALIZED_VERSIONS = {
     "1.7": 7,
     "7": 7,
@@ -87,5 +99,6 @@ java_versions = struct(
     VERSION_TO_CONFIG_SETTING = _VERSION_TO_CONFIG_SETTING,
     compatible_versions_for_api_level = _compatible_versions_for_api_level,
     get_version = _get_version,
-    default_version = _default_version,
+    supports_pre_java_9 = _supports_pre_java_9,
+    supports_post_java_9 = _supports_post_java_9,
 )
