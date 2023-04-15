@@ -3,7 +3,6 @@
 # thrashing the output directory when switching between top level target
 # --platforms values.
 build --experimental_platform_in_output_dir
-build --platform_mappings=build/bazel/platforms/platform_mappings
 
 # Use toolchain resolution to find the cc toolchain.
 build --incompatible_enable_cc_toolchain_resolution

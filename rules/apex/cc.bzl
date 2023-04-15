@@ -54,6 +54,7 @@ def _installed_to_bootstrap(label):
     # bionic libs
     if label in [
         "@//bionic/libc:libc",
+        "@//bionic/libc:libc_hwasan",  # For completeness, but no one should be depending on this.
         "@//bionic/libm:libm",
         "@//bionic/libdl:libdl",
         "@//bionic/libdl_android:libdl_android",
