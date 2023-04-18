@@ -14,7 +14,7 @@
 
 """Macro wrapping the aar_import for bp2build. """
 
-load("@rules_android//rules:rules.bzl", _aar_import = "aar_import")
+load("//build/bazel/rules/android/aar_import_aosp_internal:rule.bzl", _aar_import = "aar_import")
 load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition", "sdk_transition_attrs")
 
 # TODO(b/277801336): document these attributes.

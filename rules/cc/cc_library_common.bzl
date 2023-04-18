@@ -402,3 +402,22 @@ def create_cc_androidmk_provider(*, static_deps, whole_archive_deps, dynamic_dep
         local_whole_static_libs = local_whole_static_libs,
         local_shared_libs = local_shared_libs,
     )
+
+def create_cc_prebuilt_library_info(ctx, lib_to_link):
+    "Create the CcInfo for a prebuilt_library_{shared,static}"
+
+    compilation_context = cc_common.create_compilation_context(
+        includes = depset(get_includes_paths(ctx, ctx.attr.export_includes)),
+        system_includes = depset(get_includes_paths(ctx, ctx.attr.export_system_includes)),
+    )
+    linker_input = cc_common.create_linker_input(
+        owner = ctx.label,
+        libraries = depset(direct = [lib_to_link] if lib_to_link != None else []),
+    )
+    linking_context = cc_common.create_linking_context(
+        linker_inputs = depset(direct = [linker_input]),
+    )
+    return CcInfo(
+        compilation_context = compilation_context,
+        linking_context = linking_context,
+    )

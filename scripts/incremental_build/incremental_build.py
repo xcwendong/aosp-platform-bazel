@@ -32,9 +32,9 @@ from typing import Mapping
 
 import cuj_catalog
 import perf_metrics
+import pretty
 import ui
 import util
-import pretty
 
 MAX_RUN_COUNT: int = 5
 
@@ -213,13 +213,11 @@ def main():
 
   run_dir_gen = util.next_path(user_input.log_dir.joinpath(util.RUN_DIR_PREFIX))
 
-  def run_cuj_group(cuj_group: cuj_catalog.CujGroup, is_warmup: bool):
+  def run_cuj_group(cuj_group: cuj_catalog.CujGroup):
     for cujstep in cuj_group.steps:
       desc = cujstep.verb
       desc = f'{desc} {cuj_group.description}'.strip()
       desc = f'{desc} {user_input.description}'.strip()
-      if is_warmup:
-        desc = f'WARMUP {desc}'
       logging.info('START %s %s [%s]', build_type.name,
                    ' '.join(user_input.targets), desc)
       cujstep.apply_change()
@@ -234,9 +232,9 @@ def main():
 
   for build_type in user_input.build_types:
     # warm-up run reduces variations attributable to OS caches
-    run_cuj_group(cuj_catalog.get_cujgroups()[cuj_catalog.warmup_index()], True)
+    run_cuj_group(cuj_catalog.Warmup)
     for i in user_input.chosen_cujgroups:
-      run_cuj_group(cuj_catalog.get_cujgroups()[i], False)
+      run_cuj_group(cuj_catalog.get_cujgroups()[i])
 
   perf_metrics.tabulate_metrics_csv(user_input.log_dir)
   perf_metrics.display_tabulated_metrics(user_input.log_dir)
