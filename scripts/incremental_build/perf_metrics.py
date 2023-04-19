@@ -181,10 +181,12 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
       prev_col = all_cols[col]
 
   acc = []
-  while len(all_cols) > 0:
-    entries = [c for c in all_cols.values()]
-    entries.sort(key=lambda c: f'{c.indegree:03d}{c.header}')
-    entry = entries[0]
+  entries = [c for c in all_cols.values()]
+  while len(entries) > 0:
+    # sorting alphabetically to break ties for concurrent events
+    entries.sort(key=lambda c: c.header, reverse=True)
+    entries.sort(key=lambda c: c.indegree, reverse=True)
+    entry = entries.pop()
     # take only one to maintain alphabetical sort
     if entry.indegree != 0:
       cycle = '->'.join(entry.dfs(entry.header))
@@ -200,7 +202,6 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
       else:
         if not allow_cycles:
           raise ValueError(f'unexpected error for: {n}')
-    all_cols.pop(entry.header)
   return acc
 
 

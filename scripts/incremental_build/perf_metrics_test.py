@@ -40,6 +40,7 @@ class PerfMetricsTest(unittest.TestCase):
       Example(['ac', 'bd'], 'abcd'),
       Example(['abe', 'cde'], 'abcde'),
       Example(['ab', 'ba'], 'ab'),
+      Example(['abcde', 'edcba'], 'abcde'),
       Example(['ac', 'abc'], 'abc')
     ]
     for e in examples:
@@ -60,3 +61,7 @@ class PerfMetricsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,
                                     f'event ordering has a cycle {cycle}'):
           _get_column_headers(rows, allow_cycles=False)
+
+
+if __name__ == '__main__':
+  unittest.main()

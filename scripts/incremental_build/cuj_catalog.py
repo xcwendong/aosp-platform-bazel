@@ -64,20 +64,15 @@ def verify_symlink_forest_has_only_symlink_leaves():
   files except for merged BUILD.bazel files"""
 
   top_in_ws = InWorkspace.ws_counterpart(util.get_top_dir())
-  def helper(d: Path):
-    for child in os.scandir(d):
-      child_path: Path = Path(child.path)
-      if child_path.name == 'symlink_forest_version' and d == top_in_ws:
-         continue
-      if child_path.is_symlink():
-        continue
-      if child_path.is_file() and child.name != 'BUILD.bazel':
-        # only "merged" BUILD.bazel files expected
-        raise AssertionError(f'{child_path} is an unexpected file')
-      if child_path.is_dir():
-        helper(child_path)
 
-  helper(top_in_ws)
+  for root, dirs, files in os.walk(top_in_ws, topdown=True, followlinks=False):
+    for file in files:
+      if file == 'symlink_forest_version' and top_in_ws.samefile(root):
+        continue
+      f = Path(root).joinpath(file)
+      if file != 'BUILD.bazel' and not f.is_symlink():
+        raise AssertionError(f'{f} unexpected')
+
   logging.info('VERIFIED Symlink Forest has no real files except BUILD.bazel')
 
 
