@@ -1,31 +1,24 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load(":abi_dump.bzl", "abi_dump", "find_abi_config")
-load("//build/bazel/platforms:platform_utils.bzl", "platforms")
-load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
-load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
-load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test")
+load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/test_common:args.bzl", "get_arg_value", "get_arg_values")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
+load(":abi_dump.bzl", "abi_dump", "find_abi_config")
 
 ABI_LINKER = "prebuilts/clang-tools/linux-x86/bin/header-abi-linker"
 ABI_DIFF = "prebuilts/clang-tools/linux-x86/bin/header-abi-diff"
@@ -237,8 +230,6 @@ def _test_abi_linker_action():
 
 def _abi_linker_action_run_test_impl(ctx):
     env = analysistest.begin(ctx)
-    bin_home = analysistest.target_bin_dir_path(env)
-    bazel_out_base = paths.join(bin_home, ctx.label.package)
 
     actions = analysistest.target_actions(env)
     link_actions = [a for a in actions if a.mnemonic == "AbiLink"]
@@ -283,8 +274,6 @@ def _test_abi_linker_action_run_for_enabled():
 
 def _abi_linker_action_not_run_test_impl(ctx):
     env = analysistest.begin(ctx)
-    bin_home = analysistest.target_bin_dir_path(env)
-    bazel_out_base = paths.join(bin_home, ctx.label.package)
 
     actions = analysistest.target_actions(env)
     link_actions = [a for a in actions if a.mnemonic == "AbiLink"]

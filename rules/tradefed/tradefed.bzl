@@ -1,18 +1,16 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under thes License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 TRADEFED_TEST_ATTRIBUTES = {
     "test": attr.label(
@@ -134,20 +132,21 @@ def _tradefed_test_impl(ctx):
             )
             targets.append(out)
 
+    # Symlink tradefed dependencies.
+    for f in ctx.files._tradefed_dependencies:
+        out = ctx.actions.declare_file(f.basename)
+        ctx.actions.symlink(
+            output = out,
+            target_file = f,
+        )
+        targets.append(out)
+
     # Gather runfiles.
     runfiles = ctx.runfiles()
     runfiles = runfiles.merge_all([
         ctx.attr.test.default_runfiles,
-        ctx.runfiles(files = ctx.files._tradefed_dependencies + targets + [test_config, report_config]),
+        ctx.runfiles(files = targets + [test_config, report_config]),
     ])
-
-    # Gather directories of runfiles to put on the PATH.
-    dependency_paths = {}
-    for f in runfiles.files.to_list():
-        dependency_paths[f.dirname] = True
-    for f in runfiles.symlinks.to_list():
-        dependency_paths[f.dirname] = True
-    path_additions = ":".join(dependency_paths.keys())
 
     # Generate script to run tradefed.
     script = ctx.actions.declare_file("tradefed_test_%s.sh" % ctx.label.name)
@@ -157,7 +156,6 @@ def _tradefed_test_impl(ctx):
         is_executable = True,
         substitutions = {
             "{MODULE}": ctx.attr.test_identifier,
-            "{PATH_ADDITIONS}": path_additions,
         },
     )
 

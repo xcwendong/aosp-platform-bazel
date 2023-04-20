@@ -1,37 +1,36 @@
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
-Copyright (C) 2021 The Android Open Source Project
+Configuration transitions for APEX rules.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Transitions are a Bazel mechanism to analyze/build dependencies in a different
+configuration (i.e. options and flags). The APEX transition is applied from a
+top level APEX rule to its dependencies via an outgoing edge, so that the
+dependencies can be built specially for APEXes (vs the platform).
 
-    http://www.apache.org/licenses/LICENSE-2.0
+e.g. if an apex A depends on some target T, building T directly as a top level target
+will use a different configuration from building T indirectly as a dependency of A. The
+latter will contain APEX specific configuration settings that its rule or an aspect can
+use to create different actions or providers for APEXes specifically..
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+The outgoing transitions are similar to ApexInfo propagation in Soong's
+top-down ApexInfoMutator:
+https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/apex.go;l=948-962;drc=539d41b686758eeb86236c0e0dcf75478acb77f3
 """
-
-# Configuration transitions for APEX rules.
-#
-# Transitions are a Bazel mechanism to analyze/build dependencies in a different
-# configuration (i.e. options and flags). The APEX transition is applied from a
-# top level APEX rule to its dependencies via an outgoing edge, so that the
-# dependencies can be built specially for APEXes (vs the platform).
-#
-# e.g. if an apex A depends on some target T, building T directly as a top level target
-# will use a different configuration from building T indirectly as a dependency of A. The
-# latter will contain APEX specific configuration settings that its rule or an aspect can
-# use to create different actions or providers for APEXes specifically..
-#
-# The outgoing transitions are similar to ApexInfo propagation in Soong's
-# top-down ApexInfoMutator:
-# https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/apex.go;l=948-962;drc=539d41b686758eeb86236c0e0dcf75478acb77f3
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
 load("//build/bazel/rules/apex:sdk_versions.bzl", "maybe_override_min_sdk_version")
 
 def _create_apex_configuration(settings, attr, additional = {}):
@@ -43,8 +42,8 @@ def _create_apex_configuration(settings, attr, additional = {}):
     return dicts.add({
         "//build/bazel/rules/apex:apex_name": attr.name,  # Name of the APEX
         "//build/bazel/rules/apex:base_apex_name": attr.base_apex_name,  # Name of the base APEX, if exists
-        "//build/bazel/rules/apex:within_apex": True,  # Building a APEX
         "//build/bazel/rules/apex:min_sdk_version": min_sdk_version,
+        "//build/bazel/rules/apex:within_apex": True,  # Building a APEX
     }, additional)
 
 def _impl(settings, attr):
@@ -111,17 +110,9 @@ def _impl_shared_lib_transition_32(settings, attr):
 
     old_platform = str(settings["//command_line_option:platforms"][0])
 
-    # TODO(b/249685973) This can be removed when the aab transition no
-    # longer transitions to these platforms
-    old_platform = (old_platform
-        .removesuffix("__internal_arm")
-        .removesuffix("__internal_arm64")
-        .removesuffix("__internal_x86")
-        .removesuffix("__internal_x86_64"))
-
     return _create_apex_configuration(settings, attr, {
-        "//command_line_option:platforms": old_platform + "_secondary",
         "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
+        "//command_line_option:platforms": old_platform + "_secondary",
     })
 
 shared_lib_transition_32 = transition(

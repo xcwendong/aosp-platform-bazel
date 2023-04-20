@@ -98,7 +98,10 @@ def build_staging_dir(file_mapping_path, staging_dir_path, command_argv):
                 path_in_bazel = os.readlink(path_in_bazel)
 
         os.makedirs(os.path.dirname(path_in_staging_dir), exist_ok=True)
-        shutil.copyfile(path_in_bazel, path_in_staging_dir, follow_symlinks=False)
+        # shutil.copy copies the file data and the file's permission mode
+        # file's permission mode is helpful for tools, such as build/soong/scripts/gen_ndk_usedby_apex.sh,
+        # that rely on the permission mode of the artifacts
+        shutil.copy(path_in_bazel, path_in_staging_dir, follow_symlinks=False)
 
     result = subprocess.run(command_argv)
 

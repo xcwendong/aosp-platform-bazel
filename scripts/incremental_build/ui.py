@@ -18,12 +18,12 @@ import functools
 import logging
 import os
 import re
+import sys
 import textwrap
 from datetime import date
 from enum import Enum
 from pathlib import Path
-
-from future.moves import sys
+from typing import Optional
 
 import cuj_catalog
 import util
@@ -59,6 +59,7 @@ class BuildType(Enum):
 class UserInput:
   build_types: list[BuildType]
   chosen_cujgroups: list[int]
+  description: Optional[str]
   log_dir: Path
   targets: list[str]
 
@@ -112,6 +113,8 @@ def get_user_input() -> UserInput:
                  type=validate_cujgroups,
                  help='Index number(s) or substring match(es) for the CUJ(s) '
                       'to be excluded')
+  p.add_argument('-d', '--description', type=str, default='',
+                 help='Any additional tag/description for the set of builds')
 
   log_levels = dict(getattr(logging, '_levelToName')).values()
   p.add_argument('-v', '--verbosity', choices=log_levels, default='INFO',
@@ -123,17 +126,22 @@ def get_user_input() -> UserInput:
                  Directory for timing logs. Defaults to %(default)s
                  TIPS:
                   1 Specify a directory outside of the source tree
-                  2 To view key metrics in summary.csv:
-                    {util.get_summary_cmd(default_log_dir)}
+                  2 To view key metrics in metrics.csv:
+                    {util.get_cmd_to_display_tabulated_metrics(default_log_dir)}
                   3 To view column headers:
                     {util.get_csv_columns_cmd(default_log_dir)}''').strip())
+  def_build_types = [BuildType.SOONG_ONLY,
+                        BuildType.MIXED_PROD,
+                        BuildType.MIXED_STAGING]
   p.add_argument('-b', '--build-types', nargs='+',
                  type=BuildType.from_flag,
-                 default=[[BuildType.SOONG_ONLY, BuildType.MIXED_PROD]],
-                 help='Defaults to "%(default)s". Choose from '
-                      f'{[e.name.lower() for e in BuildType]}')
+                 default=[def_build_types],
+                 help=f'Defaults to {[b.to_flag() for b in def_build_types]}. '
+                      f'Choose from {[e.name.lower() for e in BuildType]}')
   p.add_argument('--ignore-repo-diff', default=False, action='store_true',
                  help='Skip "repo status" check')
+  p.add_argument('--append-csv', default=False, action='store_true',
+                 help='Add results to existing spreadsheet')
   p.add_argument('targets', nargs='*', default=['nothing'],
                  help='Targets to run, e.g. "libc adbd". '
                       'Defaults to %(default)s')
@@ -177,15 +185,26 @@ def get_user_input() -> UserInput:
 
   if not options.ignore_repo_diff and util.has_uncommitted_changes():
     error_message = 'THERE ARE UNCOMMITTED CHANGES (TIP: repo status).' \
-                    'You may consider using --ignore-repo-diff'
+                    'Use --ignore-repo-diff to skip this check.'
     if not util.is_interactive_shell():
       sys.exit(error_message)
     response = input(f'{error_message}\nContinue?[Y/n]')
     if response.upper() != 'Y':
-      sys.exit(0)
+      sys.exit(1)
+
+  log_dir = Path(options.log_dir).resolve()
+  if not options.append_csv and log_dir.exists():
+    error_message = f'{log_dir} already exists. ' \
+                    'Use --append-csv to skip this check.'
+    if not util.is_interactive_shell():
+      sys.exit(error_message)
+    response = input(f'{error_message}\nContinue?[Y/n]')
+    if response.upper() != 'Y':
+      sys.exit(1)
 
   return UserInput(
     build_types=build_types,
     chosen_cujgroups=chosen_cujgroups,
+    description=options.description,
     log_dir=Path(options.log_dir).resolve(),
     targets=options.targets)

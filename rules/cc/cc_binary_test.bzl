@@ -1,24 +1,22 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":cc_binary.bzl", "cc_binary")
+load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
 load(":cc_library_shared.bzl", "cc_library_shared")
 load(":cc_library_static.bzl", "cc_library_static")
-load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
 
 def strip_test_assert_flags(env, strip_action, strip_flags):
     # Extract these flags from strip_action (for example):
@@ -73,25 +71,6 @@ def _cc_binary_strip_default():
         name = name,
         srcs = ["main.cc"],
         tags = ["manual"],
-    )
-
-    cc_binary_strip_test(
-        name = test_name,
-        target_under_test = name,
-        strip_flags = [],
-    )
-
-    return test_name
-
-def _cc_binary_strip_none():
-    name = "cc_binary_strip_none"
-    test_name = name + "_test"
-
-    cc_binary(
-        name = name,
-        srcs = ["main.cc"],
-        tags = ["manual"],
-        strip = {"none": True},
     )
 
     cc_binary_strip_test(

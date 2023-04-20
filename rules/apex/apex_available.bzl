@@ -1,26 +1,24 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@soong_injection//apex_toolchain:constants.bzl", "apex_available_baseline")
 load("//build/bazel/rules:common.bzl", "get_dep_targets", "strip_bp2build_label_suffix")
-load("//build/bazel/rules/apex:cc.bzl", "CC_ATTR_ASPECTS")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
-load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
+load("//build/bazel/rules/apex:cc.bzl", "CC_ATTR_ASPECTS")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "CcStaticLibraryInfo")
+load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
 
 ApexAvailableInfo = provider(
     "ApexAvailableInfo collects APEX availability metadata.",
@@ -31,17 +29,6 @@ ApexAvailableInfo = provider(
         "transitive_unvalidated_targets": "list of targets that were skipped in the apex_available_validation function",
     },
 )
-
-# Denylist of APEX names that are validated with apex_available.
-#
-# Certain apexes are not checked because their dependencies aren't converting
-# apex_available to tags properly in the bp2build converters yet. See associated
-# bugs for more information.
-_unchecked_apexes = [
-    # TODO(b/260694842): support aidl and hidl apex_available props.
-    "com.android.neuralnetworks",
-    "com.android.media.swcodec",
-]
 
 # Validates if a target is made available as a transitive dependency of an APEX. The return
 # value is tri-state: True, False, string. Strings are used when a target is _not checked_
@@ -66,10 +53,6 @@ def _validate_apex_available(target, ctx, *, apex_available_tags, apex_name, bas
     if "//apex_available:anyapex" in apex_available_tags:
         return "//apex_available:anyapex"
 
-    if apex_name in _unchecked_apexes:
-        # Skipped unchecked APEXes.
-        return "unchecked_apex"
-
     # https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/apex.go;l=2910;drc=862c0d68fff500d7fe59bc2fcfc9c7d75596e5b5
     # Bp2build-generated cc_library_static target from stubs-providing lib
     # doesn't have apex_available tag.
@@ -88,7 +71,7 @@ def _validate_apex_available(target, ctx, *, apex_available_tags, apex_name, bas
         apex_available_baseline.get(apex_name, []),
         apex_available_baseline.get("//apex_available:anyapex", []),
     ]
-    if any([target_name in l for l in baselines]):
+    if any([target_name in b for b in baselines]):
         return True
 
     return False
@@ -168,9 +151,9 @@ apex_available_aspect = aspect(
     provides = [ApexAvailableInfo],
     attr_aspects = ["*"],
     attrs = {
+        "testonly": attr.bool(default = False),  # propagated from the apex
         "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
         "_base_apex_name": attr.label(default = "//build/bazel/rules/apex:base_apex_name"),
         "_direct_deps": attr.label(default = "//build/bazel/rules/apex:apex_direct_deps"),
-        "testonly": attr.bool(default = False),  # propagated from the apex
     },
 )

@@ -3,7 +3,7 @@
 ###############
 # Build and test targets for device target platform.
 ###############
-BUILD_TARGETS_LIST=(
+BUILD_TARGETS=(
   //art/...
   //bionic/...
   //bootable/recovery/tools/recovery_l10n/...
@@ -29,32 +29,33 @@ BUILD_TARGETS_LIST=(
   -//external/e2fsprogs/resize:all
   -//external/e2fsprogs/debugfs:all
   -//external/e2fsprogs/e2fsck:all
-
-  # TODO(b/215230098): remove after handling sdk_version for aidl
-  -//frameworks/av:av-types-aidl-java
+  # TODO(b/277616982): These modules depend on private java APIs, but maybe they don't need to.
+  -//external/ow2-asm:all
 
   # TODO(b/266459895): remove these after re-enabling libunwindstack
   -//bionic/libc/malloc_debug:libc_malloc_debug
   -//bionic/libfdtrack:libfdtrack
-  -//frameworks/av/services/mediacodec:mediaswcodec
   -//frameworks/av/media/codec2/hidl/1.0/utils:libcodec2_hidl@1.0
-  -//frameworks/native/opengl/libs:libEGL
-  -//frameworks/av/media/module/bqhelper:libstagefright_bufferqueue_helper_novndk
-  -//frameworks/native/opengl/libs:libGLESv2
   -//frameworks/av/media/codec2/hidl/1.1/utils:libcodec2_hidl@1.1
-  -//frameworks/av/media/module/codecserviceregistrant:libmedia_codecserviceregistrant
   -//frameworks/av/media/codec2/hidl/1.2/utils:libcodec2_hidl@1.2
-  -//system/unwinding/libunwindstack:all
+  -//frameworks/av/media/module/bqhelper:libstagefright_bufferqueue_helper_novndk
+  -//frameworks/av/media/module/codecserviceregistrant:libmedia_codecserviceregistrant
+  -//frameworks/av/services/mediacodec:mediaswcodec
+  -//frameworks/native/libs/gui:libgui
+  -//frameworks/native/libs/gui:libgui_bufferqueue_static
+  -//frameworks/native/opengl/libs:libEGL
+  -//frameworks/native/opengl/libs:libGLESv2
   -//system/core/libutils:all
+  -//system/unwinding/libunwindstack:all
 )
-BUILD_TARGETS="${BUILD_TARGETS_LIST[@]}"
 
-TEST_TARGETS_LIST=(
+TEST_TARGETS=(
   //build/bazel/...
+  //prebuilts/clang/host/linux-x86:all
+  //prebuilts/sdk:toolchains_have_all_prebuilts
 )
-TEST_TARGETS="${TEST_TARGETS_LIST[@]}"
 
-HOST_ONLY_TEST_TARGETS_LIST=(
+HOST_ONLY_TEST_TARGETS=(
   //tools/trebuchet:AnalyzerKt
   //tools/metalava:metalava
   # Test both unstripped and stripped versions of a host native unit test
@@ -65,10 +66,26 @@ HOST_ONLY_TEST_TARGETS_LIST=(
   # TODO(b/268185249): libbase_test asserts on the Soong basename of the test
   -//system/libbase:libbase_test
 )
-HOST_ONLY_TEST_TARGETS="${HOST_ONLY_TEST_TARGETS_LIST[@]}"
 
 HOST_INCOMPATIBLE_TARGETS=(
   # TODO(b/216626461): add support for host_ldlibs
   -//packages/modules/adb:all
   -//packages/modules/adb/pairing_connection:all
+)
+
+# These targets are used to ensure that the aosp-specific rule wrappers forward
+# all providers of the underlying rule.
+EXAMPLE_WRAPPER_TARGETS=(
+  # java_import wrapper
+  //build/bazel/examples/java/com/bazel:hello_java_import
+  # java_library wrapper
+  //build/bazel/examples/java/com/bazel:hello_java_lib
+  # kt_jvm_library wrapper
+  //build/bazel/examples/java/com/bazel:some_kotlin_lib
+  # android_library wrapper
+  //build/bazel/examples/android_app/java/com/app:applib
+  # android_binary wrapper
+  //build/bazel/examples/android_app/java/com/app:app
+  # aar_import wrapper
+  //build/bazel/examples/android_app/java/com/app:import
 )

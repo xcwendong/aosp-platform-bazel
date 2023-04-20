@@ -1,8 +1,8 @@
 # This BUILD file mimics what bp2build will convert cc modules with aidl srcs to
 load("//build/bazel/rules/cc:cc_aidl_library.bzl", "cc_aidl_library")
+load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
-load("//build/bazel/rules/cc:cc_binary.bzl", "cc_binary")
 
 # Use aidl sources from another package
 cc_aidl_library(

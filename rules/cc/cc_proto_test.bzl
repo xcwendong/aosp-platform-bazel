@@ -14,8 +14,8 @@ limitations under the License.
 """
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":cc_proto.bzl", "PROTO_GEN_NAME_SUFFIX", "cc_proto_library")
 
 PROTO_GEN = "external/protobuf/aprotoc"

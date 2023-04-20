@@ -1,43 +1,42 @@
-"""
-Copyright (C) 2021 The Android Open Source Project
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("//build/bazel/rules/abi:abi_dump.bzl", "AbiDiffInfo", "abi_dump")
 load(
     ":cc_library_common.bzl",
     "CcAndroidMkInfo",
     "add_lists_defaulting_to_none",
-    "create_cc_androidmk_provider",
     "parse_sdk_version",
     "sanitizer_deps",
     "system_dynamic_deps_defaults",
 )
 load(":cc_library_static.bzl", "cc_library_static")
-load(":clang_tidy.bzl", "ClangTidyInfo", "collect_deps_clang_tidy_info")
+load(":clang_tidy.bzl", "collect_deps_clang_tidy_info")
+load(
+    ":composed_transitions.bzl",
+    "lto_and_fdo_profile_incoming_transition",
+)
 load(
     ":fdo_profile_transitions.bzl",
-    "FDO_PROFILE_ATTR",
-    "fdo_profile_transition",
+    "FDO_PROFILE_ATTR_KEY",
 )
-load(":generate_toc.bzl", "shared_library_toc", _CcTocInfo = "CcTocInfo")
+load(":generate_toc.bzl", "CcTocInfo", "generate_toc")
+load(":lto_transitions.bzl", "lto_deps_transition")
 load(":stl.bzl", "stl_info_from_attr")
 load(":stripped_cc_common.bzl", "CcUnstrippedInfo", "stripped_shared_library")
 load(":versioned_cc_common.bzl", "versioned_shared_library")
-load("//build/bazel/rules/abi:abi_dump.bzl", "AbiDiffInfo", "abi_dump")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
-
-CcTocInfo = _CcTocInfo
 
 def cc_library_shared(
         name,
@@ -78,11 +77,11 @@ def cc_library_shared(
         strip = {},
 
         # TODO(b/202299295): Handle data attribute.
-        data = [],
+        data = [],  # @unused
         use_version_lib = False,
         stubs_symbol_file = None,
         inject_bssl_hash = False,
-        sdk_version = "",
+        sdk_version = "",  # @unused
         min_sdk_version = "",
         abi_checker_enabled = None,
         abi_checker_symbol_file = None,
@@ -109,7 +108,6 @@ def cc_library_shared(
     shared_root_name = name + "__internal_root"
     unstripped_name = name + "_unstripped"
     stripped_name = name + "_stripped"
-    toc_name = name + "_toc"
 
     if system_dynamic_deps == None:
         system_dynamic_deps = system_dynamic_deps_defaults
@@ -277,13 +275,6 @@ def cc_library_shared(
         **strip
     )
 
-    shared_library_toc(
-        name = toc_name,
-        src = stripped_name,
-        target_compatible_with = target_compatible_with,
-        tags = ["manual"],
-    )
-
     # The logic here is based on the shouldCreateSourceAbiDumpForLibrary() in sabi.go
     # abi_root is used to control if abi_dump aspects should be run on the static
     # deps because there is no way to control the aspects directly from the rule.
@@ -325,7 +316,6 @@ def cc_library_shared(
         shared_debuginfo = unstripped_name,
         deps = [shared_root_name],
         features = features,
-        table_of_contents = toc_name,
         output_file = soname,
         target_compatible_with = target_compatible_with,
         has_stubs = stubs_symbol_file != None,
@@ -404,8 +394,8 @@ def _cc_library_shared_proxy_impl(ctx):
     if len(ctx.attr.deps) != 1:
         fail("Exactly one 'deps' must be specified for cc_library_shared_proxy")
     root_files = ctx.attr.deps[0][DefaultInfo].files.to_list()
-    shared_files = ctx.attr.shared[DefaultInfo].files.to_list()
-    shared_debuginfo = ctx.attr.shared_debuginfo[DefaultInfo].files.to_list()
+    shared_files = ctx.attr.shared[0][DefaultInfo].files.to_list()
+    shared_debuginfo = ctx.attr.shared_debuginfo[0][DefaultInfo].files.to_list()
     if len(shared_files) != 1 or len(shared_debuginfo) != 1:
         fail("Expected only one shared library file and one debuginfo file for it")
 
@@ -434,22 +424,24 @@ def _cc_library_shared_proxy_impl(ctx):
         use_default_shell_env = True,
     )
 
-    files = root_files + [ctx.outputs.output_file, ctx.files.table_of_contents[0]] + abi_diff_files
+    toc_info = generate_toc(ctx, ctx.attr.name, ctx.outputs.output_file)
+
+    files = root_files + [ctx.outputs.output_file, toc_info.toc] + abi_diff_files
 
     return [
         DefaultInfo(
             files = depset(direct = files),
             runfiles = ctx.runfiles(files = [ctx.outputs.output_file]),
         ),
-        _correct_cc_shared_library_linking(ctx, ctx.attr.shared[CcSharedLibraryInfo], ctx.outputs.output_file, ctx.attr.deps[0]),
-        ctx.attr.table_of_contents[CcTocInfo],
+        _correct_cc_shared_library_linking(ctx, ctx.attr.shared[0][CcSharedLibraryInfo], ctx.outputs.output_file, ctx.attr.deps[0]),
+        toc_info,
         # The _only_ linker_input is the statically linked root itself. We need to propagate this
         # as cc_shared_library identifies which libraries can be linked dynamically based on the
         # linker_inputs of the roots
         ctx.attr.deps[0][CcInfo],
         ctx.attr.deps[0][CcAndroidMkInfo],
         CcStubLibrariesInfo(has_stubs = ctx.attr.has_stubs),
-        ctx.attr.shared[OutputGroupInfo],
+        ctx.attr.shared[0][OutputGroupInfo],
         CcSharedLibraryOutputInfo(output_file = ctx.outputs.output_file),
         CcUnstrippedInfo(unstripped = shared_debuginfo[0]),
         ctx.attr.abi_dump[AbiDiffInfo],
@@ -459,21 +451,26 @@ def _cc_library_shared_proxy_impl(ctx):
 _cc_library_shared_proxy = rule(
     implementation = _cc_library_shared_proxy_impl,
     # Incoming transition to override outgoing transition from rdep
-    cfg = fdo_profile_transition,
+    cfg = lto_and_fdo_profile_incoming_transition,
     attrs = {
-        FDO_PROFILE_ATTR: attr.label(),
-        "shared": attr.label(mandatory = True, providers = [CcSharedLibraryInfo]),
-        "shared_debuginfo": attr.label(mandatory = True),
+        FDO_PROFILE_ATTR_KEY: attr.label(),
+        "shared": attr.label(
+            mandatory = True,
+            providers = [CcSharedLibraryInfo],
+            cfg = lto_deps_transition,
+        ),
+        "shared_debuginfo": attr.label(
+            mandatory = True,
+            cfg = lto_deps_transition,
+        ),
         # "deps" should be a single element: the root target of the shared library.
         # See _cc_library_shared_proxy_impl comment for explanation.
-        "deps": attr.label_list(mandatory = True, providers = [CcInfo]),
-        "output_file": attr.output(mandatory = True),
-        "table_of_contents": attr.label(
+        "deps": attr.label_list(
             mandatory = True,
-            # TODO(b/217908237): reenable allow_single_file
-            # allow_single_file = True,
-            providers = [CcTocInfo],
+            providers = [CcInfo],
+            cfg = lto_deps_transition,
         ),
+        "output_file": attr.output(mandatory = True),
         "has_stubs": attr.bool(default = False),
         "runtime_deps": attr.label_list(
             providers = [CcInfo],
@@ -497,6 +494,18 @@ _cc_library_shared_proxy = rule(
             providers = [CcInfo],
             doc = "All the dynamic deps of the lib. This is used to propagate" +
                   " information to AndroidMk about LOCAL_SHARED_LIBRARIES.",
+        ),
+        "_toc_script": attr.label(
+            cfg = "exec",
+            executable = True,
+            allow_single_file = True,
+            default = "//build/soong/scripts:toc.sh",
+        ),
+        "_readelf": attr.label(
+            cfg = "exec",
+            executable = True,
+            allow_single_file = True,
+            default = "//prebuilts/clang/host/linux-x86:llvm-readelf",
         ),
     },
     provides = [CcAndroidMkInfo, CcInfo],
