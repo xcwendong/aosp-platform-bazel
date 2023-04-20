@@ -423,51 +423,52 @@ def _run_apexer(ctx, apex_toolchain):
     apexer_files = apex_toolchain.apexer[DefaultInfo].files_to_run
 
     # Arguments
-    args = ctx.actions.args()
-    args.add(file_mapping_file.path)
+    command = [ctx.executable._staging_dir_builder.path, file_mapping_file.path]
 
     # NOTE: When used as inputs to another sandboxed action, this directory
     # artifact's inner files will be made up of symlinks. Ensure that the
     # aforementioned action handles symlinks correctly (e.g. following
     # symlinks).
     staging_dir = ctx.actions.declare_directory(ctx.attr.name + "_staging_dir")
-    args.add(staging_dir.path)
+
+    command.append(staging_dir.path)
 
     # start of apexer cmd
-    args.add(apexer_files.executable.path)
+    command.append(apexer_files.executable.path)
     if ctx.attr._apexer_verbose[BuildSettingInfo].value:
-        args.add("--verbose")
-    args.add("--force")
-    args.add("--include_build_info")
-    args.add_all(["--canned_fs_config", canned_fs_config.path])
-    args.add_all(["--manifest", apex_manifest_pb.path])
-    args.add_all(["--file_contexts", file_contexts.path])
-    args.add_all(["--key", privkey.path])
-    args.add_all(["--pubkey", pubkey.path])
-    args.add_all(["--payload_type", "image"])
-    args.add_all(["--payload_fs_type", "ext4"])
-    args.add_all(["--assets_dir", notices_file.dirname])
+        command.append("--verbose")
+
+    command.append("--force")
+    command.append("--include_build_info")
+    command.extend(["--canned_fs_config", canned_fs_config.path])
+    command.extend(["--manifest", apex_manifest_pb.path])
+    command.extend(["--file_contexts", file_contexts.path])
+    command.extend(["--key", privkey.path])
+    command.extend(["--pubkey", pubkey.path])
+    command.extend(["--payload_type", "image"])
+    command.extend(["--payload_fs_type", "ext4"])
+    command.extend(["--assets_dir", notices_file.dirname])
 
     # Override the package name, if it's expicitly specified
     if ctx.attr.package_name:
-        args.add_all(["--override_apk_package_name", ctx.attr.package_name])
+        command.extend(["--override_apk_package_name", ctx.attr.package_name])
     else:
         override_package_name = _override_manifest_package_name(ctx)
         if override_package_name:
-            args.add_all(["--override_apk_package_name", override_package_name])
+            command.extend(["--override_apk_package_name", override_package_name])
 
     if ctx.attr.logging_parent:
-        args.add_all(["--logging_parent", ctx.attr.logging_parent])
+        command.extend(["--logging_parent", ctx.attr.logging_parent])
 
     use_api_fingerprint = _use_api_fingerprint(ctx)
 
-    target_sdk_version = api.final_or_future(api.default_app_target_sdk())
+    target_sdk_version = str(api.final_or_future(api.default_app_target_sdk()))
     if use_api_fingerprint:
         api_fingerprint_file = ctx.file._api_fingerprint_txt
-        sdk_version_suffix = ".$$(cat {})".format(api_fingerprint_file.path)
+        sdk_version_suffix = ".$(cat {})".format(api_fingerprint_file.path)
         target_sdk_version = ctx.attr._platform_sdk_codename[BuildSettingInfo].value + sdk_version_suffix
-        args.add(api_fingerprint_file.path)
-    args.add_all(["--target_sdk_version", target_sdk_version])
+
+    command.extend(["--target_sdk_version", target_sdk_version])
 
     # TODO(b/215339575): This is a super rudimentary way to convert "current" to a numerical number.
     # Generalize this to API level handling logic in a separate Starlark utility, preferably using
@@ -477,12 +478,12 @@ def _run_apexer(ctx, apex_toolchain):
         min_sdk_version = "10000"
 
     override_min_sdk_version = ctx.attr._apex_global_min_sdk_version_override[BuildSettingInfo].value
-    min_sdk_version = maybe_override_min_sdk_version(min_sdk_version, override_min_sdk_version)
+    min_sdk_version = str(maybe_override_min_sdk_version(min_sdk_version, override_min_sdk_version))
 
     if min_sdk_version == "10000" and use_api_fingerprint:
         min_sdk_version = ctx.attr._platform_sdk_codename[BuildSettingInfo].value + sdk_version_suffix
-        args.add(api_fingerprint_file.path)
-    args.add_all(["--min_sdk_version", min_sdk_version])
+        command.append(api_fingerprint_file.path)
+    command.extend(["--min_sdk_version", min_sdk_version])
 
     # apexer needs the list of directories containing all auxilliary tools invoked during
     # the creation of an apex
@@ -491,6 +492,7 @@ def _run_apexer(ctx, apex_toolchain):
     mke2fs_files = apex_toolchain.mke2fs[DefaultInfo].files_to_run
     resize2fs_files = apex_toolchain.resize2fs[DefaultInfo].files_to_run
     sefcontext_compile_files = apex_toolchain.sefcontext_compile[DefaultInfo].files_to_run
+    staging_dir_builder_files = ctx.attr._staging_dir_builder[DefaultInfo].files_to_run
     apexer_tool_paths = [
         apex_toolchain.aapt2.dirname,
         apexer_files.executable.dirname,
@@ -501,20 +503,21 @@ def _run_apexer(ctx, apex_toolchain):
         sefcontext_compile_files.executable.dirname,
     ]
 
-    args.add_all(["--apexer_tool_path", ":".join(apexer_tool_paths)])
+    command.extend(["--apexer_tool_path", ":".join(apexer_tool_paths)])
 
     android_manifest = ctx.file.android_manifest
     if android_manifest != None:
         if ctx.attr.testonly:
             android_manifest = _mark_manifest_as_test_only(ctx, apex_toolchain)
-        args.add_all(["--android_manifest", android_manifest.path])
+        command.extend(["--android_manifest", android_manifest.path])
     elif ctx.attr.testonly:
-        args.add("--test_only")
+        command.append("--test_only")
 
-    args.add(staging_dir.path)
-    args.add(apex_output_file)
+    command.append(staging_dir.path)
+    command.append(apex_output_file.path)
 
     inputs = [
+        ctx.executable._staging_dir_builder,
         file_mapping_file,
         canned_fs_config,
         apex_manifest_pb,
@@ -538,17 +541,22 @@ def _run_apexer(ctx, apex_toolchain):
         resize2fs_files,
         sefcontext_compile_files,
         apex_toolchain.aapt2,
+        staging_dir_builder_files,
     ]
 
-    ctx.actions.run(
+    # This is run_shell instead of run because --target_sdk_version may
+    # use the API fingerprinting file contents using bash expansion,
+    # and only run_shell can support that by executing the whole command with
+    # /bin/bash -c. Regular run would quote the --target_sdk_version value with
+    # single quotes ('--target_sdk_version=ABC.$(cat version.txt)'), preventing
+    # bash expansion.
+    ctx.actions.run_shell(
         inputs = inputs,
         tools = tools,
         outputs = [apex_output_file, staging_dir],
-        executable = ctx.executable._staging_dir_builder,
-        arguments = [args],
+        command = " ".join(command),
         mnemonic = "Apexer",
     )
-
     return struct(
         unsigned_apex = apex_output_file,
         requires_native_libs = requires_native_libs,
@@ -871,7 +879,7 @@ file mode, and cap is hexadecimal value for the capability.""",
             doc = """The minimum SDK version that this APEX must support at minimum. This is usually set to
 the SDK version that the APEX was first introduced.
 
-When not set, defaults to 10000 (or "current").""",
+When not set, defaults to "10000" (or "current").""",
         ),
         "updatable": attr.bool(default = True, doc = """Whether this APEX is considered updatable or not.
 
