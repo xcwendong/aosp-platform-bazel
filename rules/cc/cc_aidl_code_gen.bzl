@@ -1,21 +1,19 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under thes License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-load("//build/bazel/rules/aidl:library.bzl", "AidlGenInfo")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("//build/bazel/rules/aidl:aidl_library.bzl", "AidlGenInfo")
 load(":cc_library_common.bzl", "create_ccinfo_for_includes")
 
 _SOURCES = "sources"
@@ -164,6 +162,11 @@ def _compile_aidl_srcs(ctx, aidl_info, lang):
     if ctx.attr.min_sdk_version != "":
         args.add("--min_sdk_version={}".format(ctx.attr.min_sdk_version))
 
+    if aidl_info.hash_file == None:
+        args.add("--hash=notfrozen")
+    else:
+        args.add("--hash=$(tail -1 {})".format(aidl_info.hash_file))
+
     args.add_all([
         "--ninja",
         "--lang={}".format(lang),
@@ -179,6 +182,7 @@ def _compile_aidl_srcs(ctx, aidl_info, lang):
         executable = ctx.executable._aidl,
         arguments = [args],
         progress_message = "Compiling AIDL binding",
+        mnemonic = "CcAidlCodeGen",
     )
 
     return ret

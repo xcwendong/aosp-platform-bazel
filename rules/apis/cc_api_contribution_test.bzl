@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":cc_api_contribution.bzl", "CcApiContributionInfo", "CcApiHeaderInfo", "CcApiHeaderInfoList", "cc_api_contribution", "cc_api_headers", "cc_api_library_headers")
 
 def _empty_include_dir_test_impl(ctx):

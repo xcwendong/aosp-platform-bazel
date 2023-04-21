@@ -1,19 +1,25 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load(
+    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
+    "CPP_COMPILE_ACTION_NAME",
+    "C_COMPILE_ACTION_NAME",
+)
+load("@soong_injection//api_levels:platform_versions.bzl", "platform_versions")
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load(
     "//build/bazel/rules/cc:cc_library_common.bzl",
@@ -24,15 +30,6 @@ load(
     "parse_apex_sdk_version",
 )
 load("//build/bazel/rules/cc:cc_library_static.bzl", "CcStaticLibraryInfo")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
-load(
-    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
-    "CPP_COMPILE_ACTION_NAME",
-    "C_COMPILE_ACTION_NAME",
-)
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 AbiDumpInfo = provider(fields = ["dump_files"])
 AbiDiffInfo = provider(fields = ["diff_files"])
@@ -49,8 +46,6 @@ def _abi_dump_aspect_impl(target, ctx):
 
     transitive_dumps = []
     direct_dumps = []
-    transitive_paths = []
-    direct_paths = []
 
     if CcStaticLibraryInfo in target:
         direct_dumps.extend(_create_abi_dumps(
@@ -154,7 +149,7 @@ def _create_abi_dump(ctx, target, src, objects, header_inputs, compilation_flags
     args.add("-o", output)
     args.add(src)
 
-    args.add_all(ctx.rule.attr.exports[CcInfo].compilation_context.includes.to_list(), map_each = _include_flag)
+    args.add_all(ctx.rule.attr.exports[0][CcInfo].compilation_context.includes.to_list(), map_each = _include_flag)
 
     args.add("--")
     args.add_all(compilation_flags)
@@ -223,11 +218,11 @@ def create_linked_abi_dump(ctx, dump_files):
 
     return output
 
-def find_abi_config(ctx):
-    sdk_version = str(product_vars["Platform_sdk_version"])
+def find_abi_config(_ctx):
+    sdk_version = str(platform_versions.platform_sdk_version)
     prev_version = int(parse_apex_sdk_version(sdk_version))
     version = "current"
-    if product_vars["Platform_sdk_final"]:
+    if platform_versions.platform_sdk_final:
         prev_version -= 1
         version = sdk_version
 
@@ -243,7 +238,7 @@ def create_abi_diff(ctx, dump_file):
     # The logic below comes from:
     # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/library.go;l=1891;drc=c645853ab73ac8c5889b42f4ce7dc9353ee8fd35
     abi_reference_file = None
-    if not product_vars["Platform_sdk_final"]:
+    if not platform_versions.platform_sdk_final:
         abi_reference_file = _find_abi_ref_file(ctx, prev_version, arch, bitness, abi_class, dump_file.basename)
         if not abi_reference_file:
             prev_version -= 1

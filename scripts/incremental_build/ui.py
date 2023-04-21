@@ -18,12 +18,12 @@ import functools
 import logging
 import os
 import re
+import sys
 import textwrap
 from datetime import date
 from enum import Enum
 from pathlib import Path
-
-from future.moves import sys
+from typing import Optional
 
 import cuj_catalog
 import util
@@ -41,11 +41,25 @@ class BuildType(Enum):
   B = ['build/bazel/bin/b', 'build']
   B_ANDROID = [*B, '--config=android']
 
+  @staticmethod
+  def from_flag(s: str) -> list['BuildType']:
+    chosen: list[BuildType] = []
+    for e in BuildType:
+      if s.lower() in e.name.lower():
+        chosen.append(e)
+    if len(chosen) == 0:
+      raise RuntimeError(f'no such build type: {s}')
+    return chosen
+
+  def to_flag(self):
+    return self.name.lower()
+
 
 @dataclasses.dataclass(frozen=True)
 class UserInput:
-  build_type: BuildType
+  build_types: list[BuildType]
   chosen_cujgroups: list[int]
+  description: Optional[str]
   log_dir: Path
   targets: list[str]
 
@@ -90,15 +104,17 @@ def get_user_input() -> UserInput:
 
   cuj_list = '\n'.join(
     [f'{i:2}: {cujgroup}' for i, cujgroup in enumerate(cujgroups)])
-  p.add_argument('-c', '--cujs', nargs='*',
+  p.add_argument('-c', '--cujs', nargs='+',
                  type=validate_cujgroups,
                  help='Index number(s) for the CUJ(s) from the following list. '
                       'Or substring matches for the CUJ description.'
                       f'Note the ordering will be respected:\n{cuj_list}')
-  p.add_argument('-C', '--exclude-cujs', nargs='*',
+  p.add_argument('-C', '--exclude-cujs', nargs='+',
                  type=validate_cujgroups,
                  help='Index number(s) or substring match(es) for the CUJ(s) '
                       'to be excluded')
+  p.add_argument('-d', '--description', type=str, default='',
+                 help='Any additional tag/description for the set of builds')
 
   log_levels = dict(getattr(logging, '_levelToName')).values()
   p.add_argument('-v', '--verbosity', choices=log_levels, default='INFO',
@@ -110,17 +126,25 @@ def get_user_input() -> UserInput:
                  Directory for timing logs. Defaults to %(default)s
                  TIPS:
                   1 Specify a directory outside of the source tree
-                  2 To view key metrics in summary.csv:
-                    {util.get_summary_cmd(default_log_dir)}
+                  2 To view key metrics in metrics.csv:
+                    {util.get_cmd_to_display_tabulated_metrics(default_log_dir)}
                   3 To view column headers:
                     {util.get_csv_columns_cmd(default_log_dir)}''').strip())
-  p.add_argument('--bazel-mode-staging', default=False, action='store_true')
-  p.add_argument('--bazel-mode-dev', default=False, action='store_true')
-  p.add_argument('--bazel-mode', default=False, action='store_true')
+  def_build_types = [BuildType.SOONG_ONLY,
+                        BuildType.MIXED_PROD,
+                        BuildType.MIXED_STAGING]
+  p.add_argument('-b', '--build-types', nargs='+',
+                 type=BuildType.from_flag,
+                 default=[def_build_types],
+                 help=f'Defaults to {[b.to_flag() for b in def_build_types]}. '
+                      f'Choose from {[e.name.lower() for e in BuildType]}')
   p.add_argument('--ignore-repo-diff', default=False, action='store_true',
                  help='Skip "repo status" check')
-
-  p.add_argument('targets', nargs='+', help='Targets to run')
+  p.add_argument('--append-csv', default=False, action='store_true',
+                 help='Add results to existing spreadsheet')
+  p.add_argument('targets', nargs='*', default=['nothing'],
+                 help='Targets to run, e.g. "libc adbd". '
+                      'Defaults to %(default)s')
 
   options = p.parse_args()
 
@@ -140,42 +164,20 @@ def get_user_input() -> UserInput:
   else:
     chosen_cujgroups = [i for i in range(0, len(cujgroups))]
 
-  chosen_bazel_modes = [bazel_mode for bazel_mode in [
-    options.bazel_mode_dev,
-    options.bazel_mode_staging,
-    options.bazel_mode] if bazel_mode]
-  if len(chosen_bazel_modes) > 1:
-    sys.exit('choose only one --bazel-mode option')
-  bazel_labels = [target for target in options.targets if
-                  target.startswith('//')]
+  bazel_labels: list[str] = [target for target in options.targets if
+                             target.startswith('//')]
   if 0 < len(bazel_labels) < len(options.targets):
     sys.exit(f'Don\'t mix bazel labels {bazel_labels} with soong targets '
              f'{[t for t in options.targets if t not in bazel_labels]}')
-  build_type: BuildType
-  disable_bazel = os.getenv('BUILD_BROKEN_DISABLE_BAZEL') is not None
+  if os.getenv('BUILD_BROKEN_DISABLE_BAZEL') is not None:
+    raise RuntimeError(f'use -b {BuildType.SOONG_ONLY.to_flag()} '
+                       f'instead of BUILD_BROKEN_DISABLE_BAZEL')
+  build_types: list[BuildType] = [i for sublist in options.build_types for i in
+                                  sublist]
   if len(bazel_labels) > 0:
-    if len(chosen_bazel_modes) > 0:
-      sys.exit(f'{chosen_bazel_modes} not applicable for b')
-    if disable_bazel:
-      sys.exit('BUILD_BROKEN_DISABLE_BAZEL not applicable for `b`')
-    build_type = BuildType.B
-  else:
-    if len(chosen_bazel_modes) == 0:
-      if not disable_bazel:
-        raise RuntimeError('Use BUILD_BROKEN_DISABLE_BAZEL or --bazel-mode')
-      build_type = BuildType.SOONG_ONLY
-    else:
-      assert len(chosen_bazel_modes) == 1
-      if disable_bazel:
-        raise RuntimeError('Unset BUILD_BROKEN_DISABLE_BAZEL')
-      if options.bazel_mode_dev:
-        build_type = BuildType.MIXED_DEV
-      elif options.bazel_mode_staging:
-        build_type = BuildType.MIXED_STAGING
-      elif options.bazel_mode:
-        build_type = BuildType.MIXED_PROD
-      else:
-        raise RuntimeError('UNREACHABLE')
+    non_b = [b for b in build_types if
+             b != BuildType.B and b != BuildType.B_ANDROID]
+    raise RuntimeError(f'bazel labels can not be used with {non_b}')
 
   pretty_str = '\n'.join(
     [f'{i:2}: {cujgroups[i]}' for i in chosen_cujgroups])
@@ -183,15 +185,26 @@ def get_user_input() -> UserInput:
 
   if not options.ignore_repo_diff and util.has_uncommitted_changes():
     error_message = 'THERE ARE UNCOMMITTED CHANGES (TIP: repo status).' \
-                    'You may consider using --ignore-repo-diff'
+                    'Use --ignore-repo-diff to skip this check.'
     if not util.is_interactive_shell():
       sys.exit(error_message)
     response = input(f'{error_message}\nContinue?[Y/n]')
     if response.upper() != 'Y':
-      sys.exit(0)
+      sys.exit(1)
+
+  log_dir = Path(options.log_dir).resolve()
+  if not options.append_csv and log_dir.exists():
+    error_message = f'{log_dir} already exists. ' \
+                    'Use --append-csv to skip this check.'
+    if not util.is_interactive_shell():
+      sys.exit(error_message)
+    response = input(f'{error_message}\nContinue?[Y/n]')
+    if response.upper() != 'Y':
+      sys.exit(1)
 
   return UserInput(
-    build_type=build_type,
+    build_types=build_types,
     chosen_cujgroups=chosen_cujgroups,
-    log_dir=Path(options.log_dir),
+    description=options.description,
+    log_dir=Path(options.log_dir).resolve(),
     targets=options.targets)

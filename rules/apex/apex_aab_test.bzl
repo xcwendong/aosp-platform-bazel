@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":apex_aab.bzl", "apex_aab")
 load(":apex_test_helpers.bzl", "test_apex")
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 def _apex_aab_test(ctx):
     env = analysistest.begin(ctx)
@@ -66,7 +66,6 @@ def _apex_aab_output_group_test(ctx):
         f.short_path
         for f in target_under_test[OutputGroupInfo].apex_files.to_list()
     ])
-    expected_paths = sorted(ctx.attr.expected_paths)
     asserts.equals(
         env,
         sorted(ctx.attr.expected_paths),
@@ -93,7 +92,7 @@ def _test_apex_aab_apex_files_output_group():
     )
 
     expected_paths = []
-    for arch in ["arm", "arm64", "x86", "x86_64"]:
+    for arch in ["arm", "arm64", "x86", "x86_64", "arm64only", "x86_64only"]:
         paths = [
             "/".join([native.package_name(), "mainline_modules_" + arch, basename])
             for basename in [

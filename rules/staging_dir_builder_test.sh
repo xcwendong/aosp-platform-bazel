@@ -52,7 +52,9 @@ trap cleanup ERR
 # 5. a two-level sumlink without "execroot/__main__" in the path
 # 6. a three-level symlink with "execroot/__main__" in the path
 echo "test file1" > "${input_dir}/file1"
+chmod 755 "${input_dir}/file1"
 echo "test file2" > "${input_dir}/file2"
+chmod 755 "${input_dir}/file2"
 mkdir -p "${input_dir}/execroot/__main__"
 ln -s "${input_dir}/file1" "${input_dir}/one_level_sym"
 ln -s "${input_dir}/file2" "${input_dir}/execroot/__main__/middle_sym"
@@ -172,6 +174,21 @@ diff ${input_dir}/file1 ${output_dir}/dir4/one_level_sym
 diff ${input_dir}/file2 ${output_dir}/dir5/two_level_sym_in_execroot
 [ `readlink ${output_dir}/dir6/two_level_sym_not_in_execroot` = "${input_dir}/file1" ]
 diff ${input_dir}/file2 ${output_dir}/dir7/three_level_sym_in_execroot
+
+input_perms="$(stat -c '%A' ${input_dir}/file1)"
+output_perms="$(stat -c '%A' ${staging_dir}/dir1/file1)"
+if [ ${input_perms} != ${output_perms} ]; then
+  echo "File permissions not matched!"
+  exit 1
+fi
+
+input_perms="$(stat -c '%A' ${input_dir}/file2)"
+output_perms="$(stat -c '%A' ${staging_dir}/dir5/two_level_sym_in_execroot)"
+if [ ${input_perms} != ${output_perms} ]; then
+  echo "File permissions not matched!"
+  exit 1
+fi
+
 
 cleanup
 

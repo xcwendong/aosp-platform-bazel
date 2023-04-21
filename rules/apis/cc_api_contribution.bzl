@@ -1,24 +1,23 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """Bazel rules for exporting API contributions of CC libraries"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("//build/bazel/rules/cc:cc_constants.bzl", "constants")
+load(":api_surface.bzl", "MODULE_LIB_API", "PUBLIC_API", "VENDOR_API")
 
 """A Bazel provider that encapsulates the headers presented to an API surface"""
 CcApiHeaderInfo = provider(
@@ -124,7 +123,7 @@ def _header_target_name(name, include_dir):
 
 def cc_api_library_headers(
         name,
-        hdrs = [],
+        hdrs = [],  # @unused
         export_includes = [],
         export_system_includes = [],
         arch = None,
@@ -180,9 +179,9 @@ CcApiContributionInfo = provider(
 )
 
 VALID_CC_API_SURFACES = [
-    "publicapi",
-    "module-libapi",  # API surface provided by platform and mainline modules to other mainline modules
-    "vendorapi",
+    PUBLIC_API,
+    MODULE_LIB_API,  # API surface provided by platform and mainline modules to other mainline modules
+    VENDOR_API,
 ]
 
 def _validate_api_surfaces(api_surfaces):

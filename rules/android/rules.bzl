@@ -15,20 +15,12 @@
 """Starlark rules for building Android apps."""
 
 load(
-    "@rules_android//rules:rules.bzl",
+    ":aar_import.bzl",
     _aar_import = "aar_import",
 )
 load(
     "@rules_android//rules:rules.bzl",
     _android_application = "android_application",
-)
-load(
-    ":android_binary.bzl",
-    _android_binary = "android_binary",
-)
-load(
-    ":android_library.bzl",
-    _android_library = "android_library_macro",
 )
 load(
     "@rules_android//rules:rules.bzl",
@@ -49,6 +41,14 @@ load(
 load(
     ":android_app_certificate.bzl",
     _android_app_certificate = "android_app_certificate",
+)
+load(
+    ":android_binary.bzl",
+    _android_binary = "android_binary",
+)
+load(
+    ":android_library.bzl",
+    _android_library = "android_library",
 )
 
 aar_import = _aar_import

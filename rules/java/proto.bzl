@@ -1,22 +1,19 @@
-"""
-Copyright (C) 2021 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 load("//build/bazel/rules:proto_file_utils.bzl", "proto_file_utils")
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load(":library.bzl", "java_library")
+load(":rules.bzl", "java_library")
 
 def _java_proto_sources_gen_rule_impl(ctx):
     out_flags = []
@@ -101,6 +98,7 @@ def _java_proto_library(
         plugin = None,
         out_format = None,
         proto_dep = None,
+        sdk_version = "core_current",
         **kwargs):
     proto_sources_name = name + "_proto_gen"
 
@@ -121,6 +119,7 @@ def _java_proto_library(
         name = name,
         srcs = [proto_sources_name],
         deps = deps,
+        sdk_version = sdk_version,
         **kwargs
     )
 

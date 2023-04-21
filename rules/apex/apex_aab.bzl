@@ -1,47 +1,56 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-load("//build/bazel/rules/android:android_app_certificate.bzl", "AndroidAppCertificateInfo")
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/bazel/rules:toolchain_utils.bzl", "verify_toolchain_exists")
 load(":apex_info.bzl", "ApexInfo")
-load(":apex_key.bzl", "ApexKeyInfo")
 load(":bundle.bzl", "build_bundle_config")
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 
-def _arch_transition_impl(settings, attr):
+def _arch_transition_impl(settings, _attr):
     """Implementation of arch_transition.
-    Four archs are included for mainline modules: x86, x86_64, arm and arm64.
+
+    Six arch products are included for mainline modules: x86, x86_64, x86_64only, arm, arm64, arm64only.
     """
     old_platform = str(settings["//command_line_option:platforms"][0])
+
+    # We can't use platforms alone to differentiate between x86_64 and x86_64
+    # with a secondary arch, which is significant for apex packaging that can
+    # optionally include the secondary arch's libs. That is currently determined
+    # by DeviceSecondaryArch in apex's lib inclusion logic, so we explicitly set
+    # DeviceSecondaryArch to "" for the 64bit only cases.
 
     # TODO(b/249685973) Instead of using these __internal_x86 platforms, use
     # the mainline_modules_<arch> android products
     return {
+        # these key names must correspond to mainline_modules_<arch> product name suffixes.
+        "arm": {
+            "//command_line_option:platforms": old_platform + "__internal_arm",
+        },
+        "arm64": {
+            "//command_line_option:platforms": old_platform + "__internal_arm64",
+        },
+        "arm64only": {
+            "//command_line_option:platforms": old_platform + "__internal_arm64only",
+        },
         "x86": {
             "//command_line_option:platforms": old_platform + "__internal_x86",
         },
         "x86_64": {
             "//command_line_option:platforms": old_platform + "__internal_x86_64",
         },
-        "arm": {
-            "//command_line_option:platforms": old_platform + "__internal_arm",
-        },
-        "arm64": {
-            "//command_line_option:platforms": old_platform + "__internal_arm64",
+        "x86_64only": {
+            "//command_line_option:platforms": old_platform + "__internal_x86_64only",
         },
     }
 
@@ -58,23 +67,17 @@ arch_transition = transition(
 
 def _merge_base_files(ctx, module_name, base_files):
     """Run merge_zips to merge all files created for each arch by _apex_base_file."""
-
-    # Inputs
-    inputs = base_files + [ctx.executable._merge_zips]
-
-    # Outputs
     merged_base_file = ctx.actions.declare_file(module_name + "/" + module_name + ".zip")
-    outputs = [merged_base_file]
 
     # Arguments
     args = ctx.actions.args()
-    args.add_all(["--ignore-duplicates"])
-    args.add_all([merged_base_file])
+    args.add("--ignore-duplicates")
+    args.add(merged_base_file)
     args.add_all(base_files)
 
     ctx.actions.run(
-        inputs = inputs,
-        outputs = outputs,
+        inputs = base_files,
+        outputs = [merged_base_file],
         executable = ctx.executable._merge_zips,
         arguments = [args],
         mnemonic = "ApexMergeBaseFiles",
@@ -84,27 +87,22 @@ def _merge_base_files(ctx, module_name, base_files):
 def _apex_bundle(ctx, module_name, merged_base_file, bundle_config_file):
     """Run bundletool to create the aab file."""
 
-    # Inputs
-    inputs = [
-        bundle_config_file,
-        merged_base_file,
-        ctx.executable._bundletool,
-    ]
-
     # Outputs
     bundle_file = ctx.actions.declare_file(module_name + "/" + module_name + ".aab")
-    outputs = [bundle_file]
 
     # Arguments
     args = ctx.actions.args()
-    args.add_all(["build-bundle"])
+    args.add("build-bundle")
     args.add_all(["--config", bundle_config_file])
     args.add_all(["--modules", merged_base_file])
     args.add_all(["--output", bundle_file])
 
     ctx.actions.run(
-        inputs = inputs,
-        outputs = outputs,
+        inputs = [
+            bundle_config_file,
+            merged_base_file,
+        ],
+        outputs = [bundle_file],
         executable = ctx.executable._bundletool,
         arguments = [args],
         mnemonic = "ApexBundleFile",
@@ -170,13 +168,16 @@ def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
         is_executable = False,
     )
 
+    java_runtime = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+
     # Tools
     tools = [
         ctx.executable.dev_sign_bundle,
         ctx.executable._deapexer,
-        ctx.executable._java,
         ctx.executable._sign_apex,
         ctx.executable._openssl,
+        ctx.executable._zip2zip,
+        ctx.executable._blkid,
         aapt2,
         avbtool.files_to_run.executable,
         python_interpreter,
@@ -185,6 +186,7 @@ def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
         bundletool_jarfile,
         signapk_jar,
         libconscrypt_openjdk_jni_so,
+        java_runtime.files,
     ]
 
     # Inputs
@@ -200,6 +202,7 @@ def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
     outputs = [output_dir, tmp_dir]
 
     # Arguments
+    java_bin = paths.join(java_runtime.java_home, "bin")
     args = ctx.actions.args()
     args.add_all(["--input_dir", input_bundle_file.dirname])
     args.add_all(["--output_dir", output_dir.path])
@@ -207,8 +210,9 @@ def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
     args.add_all(["--aapt2_path", aapt2.path])
     args.add_all(["--bundletool_path", bundletool_jarfile.path])
     args.add_all(["--deapexer_path", ctx.executable._deapexer.path])
+    args.add_all(["--blkid_path", ctx.executable._blkid.path])
     args.add_all(["--debugfs_path", ctx.executable._debugfs.path])
-    args.add_all(["--java_binary_path", ctx.executable._java.path])
+    args.add_all(["--java_binary_path", paths.join(java_bin, "java")])
     args.add_all(["--apex_signer_path", ctx.executable._sign_apex])
 
     ctx.actions.run(
@@ -218,17 +222,17 @@ def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
         arguments = [args],
         tools = tools,
         env = {
+            # necessary for dev_sign_bundle.
+            "BAZEL_ANDROID_HOST_OUT": paths.dirname(debugfs_static.dirname),
             "PATH": ":".join(
                 [
                     python_interpreter.dirname,
                     ctx.executable._deapexer.dirname,
                     avbtool.files_to_run.executable.dirname,
                     ctx.executable._openssl.dirname,
-                    ctx.executable._java.dirname,
-                    "/usr/sbin",  # deapexer calls 'blkid' directly and assumes it is in PATH.
+                    java_bin,
                 ],
             ),
-            "BAZEL_ANDROID_HOST_OUT": paths.dirname(debugfs_static.dirname),
         },
         mnemonic = "ApexSignBundleFile",
     )
@@ -244,8 +248,9 @@ def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
     return [apks_file, cert_info_file]
 
 def _apex_aab_impl(ctx):
-    """Implementation of apex_aab rule, which drives the process of creating aab
-    file from apex files created for each arch."""
+    """Implementation of apex_aab rule.
+
+    This drives the process of creating aab file from apex files created for each arch."""
     verify_toolchain_exists(ctx, "//build/bazel/rules/apex:apex_toolchain_type")
     apex_toolchain = ctx.toolchains["//build/bazel/rules/apex:apex_toolchain_type"].toolchain_info
 
@@ -319,35 +324,28 @@ _apex_aab = rule(
         "@bazel_tools//tools/python:toolchain_type",
     ],
     attrs = {
+        "dev_keystore": attr.label(
+            cfg = "exec",
+            executable = False,
+        ),
+        "dev_sign_bundle": attr.label(
+            cfg = "exec",
+            executable = True,
+        ),
         "mainline_module": attr.label(
             mandatory = True,
             cfg = arch_transition,
             providers = [ApexInfo],
             doc = "The label of a mainline module target",
         ),
-        "dev_sign_bundle": attr.label(
-            cfg = "exec",
-            executable = True,
-        ),
-        "dev_keystore": attr.label(
-            cfg = "exec",
-            executable = False,
-        ),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
             doc = "Allow transition.",
         ),
-        "_merge_zips": attr.label(
-            allow_single_file = True,
+        "_blkid": attr.label(
             cfg = "exec",
             executable = True,
-            default = "//prebuilts/build-tools:linux-x86/bin/merge_zips",
-        ),
-        "_zip2zip": attr.label(
-            allow_single_file = True,
-            cfg = "exec",
-            executable = True,
-            default = "//build/soong/cmd/zip2zip:zip2zip",
+            default = "//external/e2fsprogs/misc:blkid",
         ),
         "_bundletool": attr.label(
             cfg = "exec",
@@ -369,6 +367,33 @@ _apex_aab = rule(
             executable = True,
             default = "//external/e2fsprogs/debugfs:debugfs_static",
         ),
+        "_fsck_erofs": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = "//external/erofs-utils:fsck.erofs",
+        ),
+        "_java_runtime": attr.label(
+            default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
+            cfg = "exec",
+            providers = [java_common.JavaRuntimeInfo],
+        ),
+        "_libconscrypt_openjdk_jni": attr.label(
+            cfg = "exec",
+            executable = False,
+            default = "//external/conscrypt:libconscrypt_openjdk_jni",
+        ),
+        "_merge_zips": attr.label(
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
+            default = "//prebuilts/build-tools:linux-x86/bin/merge_zips",
+        ),
+        "_openssl": attr.label(
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
+            default = "//prebuilts/build-tools:linux-x86/bin/openssl",
+        ),
         "_sign_apex": attr.label(
             cfg = "exec",
             executable = True,
@@ -379,31 +404,11 @@ _apex_aab = rule(
             executable = False,
             default = "//build/bazel/rules/apex:signapk_deploy_jar",
         ),
-        "_libconscrypt_openjdk_jni": attr.label(
-            cfg = "exec",
-            executable = False,
-            default = "//external/conscrypt:libconscrypt_openjdk_jni",
-        ),
-        "_java": attr.label(
-            cfg = "exec",
-            executable = True,
-            default = "@local_jdk//:java",
-        ),
-        "_jdk_bin": attr.label(
-            cfg = "exec",
-            executable = False,
-            default = "@local_jdk//:jdk-bin",
-        ),
-        "_openssl": attr.label(
+        "_zip2zip": attr.label(
             allow_single_file = True,
             cfg = "exec",
             executable = True,
-            default = "//prebuilts/build-tools:linux-x86/bin/openssl",
-        ),
-        "_fsck_erofs": attr.label(
-            cfg = "exec",
-            executable = True,
-            default = "//external/erofs-utils:fsck.erofs",
+            default = "//build/soong/cmd/zip2zip:zip2zip",
         ),
         "_zipper": attr.label(
             cfg = "exec",
