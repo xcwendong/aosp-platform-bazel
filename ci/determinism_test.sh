@@ -1,4 +1,4 @@
-#!/bin/bash -eux
+#!/bin/bash -eu
 
 # Copyright (C) 2023 The Android Open Source Project
 #
@@ -33,6 +33,16 @@ if [[ -z ${DIST_DIR+x} ]]; then
   DIST_DIR="${OUT_DIR}/dist"
 fi
 
+if [[ -z ${TARGET_PRODUCT+x} ]]; then
+  echo "TARGET_PRODUCT not set. Using aosp_arm64"
+  TARGET_PRODUCT=aosp_arm64
+fi
+
+if [[ -z ${TARGET_BUILD_VARIANT+x} ]]; then
+  echo "TARGET_BUILD_VARIANT not set. Using userdebug"
+  TARGET_BUILD_VARIANT=userdebug
+fi
+
 UNAME="$(uname)"
 case "$UNAME" in
 Linux)
@@ -55,8 +65,8 @@ function clean_build {
     --mk-metrics \
     BAZEL_STARTUP_ARGS="--max_idle_secs=5" \
     BAZEL_BUILD_ARGS="--color=no --curses=no --show_progress_rate_limit=5" \
-    TARGET_PRODUCT=aosp_arm64 \
-    TARGET_BUILD_VARIANT=userdebug \
+    TARGET_PRODUCT=${TARGET_PRODUCT} \
+    TARGET_BUILD_VARIANT=${TARGET_BUILD_VARIANT} \
     nothing \
     dist DIST_DIR=$DIST_DIR
 }
@@ -65,6 +75,10 @@ function save_hash {
   local -r filepath="$1"
   find $OUT_DIR/soong/workspace -type f,l -iname "BUILD.bazel" -o -iname "*.bzl" | xargs "${PREBUILTS}"/md5sum > $filepath
   find $OUT_DIR/soong/soong_injection -type f,l | xargs "${PREBUILTS}"/md5sum >> $filepath
+  "${PREBUILTS}"/md5sum $OUT_DIR/soong/Android-${TARGET_PRODUCT}.mk >> $filepath
+  if [[ -z ${SKIP_NINJA_CHECK+x} ]]; then
+    "${PREBUILTS}"/md5sum $OUT_DIR/soong/build.ninja >> $filepath
+  fi
 }
 
 TESTDIR=$(mktemp -t testdir.XXXXXX -d)

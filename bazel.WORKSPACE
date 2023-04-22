@@ -131,7 +131,7 @@ local_repository(
 # it can be properly vendored.
 local_repository(
     name = "rules_java",
-    path = "build/bazel/rules/java/rules_java",
+    path = "build/bazel_common_rules/rules/java/rules_java",
 )
 
 register_toolchains(
