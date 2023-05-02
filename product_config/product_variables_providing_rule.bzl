@@ -25,6 +25,7 @@ ProductVariablesInfo = provider(
         "Unbundled_build": "True if this is an unbundled build",
         "ManifestPackageNameOverrides": "A list of string:string mapping from APEX/APK name to package name to override the AndroidManifest.xml package of the module.",
         "CertificateOverrides": "A list of string:string mapping from APEX/APK name to the certificate name to override the certificate used to sign the APEX/APK container.",
+        "DeviceMaxPageSizeSupported": "String indicating the max-page-size supported by the device.",
     },
 )
 
@@ -53,6 +54,7 @@ def _product_variables_providing_rule_impl(ctx):
             Unbundled_build = vars.get("Unbundled_build", False),
             ManifestPackageNameOverrides = vars.get("ManifestPackageNameOverrides", []),
             CertificateOverrides = vars.get("CertificateOverrides", []),
+            DeviceMaxPageSizeSupported = vars.get("DeviceMaxPageSizeSupported", ""),
         ),
         ProductVariablesDepsInfo(
             DefaultAppCertificateFiles = ctx.files.default_app_certificate_filegroup,
