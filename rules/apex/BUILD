@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting", "string_list_setting", "string_setting")
 load("@env//:env.bzl", "env")
+load("@soong_injection//api_levels:platform_versions.bzl", "platform_versions")
 load("@soong_injection//product_config:product_variables.bzl", "product_vars")
 load("//build/bazel/flags:common.bzl", "is_env_true")
 load("//build/bazel/product_variables:constants.bzl", "constants")
@@ -135,24 +136,9 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-bool_setting(
-    name = "unbundled_build",
-    # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
-    build_setting_default = product_vars.get("Unbundled_build", False),
-    visibility = ["//visibility:public"],
-)
-
-bool_setting(
-    name = "always_use_prebuilt_sdks",
-    # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
-    build_setting_default = product_vars.get("Always_use_prebuilt_sdks", False),
-    visibility = ["//visibility:public"],
-)
-
 string_setting(
     name = "platform_sdk_codename",
-    # TODO(b/269577299): Make this read from //build/bazel/product_config:product_vars instead.
-    build_setting_default = product_vars.get("Platform_sdk_codename", ""),
+    build_setting_default = platform_versions.platform_sdk_codename,
     visibility = ["//visibility:public"],
 )
 

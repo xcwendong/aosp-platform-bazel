@@ -58,20 +58,20 @@ SOONG_BUILD_PB = 'soong_build_metrics.pb'
 BP2BUILD_PB = 'bp2build_metrics.pb'
 
 
-def _move_pbs_to(d: Path):
+def _copy_pbs_to(d: Path):
   soong_pb = util.get_out_dir().joinpath(SOONG_PB)
   soong_build_pb = util.get_out_dir().joinpath(SOONG_BUILD_PB)
   bp2build_pb = util.get_out_dir().joinpath(BP2BUILD_PB)
   if soong_pb.exists():
-    shutil.move(soong_pb, d.joinpath(SOONG_PB))
+    shutil.copy(soong_pb, d.joinpath(SOONG_PB))
   if soong_build_pb.exists():
-    shutil.move(soong_build_pb, d.joinpath(SOONG_BUILD_PB))
+    shutil.copy(soong_build_pb, d.joinpath(SOONG_BUILD_PB))
   if bp2build_pb.exists():
-    shutil.move(bp2build_pb, d.joinpath(BP2BUILD_PB))
+    shutil.copy(bp2build_pb, d.joinpath(BP2BUILD_PB))
 
 
 def archive_run(d: Path, build_info: dict[str, any]):
-  _move_pbs_to(d)
+  _copy_pbs_to(d)
   with open(d.joinpath(util.BUILD_INFO_JSON), 'w') as f:
     json.dump(build_info, f, indent=True)
 
@@ -181,10 +181,12 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
       prev_col = all_cols[col]
 
   acc = []
-  while len(all_cols) > 0:
-    entries = [c for c in all_cols.values()]
-    entries.sort(key=lambda c: f'{c.indegree:03d}{c.header}')
-    entry = entries[0]
+  entries = [c for c in all_cols.values()]
+  while len(entries) > 0:
+    # sorting alphabetically to break ties for concurrent events
+    entries.sort(key=lambda c: c.header, reverse=True)
+    entries.sort(key=lambda c: c.indegree, reverse=True)
+    entry = entries.pop()
     # take only one to maintain alphabetical sort
     if entry.indegree != 0:
       cycle = '->'.join(entry.dfs(entry.header))
@@ -200,7 +202,6 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
       else:
         if not allow_cycles:
           raise ValueError(f'unexpected error for: {n}')
-    all_cols.pop(entry.header)
   return acc
 
 

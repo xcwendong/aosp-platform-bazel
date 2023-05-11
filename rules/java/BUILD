@@ -23,6 +23,8 @@ load(":versions.bzl", "java_versions")
 load(":sdk_transition_test.bzl", "sdk_transition_test_suite")
 load(":host_for_device_test.bzl", "host_for_device_test_suite")
 load("@bazel_skylib//rules:common_settings.bzl", "string_setting")
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "DEFAULT_JAVACOPTS", "default_java_toolchain")
+load("@soong_injection//java_toolchain:constants.bzl", "constants")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -50,12 +52,12 @@ string_setting(
 
 [
     config_setting(
-        name = java_versions.VERSION_TO_CONFIG_SETTING[java_version],
+        name = setting,
         flag_values = {
             "//build/bazel/rules/java:version": str(java_version),
         },
     )
-    for java_version in java_versions.VERSION_TO_CONFIG_SETTING.keys()
+    for java_version, setting in java_versions.VERSION_TO_CONFIG_SETTING.items()
 ]
 
 # There is no need for both host and device java version build settings in a
@@ -75,10 +77,36 @@ string_setting(
 
 [
     config_setting(
-        name = "host_" + java_versions.VERSION_TO_CONFIG_SETTING[java_version],
+        name = "host_" + setting,
         flag_values = {
             "//build/bazel/rules/java:host_version": str(java_version),
         },
     )
-    for java_version in java_versions.VERSION_TO_CONFIG_SETTING.keys()
+    for java_version, setting in java_versions.VERSION_TO_CONFIG_SETTING.items()
 ]
+
+java_version_select_dict = {
+    "host_" + setting: str(version)
+    for version, setting in java_versions.VERSION_TO_CONFIG_SETTING.items()
+} | {
+    "//conditions:default": str(java_versions.get_version()),
+}
+
+default_java_toolchain(
+    name = "jdk17_host_toolchain_java",
+    # TODO(b/218720643): Support switching between multiple JDKs.
+    java_runtime = "//prebuilts/jdk/jdk17:jdk17_runtime",
+    misc = DEFAULT_JAVACOPTS + constants.CommonJdkFlags,
+    source_version = select(java_version_select_dict),
+    target_version = select(java_version_select_dict),
+    toolchain_definition = False,
+)
+
+toolchain(
+    name = "jdk17_host_toolchain_java_definition",
+    exec_compatible_with = ["//build/bazel/platforms/os:linux"],
+    target_compatible_with = ["//build/bazel/platforms/os:linux"],
+    target_settings = [],
+    toolchain = ":jdk17_host_toolchain_java",
+    toolchain_type = "@bazel_tools//tools/jdk:toolchain_type",
+)

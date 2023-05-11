@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/bazel/rules/common:sdk_version.bzl", "sdk_spec_from")
+load("//build/bazel/rules/common:sdk_version.bzl", "sdk_version")
 load("//build/bazel/rules/common:api.bzl", "api")
 
 # Warning: this is a *lot* of boilerplate to test just one function.
@@ -22,7 +22,7 @@ load("//build/bazel/rules/common:api.bzl", "api")
 SdkSpec = provider()
 
 def _sdk_spec_from_tester_impl(ctx):
-    sdk_spec = sdk_spec_from(ctx.attr.sdk_version)
+    sdk_spec = sdk_version.sdk_spec_from(ctx.attr.sdk_version)
     return [SdkSpec(kind = sdk_spec.kind, api_level = sdk_spec.api_level)]
 
 sdk_spec_from_tester = rule(

@@ -20,7 +20,7 @@ visibility([
 ])
 
 def _host_for_device_impl(ctx):
-    return [java_common.merge([d[JavaInfo] for d in ctx.attr.deps])]
+    return [java_common.merge([d[JavaInfo] for d in ctx.attr.exports])]
 
 java_host_for_device = rule(
     doc = """Rule to provide java libraries built with a host classpath in a device configuration.
@@ -28,7 +28,9 @@ This is rarely necessary and restricted to a few allowed projects.
 """,
     implementation = _host_for_device_impl,
     attrs = {
-        "deps": attr.label_list(
+        # This attribute must have a specific name to let the DexArchiveAspect propagate
+        # through it.
+        "exports": attr.label_list(
             cfg = "exec",
             providers = [JavaInfo],
             doc = "List of targets whose contents will be visible to targets that depend on this target.",

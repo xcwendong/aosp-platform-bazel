@@ -40,11 +40,13 @@ done
 shift $((OPTIND - 1))
 readonly -a build_types=("$@")
 
+log_dir=${log_dir:-"$TOP/../timing-$(date +%b%d-%H%M)"}
+
 function build() {
   date
   set -x
   if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.sh" \
-    --ignore-repo-diff ${log_dir:+--log-dir "$log_dir"} \
+    --ignore-repo-diff --log-dir "$log_dir" \
     ${build_types:+--build-types "${build_types[@]}"} \
     "$@"; then
     echo "See logs for errors"

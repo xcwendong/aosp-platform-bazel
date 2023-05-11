@@ -27,8 +27,8 @@ SdkConfig = provider(
 )
 
 def _sdk_transition_tester_impl(ctx):
-    if ctx.attr.deps and len(ctx.attr.deps) > 0 and SdkConfig in ctx.attr.deps[0]:
-        return ctx.attr.deps[0][SdkConfig]
+    if ctx.attr.exports and len(ctx.attr.exports) > 0 and SdkConfig in ctx.attr.exports[0]:
+        return ctx.attr.exports[0][SdkConfig]
     return SdkConfig(
         java_version = ctx.attr._java_version_config_setting[BuildSettingInfo].value,
         host_java_version = ctx.attr._host_java_version_config_setting[BuildSettingInfo].value,
@@ -39,7 +39,7 @@ def _sdk_transition_tester_impl(ctx):
 sdk_transition_tester = rule(
     implementation = _sdk_transition_tester_impl,
     attrs = {
-        "deps": attr.label(
+        "exports": attr.label(
             cfg = sdk_transition,
             providers = [SdkConfig],
         ),
@@ -126,7 +126,7 @@ def set_up_targets_under_test(name, java_version, sdk_version):
         name = name + "_parent",
         java_version = java_version,
         sdk_version = sdk_version,
-        deps = name + "_child",
+        exports = name + "_child",
         tags = ["manual"],
     )
     sdk_transition_tester(

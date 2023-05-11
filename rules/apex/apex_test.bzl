@@ -455,8 +455,9 @@ def _apex_manifest_test(ctx):
     conv_apex_manifest_action = [a for a in actions if a.mnemonic == "ConvApexManifest"][0]
 
     apexer_action = [a for a in actions if a.mnemonic == "Apexer"][0]
-    manifest_index = apexer_action.argv.index("--manifest")
-    manifest_path = apexer_action.argv[manifest_index + 1]
+    argv = apexer_action.argv[:-1] + apexer_action.argv[-1].split(" ")
+    manifest_index = argv.index("--manifest")
+    manifest_path = argv[manifest_index + 1]
 
     asserts.equals(
         env,
@@ -471,8 +472,8 @@ def _apex_manifest_test(ctx):
     )
 
     if ctx.attr.expected_min_sdk_version != "":
-        flag_index = apexer_action.argv.index("--min_sdk_version")
-        min_sdk_version_argv = apexer_action.argv[flag_index + 1]
+        flag_index = argv.index("--min_sdk_version")
+        min_sdk_version_argv = argv[flag_index + 1]
         asserts.equals(
             env,
             ctx.attr.expected_min_sdk_version,
@@ -492,9 +493,17 @@ apex_manifest_test = analysistest.make(
     **apex_manifest_test_attr
 )
 
+apex_manifest_global_min_sdk_current_test = analysistest.make(
+    config_settings = {
+        "@//build/bazel/rules/apex:unbundled_build_target_sdk_with_api_fingerprint": False,
+    },
+    **apex_manifest_test_attr
+)
+
 apex_manifest_global_min_sdk_override_tiramisu_test = analysistest.make(
     config_settings = {
         "@//build/bazel/rules/apex:apex_global_min_sdk_version_override": "Tiramisu",
+        "@//build/bazel/rules/apex:unbundled_build_target_sdk_with_api_fingerprint": False,
     },
     **apex_manifest_test_attr
 )
@@ -538,7 +547,8 @@ def _test_apex_manifest_min_sdk_version_current():
         min_sdk_version = "current",
     )
 
-    apex_manifest_test(
+    # this test verifies min_sdk_version without use_api_fingerprint
+    apex_manifest_global_min_sdk_current_test(
         name = test_name,
         target_under_test = name,
         expected_min_sdk_version = "10000",
@@ -555,6 +565,7 @@ def _test_apex_manifest_min_sdk_version_override():
         min_sdk_version = "30",
     )
 
+    # this test verifies min_sdk_version without use_api_fingerprint
     apex_manifest_global_min_sdk_override_tiramisu_test(
         name = test_name,
         target_under_test = name,
@@ -999,13 +1010,14 @@ def _action_args_test(ctx):
     actions = analysistest.target_actions(env)
 
     action = [a for a in actions if a.mnemonic == ctx.attr.action_mnemonic][0]
-    flag_idx = action.argv.index(ctx.attr.expected_args[0])
+    argv = action.argv[:-1] + action.argv[-1].split(" ")
+    flag_idx = argv.index(ctx.attr.expected_args[0])
 
     for i, expected_arg in enumerate(ctx.attr.expected_args):
         asserts.equals(
             env,
             expected_arg,
-            action.argv[flag_idx + i],
+            argv[flag_idx + i],
         )
 
     return analysistest.end(env)
@@ -1058,6 +1070,53 @@ def _test_default_apex_manifest_version():
             "version",
             "0",
             str(default_manifest_version),
+        ],
+    )
+
+    return test_name
+
+action_args_with_overrides_test = analysistest.make(
+    _action_args_test,
+    attrs = _action_args_test_attrs,
+    config_settings = {
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_with_overrides_and_app_cert",
+    },
+)
+
+def _test_package_name():
+    name = "package_name"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+        package_name = "my.package.name",
+    )
+
+    action_args_test(
+        name = test_name,
+        target_under_test = name,
+        action_mnemonic = "Apexer",
+        expected_args = [
+            "--override_apk_package_name",
+            "my.package.name",
+        ],
+    )
+
+    return test_name
+
+def _test_package_name_override_from_config():
+    name = "package_name_override_from_config"
+    test_name = name + "_test"
+
+    test_apex(name = name)
+
+    action_args_with_overrides_test(
+        name = test_name,
+        target_under_test = name,
+        action_mnemonic = "Apexer",
+        expected_args = [
+            "--override_apk_package_name",
+            "another.package",
         ],
     )
 
@@ -1235,6 +1294,17 @@ apex_certificate_test = analysistest.make(
     },
 )
 
+apex_certificate_with_overrides_test = analysistest.make(
+    _apex_certificate_test,
+    attrs = {
+        "expected_pem_path": attr.string(),
+        "expected_pk8_path": attr.string(),
+    },
+    config_settings = {
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_with_overrides_and_app_cert",
+    },
+)
+
 def _test_apex_certificate_none():
     name = "apex_certificate_none"
     test_name = name + "_test"
@@ -1292,6 +1362,30 @@ def _test_apex_certificate_label():
         target_under_test = name,
         expected_pem_path = "build/bazel/rules/apex/apex_certificate_label.x509.pem",
         expected_pk8_path = "build/bazel/rules/apex/apex_certificate_label.pk8",
+    )
+
+    return test_name
+
+def _test_apex_certificate_label_with_overrides():
+    name = "apex_certificate_label_with_overrides"
+    test_name = name + "_test"
+
+    android_app_certificate(
+        name = name + "_cert",
+        certificate = name,
+        tags = ["manual"],
+    )
+
+    test_apex(
+        name = name,
+        certificate = name + "_cert",
+    )
+
+    apex_certificate_with_overrides_test(
+        name = test_name,
+        target_under_test = name,
+        expected_pem_path = "build/bazel/rules/apex/testdata/another.x509.pem",
+        expected_pk8_path = "build/bazel/rules/apex/testdata/another.pk8",
     )
 
     return test_name
@@ -1548,7 +1642,7 @@ def _apex_testonly_without_manifest_test_impl(ctx):
         len(actions) == 1,
         "No apexer action found: %s" % actions,
     )
-    argv = actions[0].argv
+    argv = actions[0].argv[:-1] + actions[0].argv[-1].split(" ")
 
     asserts.true(
         env,
@@ -2327,7 +2421,7 @@ def _apex_in_unbundled_build_test(ctx):
 apex_in_unbundled_build_test = analysistest.make(
     _apex_in_unbundled_build_test,
     config_settings = {
-        "@//build/bazel/rules/apex:unbundled_build": True,
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_unbundled_build",
     },
 )
 
@@ -2378,7 +2472,7 @@ def _apex_in_bundled_build_test(ctx):
 apex_in_bundled_build_test = analysistest.make(
     _apex_in_bundled_build_test,
     config_settings = {
-        "@//build/bazel/rules/apex:unbundled_build": False,
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing",
     },
 )
 
@@ -2490,8 +2584,11 @@ def _min_target_sdk_version_api_fingerprint_test(ctx):
     for action in actions:
         if action.argv == None:
             continue
-        if "--min_sdk_version" in action.argv:
-            apexer_action = action
+        for a in action.argv:
+            if "--min_sdk_version" in a:
+                apexer_action = action
+                break
+        if apexer_action != None:
             break
 
     asserts.true(
@@ -2500,7 +2597,7 @@ def _min_target_sdk_version_api_fingerprint_test(ctx):
         "There is no apexer action in all the actions",
     )
 
-    argv = apexer_action.argv
+    argv = apexer_action.argv[:-1] + apexer_action.argv[-1].split(" ")
     api_fingerprint_in_input = False
     api_fingerprint_path = None
     for f in apexer_action.inputs.to_list():
@@ -2515,21 +2612,25 @@ def _min_target_sdk_version_api_fingerprint_test(ctx):
         "api_fingerprint.txt is not in the input files",
     )
 
-    expected_target_sdk_version = "123" + ".$$(cat {})".format(api_fingerprint_path)
+    expected_target_sdk_version = "123" + ".$(cat {})".format(api_fingerprint_path)
+    target_sdk_version_index = argv.index("--target_sdk_version")
     asserts.equals(
         env,
         expected = expected_target_sdk_version,
-        actual = argv[argv.index("--target_sdk_version") + 1],
+        actual = argv[target_sdk_version_index + 1] + " " + argv[target_sdk_version_index + 2],
     )
 
+    min_sdk_version_index = argv.index("--min_sdk_version")
     if ctx.attr.min_sdk_version in ["current", "10000"]:
-        expected_min_sdk_version = "123" + ".$$(cat {})".format(api_fingerprint_path)
+        expected_min_sdk_version = "123" + ".$(cat {})".format(api_fingerprint_path)
+        actual_min_sdk_version = argv[min_sdk_version_index + 1] + " " + argv[min_sdk_version_index + 2]
     else:
         expected_min_sdk_version = ctx.attr.min_sdk_version
+        actual_min_sdk_version = argv[min_sdk_version_index + 1]
     asserts.equals(
         env,
         expected = expected_min_sdk_version,
-        actual = argv[argv.index("--min_sdk_version") + 1],
+        actual = actual_min_sdk_version,
     )
 
     return analysistest.end(env)
@@ -2542,8 +2643,7 @@ min_target_sdk_version_api_fingerprint_test = analysistest.make(
         ),
     },
     config_settings = {
-        "@//build/bazel/rules/apex:unbundled_build": True,
-        "@//build/bazel/rules/apex:always_use_prebuilt_sdks": False,
+        "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_unbundled_build",
         "@//build/bazel/rules/apex:unbundled_build_target_sdk_with_api_fingerprint": True,
         "@//build/bazel/rules/apex:platform_sdk_codename": "123",
     },
@@ -2606,6 +2706,8 @@ def apex_test_suite(name):
             _test_apex_manifest_dependencies_selfcontained(),
             _test_apex_manifest_dependencies_cc_binary(),
             _test_logging_parent_flag(),
+            _test_package_name(),
+            _test_package_name_override_from_config(),
             _test_generate_file_contexts(),
             _test_default_apex_manifest_version(),
             _test_override_apex_manifest_version(),
@@ -2614,6 +2716,7 @@ def apex_test_suite(name):
             _test_apex_certificate_none(),
             _test_apex_certificate_name(),
             _test_apex_certificate_label(),
+            _test_apex_certificate_label_with_overrides(),
             _test_min_sdk_version_apex_inherit(),
             _test_min_sdk_version_apex_inherit_override_min_sdk_tiramisu(),
             _test_apex_testonly_with_manifest(),

@@ -101,3 +101,7 @@ class UtilTest(unittest.TestCase):
     for (ts, expected) in examples:
       self.subTest(ts=ts, expected=expected)
       self.assertEqual(period_to_seconds(ts), expected)
+
+
+if __name__ == '__main__':
+  unittest.main()

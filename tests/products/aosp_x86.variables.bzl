@@ -32,6 +32,7 @@ variables = json.decode('''{
     "DeviceSecondaryArchVariant": "",
     "DeviceSecondaryCpuVariant": "",
     "DeviceSecondaryAbi": [],
+    "DeviceMaxPageSizeSupported": "4096",
     "Aml_abis": false,
     "Ndk_abis": false,
     "NativeBridgeArch": "",

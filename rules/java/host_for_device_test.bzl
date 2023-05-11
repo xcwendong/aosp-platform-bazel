@@ -26,8 +26,8 @@ Platform = provider(
 )
 
 def _host_for_device_tester_aspect_impl(target, ctx):
-    if ctx.rule.attr.deps and len(ctx.rule.attr.deps) > 0 and Platform in ctx.rule.attr.deps[0]:
-        return ctx.rule.attr.deps[0][Platform]
+    if ctx.rule.attr.exports and len(ctx.rule.attr.exports) > 0 and Platform in ctx.rule.attr.exports[0]:
+        return ctx.rule.attr.exports[0][Platform]
     return Platform(
         platform = ctx.fragments.platform.platform,
         host_platform = ctx.fragments.platform.host_platform,
@@ -35,7 +35,7 @@ def _host_for_device_tester_aspect_impl(target, ctx):
 
 host_for_device_tester_aspect = aspect(
     implementation = _host_for_device_tester_aspect_impl,
-    attr_aspects = ["deps"],
+    attr_aspects = ["exports"],
     fragments = ["platform"],
     provides = [Platform],
 )
@@ -57,7 +57,7 @@ host_for_device_dep_runs_in_exec_config_test = analysistest.make(
 def test_host_for_device(name):
     java_host_for_device(
         name = name + "_parent",
-        deps = [name + "_child"],
+        exports = [name + "_child"],
         tags = ["manual"],
     )
     java_import(

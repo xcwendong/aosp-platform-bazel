@@ -215,7 +215,8 @@ def _verify_product_is_registered(name):
     fail("All android_product() instances must be listed in all_android_product_labels in " +
          "//build/bazel/product_config/android_product.bzl. By default the products generated " +
          "from legacy android product configurations are included, additional platforms (like " +
-         "testing-specific platforms) must be manually listed.")
+         "testing-specific platforms) must be manually listed in " +
+         "//build/bazel/tests/products/product_labels.bzl.")
 
 def android_product(name, soong_variables):
     """
