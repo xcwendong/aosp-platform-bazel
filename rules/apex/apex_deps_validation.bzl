@@ -75,6 +75,9 @@ _IGNORED_ATTRS = [
     "androidmk_dynamic_deps",
     "androidmk_deps",
 ]
+_IGNORED_TARGETS = [
+    "default_metadata_file",
+]
 
 def _should_skip_apex_dep(target, ctx):
     # Ignore Bazel-specific targets like platform/os/arch constraints,
@@ -85,7 +88,8 @@ def _should_skip_apex_dep(target, ctx):
         ctx.label.workspace_name in _IGNORED_REPOSITORIES or
         ctx.label.package in _IGNORED_PACKAGES or
         ctx.rule.kind in _IGNORED_RULE_KINDS or
-        True in [p in target for p in _IGNORED_PROVIDERS]
+        True in [p in target for p in _IGNORED_PROVIDERS] or
+        target.label.name in _IGNORED_TARGETS
     )
 
 def _apex_dep_validation_aspect_impl(target, ctx):

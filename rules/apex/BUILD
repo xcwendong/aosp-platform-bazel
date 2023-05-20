@@ -11,6 +11,15 @@ load(":apex_key_test.bzl", "apex_key_test_suite")
 load(":apex_mk_test.bzl", "apex_mk_test_suite")
 load(":apex_test.bzl", "apex_test_suite")
 
+# Setup package and default_metadata_file for _test_apex_sbom in apex_test.bzl
+package(default_package_metadata = [":default_metadata_file"])
+
+filegroup(
+    name = "default_metadata_file",
+    srcs = ["METADATA"],
+    applicable_licenses = [],
+)
+
 string_setting(
     name = "apex_name",
     build_setting_default = "",
