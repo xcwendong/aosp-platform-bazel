@@ -12,31 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FEATURES_ATTR_KEY = "features"
+load(":cc_constants.bzl", "transition_constants")
+
 LTO_FEATURE = "android_thin_lto"
-CLI_FEATURES_KEY = "//command_line_option:features"
 
 # This propagates LTO enablement down the dependency tree for modules that
 # enable it explicitly
 # TODO(b/270418352): Move this logic to the incoming transition when incoming
 #                    transitions support select statements
 def lto_deps_transition_impl(settings, attr):
-    features = getattr(attr, FEATURES_ATTR_KEY)
-    new_cli_features = list(settings[CLI_FEATURES_KEY])
+    features = getattr(attr, transition_constants.features_attr_key)
+    new_cli_features = list(settings[transition_constants.cli_features_key])
     if LTO_FEATURE in features and LTO_FEATURE not in new_cli_features:
         new_cli_features.append(LTO_FEATURE)
 
     return {
-        CLI_FEATURES_KEY: new_cli_features,
+        transition_constants.cli_features_key: new_cli_features,
     }
 
 lto_deps_transition = transition(
     implementation = lto_deps_transition_impl,
     inputs = [
-        CLI_FEATURES_KEY,
+        transition_constants.cli_features_key,
     ],
     outputs = [
-        CLI_FEATURES_KEY,
+        transition_constants.cli_features_key,
     ],
 )
 
@@ -49,14 +49,14 @@ def apply_drop_lto(old_cli_features):
         new_cli_features.remove(LTO_FEATURE)
 
     return {
-        CLI_FEATURES_KEY: new_cli_features,
+        transition_constants.cli_features_key: new_cli_features,
     }
 
 def drop_lto_transition_impl(settings, _):
-    return apply_drop_lto(settings[CLI_FEATURES_KEY])
+    return apply_drop_lto(settings[transition_constants.cli_features_key])
 
 drop_lto_transition = transition(
     implementation = drop_lto_transition_impl,
-    inputs = [CLI_FEATURES_KEY],
-    outputs = [CLI_FEATURES_KEY],
+    inputs = [transition_constants.cli_features_key],
+    outputs = [transition_constants.cli_features_key],
 )

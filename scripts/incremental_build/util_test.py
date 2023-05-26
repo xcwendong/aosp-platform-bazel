@@ -14,16 +14,17 @@
 import datetime
 import os
 import unittest
+from pathlib import Path
 
-from util import _next_path_helper
 from util import any_match
 from util import get_top_dir
 from util import hhmmss
+from util import next_path
 from util import period_to_seconds
 
 
 class UtilTest(unittest.TestCase):
-  def test_next_path_helper(self):
+  def test_next_path(self):
     examples = [
         ('output', 'output-1'),
         ('output.x', 'output-1.x'),
@@ -34,7 +35,9 @@ class UtilTest(unittest.TestCase):
     ]
     for (pattern, expected) in examples:
       with self.subTest(msg=pattern, pattern=pattern, expected=expected):
-        self.assertEqual(_next_path_helper(pattern), expected)
+        generator = next_path(Path(pattern))
+        n = next(generator)
+        self.assertEqual(n, Path(expected))
 
   def test_any_match(self):
     path, matches = any_match('root.bp')
@@ -78,14 +81,22 @@ class UtilTest(unittest.TestCase):
       self.assertFalse('BUILD' in files)
 
   def test_hhmmss(self):
-    examples = [
+    decimal_precision_examples = [
         (datetime.timedelta(seconds=(2 * 60 + 5)), '02:05.000'),
         (datetime.timedelta(seconds=(3600 + 23 * 60 + 45.897898)),
          '1:23:45.898'),
     ]
-    for (ts, expected) in examples:
+    non_decimal_precision_examples = [
+        (datetime.timedelta(seconds=(2 * 60 + 5)), '02:05'),
+        (datetime.timedelta(seconds=(3600 + 23 * 60 + 45.897898)),
+         '1:23:46'),
+    ]
+    for (ts, expected) in decimal_precision_examples:
       self.subTest(ts=ts, expected=expected)
-      self.assertEqual(hhmmss(ts), expected)
+      self.assertEqual(hhmmss(ts, decimal_precision=True), expected)
+    for (ts, expected) in non_decimal_precision_examples:
+      self.subTest(ts=ts, expected=expected)
+      self.assertEqual(hhmmss(ts, decimal_precision=False), expected)
 
   def test_period_to_seconds(self):
     examples = [

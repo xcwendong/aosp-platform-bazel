@@ -50,6 +50,7 @@ case $(uname -s) in
         ;;
     Linux)
         ANDROID_BAZEL_PATH="${TOP}/prebuilts/bazel/linux-x86_64/bazel"
+        ANDROID_BAZELISK_PATH="${TOP}/prebuilts/bazel/linux-x86_64/dev_tools/bazelisk/bazelisk"
         ANDROID_BAZELRC_NAME="linux.bazelrc"
         ANDROID_BAZEL_JDK_PATH="${TOP}/prebuilts/jdk/jdk11/linux-x86"
         RESTRICTED_PATH="${TOP}/prebuilts/build-tools/path/linux-x86:${ABSOLUTE_OUT_DIR}/.path"
@@ -162,12 +163,20 @@ if [ -d "${ANDROID_BAZELRC_PATH}" ]; then
     ANDROID_BAZELRC_PATH="${ANDROID_BAZELRC_PATH}/${ANDROID_BAZELRC_NAME}"
 fi
 
+ADDITIONAL_FLAGS=()
 
-if [ -n "$ANDROID_BAZEL_PATH" -a -f "$ANDROID_BAZEL_PATH" ]; then
-    export ANDROID_BAZEL_PATH
+if [[ -z ${USE_BAZEL_VERSION+x} ]]; then
+  if [ -n "$ANDROID_BAZEL_PATH" -a -f "$ANDROID_BAZEL_PATH" ]; then
+      export ANDROID_BAZEL_PATH
+  else
+      >&2 echo "Couldn't locate Bazel binary"
+      exit 1
+  fi
 else
-    >&2 echo "Couldn't locate Bazel binary"
-    exit 1
+  echo -e "\033[1m\033[33mUSING BAZELISK:\033[0m Using Bazelisk because of env var: USE_BAZEL_VERSION=${USE_BAZEL_VERSION}" >&2
+  ANDROID_BAZEL_PATH=$ANDROID_BAZELISK_PATH
+  export ANDROID_BAZEL_PATH
+  # TODO(b/283971340): Pass BAZELISK_NOJDK=1 when this works with bazelisk.
 fi
 
 if [ "$ANDROID_BAZELRC_PATH" == "/dev/null" ] || [ -n "$ANDROID_BAZELRC_PATH" -a -f "$ANDROID_BAZELRC_PATH" ]; then
@@ -195,7 +204,6 @@ echo $ANDROID_BAZELRC_PATH >> "${MIXED_BUILDS_DOTD}"
 echo $ANDROID_BAZEL_JDK_PATH >> "${MIXED_BUILDS_DOTD}"
 
 
-ADDITIONAL_FLAGS=()
 if  is_standalone_bazel; then
     # STANDALONE_BAZEL is set.
     >&2 echo "WARNING: Using Bazel in standalone mode. This mode is not integrated with Soong and Make, and is not supported"

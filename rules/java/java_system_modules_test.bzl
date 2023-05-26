@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load(":import.bzl", "java_import")
 load(":java_system_modules.bzl", "SystemInfo", "java_system_modules")
-load(":rules.bzl", "java_import")
 
 def _java_system_modules_test_impl(ctx):
     env = analysistest.begin(ctx)

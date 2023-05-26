@@ -86,7 +86,10 @@ _android_app_certificate = rule(
         "pem": attr.label(mandatory = True, allow_single_file = [".pem"]),
         "pk8": attr.label(mandatory = True, allow_single_file = [".pk8"]),
         "certificate": attr.string(mandatory = True),
-        "_apex_name": attr.label(default = "//build/bazel/rules/apex:apex_name"),
+        "_apex_name": attr.label(
+            default = "//build/bazel/rules/apex:apex_name",
+            doc = "Name of apex this certificate signs.",
+        ),
         "_product_variables": attr.label(
             default = "//build/bazel/product_config:product_vars",
         ),
@@ -176,6 +179,10 @@ android_app_certificate_with_default_cert = rule(
         ),
         "_hardcoded_certs": attr.label(
             default = "//build/make/target/product/security:android_certificate_directory",
+        ),
+        "_apex_name": attr.label(
+            default = "//build/bazel/rules/apex:apex_name",
+            doc = "Name of apex this certificate signs.",
         ),
     },
 )

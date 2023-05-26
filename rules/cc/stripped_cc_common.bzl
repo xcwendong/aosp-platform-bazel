@@ -14,7 +14,7 @@
 
 """A macro to handle shared library stripping."""
 
-load(":cc_library_common.bzl", "CcAndroidMkInfo")
+load(":cc_library_common.bzl", "CcAndroidMkInfo", "check_valid_ldlibs")
 load(":clang_tidy.bzl", "collect_deps_clang_tidy_info")
 load(
     ":lto_transitions.bzl",
@@ -59,6 +59,8 @@ def _get_strip_args(attrs):
 
 # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/builder.go;l=131-146;drc=master
 def stripped_impl(ctx, prefix = "", suffix = "", extension = ""):
+    check_valid_ldlibs(ctx, ctx.attr.linkopts)
+
     out_file = ctx.actions.declare_file(prefix + ctx.attr.name + suffix + extension)
     if not _needs_strip(ctx):
         ctx.actions.symlink(
@@ -103,6 +105,7 @@ strip_attrs = dict(
     all = attr.bool(default = False),
     none = attr.bool(default = False),
     keep_symbols_list = attr.string_list(default = []),
+    linkopts = attr.string_list(default = []),  # Used for validation
 )
 common_strip_attrs = dict(
     strip_attrs,
@@ -154,6 +157,15 @@ common_strip_attrs = dict(
     ),
     _android_constraint = attr.label(
         default = Label("//build/bazel/platforms/os:android"),
+    ),
+    _darwin_constraint = attr.label(
+        default = Label("//build/bazel/platforms/os:darwin"),
+    ),
+    _linux_constraint = attr.label(
+        default = Label("//build/bazel/platforms/os:linux"),
+    ),
+    _windows_constraint = attr.label(
+        default = Label("//build/bazel/platforms/os:windows"),
     ),
 )
 

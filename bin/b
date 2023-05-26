@@ -36,13 +36,25 @@ for i in $@; do
     fi
 done
 
+function upload_metrics {
+   "$TOP/build/soong/soong_ui.bash" --finalize-bazel-metrics $bazel_exit_code_string
+}
+trap upload_metrics EXIT
+
+
+
 # Generate BUILD, bzl files into the synthetic Bazel workspace (out/soong/workspace).
 # RBE is disabled because it's not used with b builds and adds overhead: b/251441524
 # TODO(b/262904551) - this is Darwin incompatible and should eventually be updated.
 BUILD_STARTED_TIME=`date +%s%3N`
 B_ARGS=$*
-USE_RBE=false "$TOP/build/soong/soong_ui.bash" --build-mode --all-modules --dir="$(pwd)" $skip_tests bp2build USE_BAZEL_ANALYSIS= --build-command="b ${B_ARGS}" --skip-metrics-upload --build-started-time-unix-millis=$BUILD_STARTED_TIME || exit 1
-
+set +e
+USE_RBE=false "$TOP/build/soong/soong_ui.bash" --build-mode --all-modules --dir="$(pwd)" $skip_tests bp2build USE_BAZEL_ANALYSIS= --build-command="b ${B_ARGS}" --skip-metrics-upload --build-started-time-unix-millis=$BUILD_STARTED_TIME
+exit_code=$?
+if [[ $exit_code -ne 0 ]]; then
+   exit $exit_code
+fi
+set -e
 
 # Then, run Bazel using the synthetic workspace as the --package_path.
 if [[ -z "$bazel_args" ]]; then
@@ -73,8 +85,11 @@ else
     fi
 
     # Call Bazel.
+    set +e
     "$TOP/build/bazel/bin/bazel" ${bazel_args_with_config[@]}
-    "$TOP/build/bazel/bin/bazel" analyze-profile $PROFILE_OUT/bazel_metrics-profile > $PROFILE_OUT/analyzed_bazel_profile.txt
+    set -e
+    bazel_exit_code=$?
+    bazel_exit_code_string="--bazel-exit-code=$bazel_exit_code"
+    "$TOP/build/bazel/bin/bazel" analyze-profile $PROFILE_OUT/bazel_metrics-profile 1> $PROFILE_OUT/analyzed_bazel_profile.txt 2>/dev/null
     rm $PROFILE_OUT/bazel_metrics-profile
-    "$TOP/build/soong/soong_ui.bash" --upload-metrics-only
 fi

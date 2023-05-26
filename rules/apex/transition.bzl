@@ -31,7 +31,21 @@ https://cs.android.com/android/platform/superproject/+/master:build/soong/apex/a
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:collections.bzl", "collections")
 load("//build/bazel/rules/apex:sdk_versions.bzl", "maybe_override_min_sdk_version")
+
+def _get_api_domain(apex_name, base_apex_name):
+    # AOSP and Google variants of apexes are part of the same API domain.
+    # Test apexes and source apexes are part of the same API domain.
+    # Override test apexes should return the api domain of the overriden test apex
+    # Return base_apex_name if it is not empty.
+    if base_apex_name:
+        # TODO (b/282058578): Deprecate this special handling.
+        # TODO: This does not handle special cases like test1_com.android.tzdata.
+        # This is fine for now since tzdata does not have native code.
+        return base_apex_name.lstrip("test_")
+
+    return apex_name
 
 def _create_apex_configuration(settings, attr, additional = {}):
     min_sdk_version = maybe_override_min_sdk_version(
@@ -44,6 +58,7 @@ def _create_apex_configuration(settings, attr, additional = {}):
         "//build/bazel/rules/apex:base_apex_name": attr.base_apex_name,  # Name of the base APEX, if exists
         "//build/bazel/rules/apex:min_sdk_version": min_sdk_version,
         "//build/bazel/rules/apex:within_apex": True,  # Building a APEX
+        "//build/bazel/rules/apex:api_domain": _get_api_domain(attr.name, attr.base_apex_name),
     }, additional)
 
 def _impl(settings, attr):
@@ -57,7 +72,7 @@ def _impl(settings, attr):
     direct_deps += [str(dep) for dep in attr.binaries]
 
     return _create_apex_configuration(settings, attr, {
-        "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
+        "//build/bazel/rules/apex:apex_direct_deps": collections.uniq(sorted(direct_deps)),
     })
 
 _TRANSITION_INPUTS = [
@@ -70,6 +85,7 @@ _TRANSITION_OUTPUTS = [
     "//build/bazel/rules/apex:within_apex",
     "//build/bazel/rules/apex:min_sdk_version",
     "//build/bazel/rules/apex:apex_direct_deps",
+    "//build/bazel/rules/apex:api_domain",
 ]
 
 apex_transition = transition(
@@ -111,7 +127,7 @@ def _impl_shared_lib_transition_32(settings, attr):
     old_platform = str(settings["//command_line_option:platforms"][0])
 
     return _create_apex_configuration(settings, attr, {
-        "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
+        "//build/bazel/rules/apex:apex_direct_deps": collections.uniq(sorted(direct_deps)),
         "//command_line_option:platforms": old_platform + "_secondary",
     })
 
@@ -132,7 +148,7 @@ def _impl_shared_lib_transition_64(settings, attr):
     # we only read the value of native_shared_libs_64 when the target
     # is 64-bit already
     return _create_apex_configuration(settings, attr, {
-        "//build/bazel/rules/apex:apex_direct_deps": direct_deps,
+        "//build/bazel/rules/apex:apex_direct_deps": collections.uniq(sorted(direct_deps)),
     })
 
 shared_lib_transition_64 = transition(

@@ -23,7 +23,7 @@ def _cc_prebuilt_library_shared_impl(ctx):
         ctx = ctx,
         cc_toolchain = cc_toolchain,
     )
-    cc_info = create_cc_prebuilt_library_info(
+    cc_info, linker_input = create_cc_prebuilt_library_info(
         ctx,
         cc_common.create_library_to_link(
             actions = ctx.actions,
@@ -32,7 +32,21 @@ def _cc_prebuilt_library_shared_impl(ctx):
             cc_toolchain = cc_toolchain,
         ) if lib != None else None,
     )
-    return [DefaultInfo(files = files), cc_info]
+
+    return [
+        DefaultInfo(files = files),
+        cc_info,
+        CcSharedLibraryInfo(
+            dynamic_deps = depset(),
+            exports = [],
+            link_once_static_libs = [],
+            linker_input = linker_input,
+        ),
+        OutputGroupInfo(
+            # TODO(b/279433767): remove once cc_library_shared is stable
+            rule_impl_debug_files = [],
+        ),
+    ]
 
 cc_prebuilt_library_shared = rule(
     implementation = _cc_prebuilt_library_shared_impl,
@@ -46,5 +60,5 @@ cc_prebuilt_library_shared = rule(
     ),
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
     fragments = ["cpp"],
-    provides = [CcInfo],
+    provides = [CcInfo, CcSharedLibraryInfo],
 )

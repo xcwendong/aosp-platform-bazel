@@ -14,12 +14,13 @@
 
 """android_library rule."""
 
-load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition", "sdk_transition_attrs")
+load("@rules_android//rules:providers.bzl", "StarlarkAndroidResourcesInfo")
 load(
     "//build/bazel/rules/android/android_library_aosp_internal:rule.bzl",
     "android_library_aosp_internal_macro",
 )
-load("@rules_android//rules:providers.bzl", "StarlarkAndroidResourcesInfo")
+load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition_attrs")
+load("//build/bazel/rules/kotlin:kt_jvm_library.bzl", "make_kt_compiler_opt")
 
 # TODO(b/277801336): document these attributes.
 def android_library(
@@ -29,6 +30,7 @@ def android_library(
         tags = [],
         target_compatible_with = [],
         visibility = None,
+        kotlincflags = None,
         **attrs):
     """ android_library macro wrapper that handles custom attrs needed in AOSP
 
@@ -42,11 +44,14 @@ def android_library(
       **attrs: Rule attributes
     """
     lib_name = name + "_private"
+    custom_kotlincopts = make_kt_compiler_opt(name, kotlincflags)
+
     android_library_aosp_internal_macro(
         name = lib_name,
         tags = tags + ["manual"],
         target_compatible_with = target_compatible_with,
         visibility = ["//visibility:private"],
+        custom_kotlincopts = custom_kotlincopts,
         **attrs
     )
 

@@ -95,8 +95,9 @@ def _action_flags_present_only_for_mnemonic_test_impl(ctx):
     asserts.true(
         env,
         found_at_least_one_action,
-        "did not find any actions with mnemonic %s" % (
+        "did not find any actions with mnemonic %s, found: %s" % (
             ctx.attr.mnemonics,
+            [a.mnemonic for a in actions],
         ),
     )
     return analysistest.end(env)
@@ -117,6 +118,14 @@ def action_flags_present_only_for_mnemonic_test_with_config_settings(config_sett
     )
 
 action_flags_present_only_for_mnemonic_test = action_flags_present_only_for_mnemonic_test_with_config_settings()
+
+action_flags_present_only_for_mnemonic_aosp_arm64_test = action_flags_present_only_for_mnemonic_test_with_config_settings({
+    "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing",
+})
+
+action_flags_present_only_for_mnemonic_aosp_arm64_host_test = action_flags_present_only_for_mnemonic_test_with_config_settings({
+    "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_linux_x86_64",
+})
 
 # Checks that a given set of flags are NOT present in a given set of actions.
 # Unlike the above test, this test does NOT confirm the absence of flags
@@ -141,19 +150,31 @@ def _action_flags_absent_for_mnemonic_test_impl(ctx):
 
     return analysistest.end(env)
 
-action_flags_absent_for_mnemonic_test = analysistest.make(
-    _action_flags_absent_for_mnemonic_test_impl,
-    attrs = {
-        "mnemonics": attr.string_list(
-            doc = """
-            Actions with these mnemonics will be expected NOT to have the flags
-            specificed in expected_flags
-            """,
-        ),
-        "expected_absent_flags": attr.string_list(
-            doc = """
-            The flags to be confirmed are absent from the actions in mnemonics
-            """,
-        ),
-    },
-)
+def action_flags_absent_for_mnemonic_test_with_config_settings(config_settings = {}):
+    return analysistest.make(
+        _action_flags_absent_for_mnemonic_test_impl,
+        attrs = {
+            "mnemonics": attr.string_list(
+                doc = """
+                Actions with these mnemonics will be expected NOT to have the flags
+                specificed in expected_flags
+                """,
+            ),
+            "expected_absent_flags": attr.string_list(
+                doc = """
+                The flags to be confirmed are absent from the actions in mnemonics
+                """,
+            ),
+        },
+        config_settings = config_settings,
+    )
+
+action_flags_absent_for_mnemonic_test = action_flags_absent_for_mnemonic_test_with_config_settings()
+
+action_flags_absent_for_mnemonic_aosp_arm64_test = action_flags_absent_for_mnemonic_test_with_config_settings({
+    "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing",
+})
+
+action_flags_absent_for_mnemonic_aosp_arm64_host_test = action_flags_absent_for_mnemonic_test_with_config_settings({
+    "//command_line_option:platforms": "@//build/bazel/tests/products:aosp_arm64_for_testing_linux_x86_64",
+})

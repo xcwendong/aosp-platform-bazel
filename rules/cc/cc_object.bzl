@@ -55,6 +55,47 @@ def split_srcs_hdrs(files):
             non_headers_c.append(f)
     return non_headers_c, non_headers_as, headers
 
+def _objcopy_noaddrsig(ctx, noaddrsig_output, linking_output, cc_toolchain):
+    output_file = ctx.actions.declare_file(noaddrsig_output)
+
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
+
+    objcopy_path = cc_common.get_tool_for_action(
+        feature_configuration = feature_configuration,
+        action_name = "objcopy",
+    )
+    command_line = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = "objcopy",
+        variables = cc_common.empty_variables(),
+    )
+
+    args = ctx.actions.args()
+    args.add_all(command_line)
+    args.add("--remove-section=.llvm_addrsig")
+    args.add(linking_output.executable)
+    args.add(output_file)
+
+    ctx.actions.run(
+        executable = objcopy_path,
+        arguments = [args],
+        inputs = depset(
+            direct = [linking_output.executable],
+            transitive = [
+                cc_toolchain.all_files,
+            ],
+        ),
+        outputs = [output_file],
+        mnemonic = "CppObjcopyNoAddrsig",
+    )
+
+    return output_file
+
 def _cc_object_impl(ctx):
     cc_toolchain = ctx.toolchains["//prebuilts/clang/host/linux-x86:nocrt_toolchain"].cc
 
@@ -160,7 +201,7 @@ def _cc_object_impl(ctx):
     # partially link if there are multiple object files
     if len(objects_to_link.objects) + len(objects_to_link.pic_objects) > 1:
         linking_output = cc_common.link(
-            name = ctx.label.name + ".o",
+            name = ctx.label.name + ".addrsig.o",
             actions = ctx.actions,
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
@@ -168,7 +209,10 @@ def _cc_object_impl(ctx):
             compilation_outputs = objects_to_link,
             additional_inputs = additional_inputs,
         )
-        files = depset([linking_output.executable])
+
+        noaddrsig_output = _objcopy_noaddrsig(ctx, ctx.label.name + ".o", linking_output, cc_toolchain)
+
+        files = depset([noaddrsig_output])
     else:
         files = depset(objects_to_link.objects + objects_to_link.pic_objects)
 

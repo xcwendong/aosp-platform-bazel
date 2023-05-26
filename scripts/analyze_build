@@ -1,0 +1,12 @@
+#!/bin/bash -eu
+readonly TOP="$(realpath "$(dirname "$0")/../../..")"
+if [[ -z ${OUT_DIR+x} ]]; then
+  OUT_DIR="$TOP/out"
+fi
+
+if [ ! -f ${OUT_DIR}/soong/workspace/WORKSPACE ]; then
+  echo "bp2build workspace does not exist. Have you run a Bazel-enabled build since last clean?"
+  exit 1
+fi
+
+ANDROID_BUILD_TOP=$TOP "$TOP/build/bazel/bin/bazel" run --config=bp2build --verbose_failures //build/bazel/scripts:print_analysis_metrics -- "$@"

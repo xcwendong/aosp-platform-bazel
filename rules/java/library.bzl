@@ -18,7 +18,7 @@ load(
     "@rules_java//java:defs.bzl",
     _java_library = "java_library",
 )
-load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition", "sdk_transition_attrs")
+load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition_attrs")
 
 # TODO(b/277801336): document these attributes.
 def java_library(

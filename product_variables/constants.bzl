@@ -36,6 +36,8 @@ _arch_variant_to_constraints = {
     "darwin": "//build/bazel/platforms/os:darwin",
     "linux": "//build/bazel/platforms/os:linux",
     "linux_bionic": "//build/bazel/platforms/os:linux_bionic",
+    "linux_glibc": "//build/bazel/platforms/os:linux_glibc",
+    "linux_musl": "//build/bazel/platforms/os:linux_musl",
     "windows": "//build/bazel/platforms/os:windows",
 }
 

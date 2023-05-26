@@ -22,7 +22,8 @@ load(
     "compile_action_argv_aspect_generator",
 )
 load("//build/bazel/rules/test_common:flags.bzl", "action_flags_present_only_for_mnemonic_test")
-load("//build/bazel/rules/test_common:paths.bzl", "get_package_dir_based_path")
+load("//build/bazel/rules/test_common:paths.bzl", "get_output_and_package_dir_based_path", "get_package_dir_based_path")
+load(":cc_binary_test.bzl", "cc_bad_linkopts_test")
 load(":cc_library_common_test.bzl", "target_provides_androidmk_info_test")
 
 def _cc_library_shared_suffix_test_impl(ctx):
@@ -745,7 +746,7 @@ def _cc_library_shared_provides_androidmk_info():
         target_under_test = name,
         expected_static_libs = [dep_name, "libc++demangle"],
         expected_whole_static_libs = [whole_archive_dep_name],
-        expected_shared_libs = [dynamic_dep_name, "libc++", "libc", "libdl", "libm"],
+        expected_shared_libs = [dynamic_dep_name, "libc++", "libc_stub_libs-current", "libdl_stub_libs-current", "libm_stub_libs-current"],
         target_compatible_with = ["//build/bazel/platforms/os:android"],
     )
     target_provides_androidmk_info_test(
@@ -760,6 +761,164 @@ def _cc_library_shared_provides_androidmk_info():
         android_test_name,
         linux_test_name,
     ]
+
+def _cc_library_minimal_runtime_linked_impl(ctx):
+    env = analysistest.begin(ctx)
+    libraries = [
+        lib
+        for input in ctx.attr._ubsan_library[CcInfo].linking_context.linker_inputs.to_list()
+        for lib in input.libraries
+    ]
+    ubsan_lib_path = libraries[0].static_library.path
+
+    actions = analysistest.target_actions(env)
+    found_minimal_runtime = False
+    for action in actions:
+        if action.mnemonic != "CppLink":
+            continue
+        for i in range(len(action.argv)):
+            arg = action.argv[i]
+            if ubsan_lib_path in arg:
+                found_minimal_runtime = True
+                if i > 0:
+                    prev_arg = action.argv[i - 1]
+                asserts.true(
+                    env,
+                    "-Wl,--whole-archive" != prev_arg,
+                    "expected %s to not be a whole archive but it was" % [prev_arg, arg],
+                )
+
+    asserts.true(
+        env,
+        found_minimal_runtime,
+        "Expected to find ubsan minimal runtime, but did not.",
+    )
+
+    return analysistest.end(env)
+
+_cc_library_minimal_runtime_linked_test = analysistest.make(
+    _cc_library_minimal_runtime_linked_impl,
+    attrs = {
+        "_ubsan_library": attr.label(
+            default = "//prebuilts/clang/host/linux-x86:libclang_rt.ubsan_minimal",
+            doc = "The library target corresponding to the undefined " +
+                  "behavior sanitizer library to be used",
+        ),
+    },
+)
+
+def _cc_library_minimal_runtime_linked_from_dep():
+    name = "cc_library_minimal_runtime_linked_from_dep"
+    dep_name = "dep_" + name
+    test_name = name + "_test"
+
+    cc_library_static(
+        name = dep_name,
+        srcs = ["foo.cc"],
+        tags = ["manual"],
+        features = ["ubsan_undefined"],
+    )
+    cc_library_shared(
+        name = name,
+        srcs = ["bar.cc"],
+        implementation_deps = [dep_name],
+        tags = ["manual"],
+    )
+    _cc_library_minimal_runtime_linked_test(
+        name = test_name,
+        target_under_test = name + "_unstripped",
+    )
+    return test_name
+
+def _cc_library_minimal_runtime_linked():
+    name = "cc_library_minimal_runtime_linked"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name,
+        srcs = ["bar.cc"],
+        features = ["ubsan_undefined"],
+        tags = ["manual"],
+    )
+    _cc_library_minimal_runtime_linked_test(
+        name = test_name,
+        target_under_test = name + "_unstripped",
+    )
+    return test_name
+
+def _cc_library_link_as_whole_archive_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "CppLink"]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "Cpp link action not found: %s" % actions,
+    )
+    action = actions[0]
+    whole_arch_libs = []
+    argv_len = len(action.argv)
+    whole_archive_start = False
+    for i in range(argv_len):
+        if action.argv[i] == "-Wl,--whole-archive":
+            whole_archive_start = True
+        elif action.argv[i] == "-Wl,--no-whole-archive":
+            whole_archive_start = False
+        elif whole_archive_start:
+            whole_arch_libs.append(action.argv[i])
+
+    for lib in ctx.attr.expected_libs:
+        full_path = get_output_and_package_dir_based_path(env, lib)
+        if full_path not in whole_arch_libs:
+            fail("{} is not in list of libs for linking as whole archive deps {}".format(lib, action.argv))
+
+    return analysistest.end(env)
+
+cc_library_link_as_whole_archive_test = analysistest.make(
+    _cc_library_link_as_whole_archive_test_impl,
+    attrs = {
+        "expected_libs": attr.string_list(),
+    },
+)
+
+def _cc_library_shared_links_whole_archive_deps_separately():
+    name = "cc_library_shared_links_whole_archive_deps_separately"
+    dep_name = name + "_dep"
+    test_name = name + "_test"
+
+    cc_library_static(
+        name = dep_name,
+        tags = ["manual"],
+    )
+
+    cc_library_shared(
+        name = name,
+        whole_archive_deps = [dep_name],
+        tags = ["manual"],
+    )
+
+    cc_library_link_as_whole_archive_test(
+        name = test_name,
+        target_under_test = name + "_unstripped",
+        expected_libs = ["libcc_library_shared_links_whole_archive_deps_separately_dep.a"],
+    )
+
+    return test_name
+
+# Test that an error is raised if a user requests a library that is not available in the toolchain.
+def _cc_library_shared_bad_linkopts_test():
+    subject_name = "cc_library_shared_bad_linkopts"
+    test_name = subject_name + "_test"
+
+    cc_library_shared(
+        name = subject_name,
+        linkopts = ["-lunknown"],
+        tags = ["manual"],
+    )
+    cc_bad_linkopts_test(
+        name = test_name,
+        target_under_test = subject_name,
+    )
+    return test_name
 
 def cc_library_shared_test_suite(name):
     native.genrule(name = "cc_library_shared_hdr", cmd = "null", outs = ["cc_shared_f.h"], tags = ["manual"])
@@ -781,5 +940,9 @@ def cc_library_shared_test_suite(name):
             _cc_library_with_fdo_profile_link_flags(),
             _cc_library_disable_fdo_optimization_if_coverage_is_enabled_test(),
             _cc_library_set_defines_for_stubs(),
+            _cc_library_minimal_runtime_linked_from_dep(),
+            _cc_library_minimal_runtime_linked(),
+            _cc_library_shared_links_whole_archive_deps_separately(),
+            _cc_library_shared_bad_linkopts_test(),
         ] + _cc_library_shared_provides_androidmk_info(),
     )

@@ -38,3 +38,12 @@ constants = struct(
     src_dot_exts = _SRC_EXTS_WITH_DOT,
     all_dot_exts = _ALL_EXTS_WITH_DOT,
 )
+
+# Constants for use in cc transitions
+_FEATURES_ATTR_KEY = "features"
+_CLI_FEATURES_KEY = "//command_line_option:features"
+
+transition_constants = struct(
+    features_attr_key = _FEATURES_ATTR_KEY,
+    cli_features_key = _CLI_FEATURES_KEY,
+)

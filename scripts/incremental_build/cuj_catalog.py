@@ -160,13 +160,15 @@ def src(p: str) -> Path:
   return util.get_top_dir().joinpath(p)
 
 
-def modify_revert(file: Path, text: str = '//BOGUS line\n') -> CujGroup:
+def modify_revert(file: Path, text: Optional[str] = None) -> CujGroup:
   """
   :param file: the file to be modified and reverted
   :param text: the text to be appended to the file to modify it
   :return: A pair of CujSteps, where the first modifies the file and the
   second reverts the modification
   """
+  if text is None:
+    text = f'//BOGUS {uuid.uuid4()}\n'
   if not file.exists():
     raise RuntimeError(f'{file} does not exist')
 
@@ -187,7 +189,7 @@ def modify_revert(file: Path, text: str = '//BOGUS line\n') -> CujGroup:
 
 
 def create_delete(file: Path, ws: InWorkspace,
-    text: str = '//Test File: safe to delete\n') -> CujGroup:
+    text: Optional[str] = None) -> CujGroup:
   """
   :param file: the file to be created and deleted
   :param ws: the expectation for the counterpart file in symlink
@@ -196,6 +198,8 @@ def create_delete(file: Path, ws: InWorkspace,
   :return: A pair of CujSteps, where the fist creates the file and the
   second deletes it
   """
+  if text is None:
+    text = f'//Test File: safe to delete {uuid.uuid4()}\n'
   missing_dirs = [f for f in file.parents if not f.exists()]
   shallowest_missing_dir = missing_dirs[-1] if len(missing_dirs) else None
 
@@ -474,7 +478,7 @@ def get_cujgroups() -> list[CujGroup]:
 
   return [
       CujGroup('', [CujStep('clean', clean)]),
-      Warmup,
+      CujGroup('', Warmup.steps),
 
       create_delete(src('bionic/libc/tzcode/globbed.c'),
                     InWorkspace.UNDER_SYMLINK),

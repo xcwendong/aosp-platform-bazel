@@ -129,8 +129,8 @@ def read_pbs(d: Path) -> dict[str, str]:
   def normalize(desc: str) -> str:
     return re.sub(r'^(?:soong_build|mixed_build)', '*', desc)
 
-  return {f'{m.name}/{normalize(m.description)}': util.hhmmss(m.real_time) for m
-          in events}
+  return {f'{m.name}/{normalize(m.description)}':
+            util.hhmmss(m.real_time, decimal_precision=True) for m in events}
 
 
 Row = dict[str, any]
@@ -227,7 +227,8 @@ def tabulate_metrics_csv(log_dir: Path):
   headers: list[str] = _get_column_headers(rows, allow_cycles=True)
 
   def row2line(r):
-    return ','.join([str(r.get(col) or '') for col in headers])
+    #if a column value is missing, use '-' as a placeholder
+    return ','.join([str(r.get(col, '-')) for col in headers])
 
   lines = [','.join(headers)]
   lines.extend(row2line(r) for r in rows)
@@ -236,8 +237,8 @@ def tabulate_metrics_csv(log_dir: Path):
     f.writelines(f'{line}\n' for line in lines)
 
 
-def display_tabulated_metrics(log_dir: Path):
-  cmd_str = util.get_cmd_to_display_tabulated_metrics(log_dir)
+def display_tabulated_metrics(log_dir: Path, ci_mode: bool):
+  cmd_str = util.get_cmd_to_display_tabulated_metrics(log_dir, ci_mode)
   output = subprocess.check_output(cmd_str, shell=True, text=True)
   logging.info(textwrap.dedent(f'''
   %s

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("//build/bazel/rules:proto_file_utils.bzl", "proto_file_utils")
-load(":rules.bzl", "java_library")
+load(":library.bzl", "java_library")
 
 def _java_proto_sources_gen_rule_impl(ctx):
     out_flags = []

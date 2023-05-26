@@ -29,6 +29,7 @@ ClangTidyInfo = provider(
     "Info provided from clang-tidy actions",
     fields = {
         "tidy_files": "Outputs from the clang-tidy tool",
+        # TODO(b/282188514) stop propagating transitive tidy files after Bazel migration
         "transitive_tidy_files": "Outputs from the clang-tidy tool for all transitive dependencies." +
                                  " Currently, these are needed so that mixed-build targets can also run clang-tidy for their dependencies.",
     },

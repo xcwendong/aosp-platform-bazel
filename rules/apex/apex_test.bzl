@@ -2682,6 +2682,92 @@ def _test_min_target_sdk_version_api_fingerprint_min_sdk_version_not_specified()
 
     return test_name
 
+def _apex_sbom_test(ctx):
+    env = analysistest.begin(ctx)
+
+    # Action GenerateSBOMMetadata
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "GenerateSBOMMetadata"]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "No GenerateSBOMMetadata action found for creating <apex>-sbom-metadata.csv file: %s" % actions,
+    )
+
+    input_files = [input.basename for input in actions[0].inputs.to_list()]
+    asserts.true(
+        env,
+        "apex_sbom_lib_cc.so" in input_files,
+        "No expected file in inputs of GenerateSBOMMetadata action",
+    )
+
+    output_files = [output.basename for output in actions[0].outputs.to_list()]
+    asserts.true(
+        env,
+        "apex_sbom.apex-sbom-metadata.csv" in output_files,
+        "No expected file in outputs of GenerateSBOMMetadata action",
+    )
+
+    # Action GenerateSBOM
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "GenerateSBOM"]
+    asserts.true(
+        env,
+        len(actions) == 1,
+        "No GenerateSBOM action found for creating sbom.spdx.json file: %s" % actions,
+    )
+    input_files = [input.short_path for input in actions[0].inputs.to_list()]
+    expected_input_files = [
+        "build/bazel/rules/apex/apex_sbom.apex",
+        "build/bazel/rules/apex/apex_sbom.apex-sbom-metadata.csv",
+        "build/make/tools/sbom/generate-sbom",
+        "build/bazel/rules/apex/apex_sbom_lib_cc.so",
+        "build/bazel/rules/apex/METADATA",
+    ]
+    asserts.true(
+        env,
+        all([f in input_files for f in expected_input_files]),
+        "Missing input files: %s" % input_files,
+    )
+
+    output_files = [output.basename for output in actions[0].outputs.to_list()]
+    expected_output_files = [
+        "apex_sbom.apex.spdx.json",
+        "apex_sbom.apex-fragment.spdx",
+    ]
+    asserts.true(
+        env,
+        all([f in output_files for f in expected_output_files]),
+        "Missing output files: %s" % input_files,
+    )
+
+    return analysistest.end(env)
+
+apex_sbom_test = analysistest.make(
+    _apex_sbom_test,
+)
+
+def _test_apex_sbom():
+    name = "apex_sbom"
+    test_name = name + "_test"
+
+    cc_library_shared(
+        name = name + "_lib_cc",
+        srcs = [name + "_lib.cc"],
+        tags = ["manual"],
+    )
+
+    test_apex(
+        name = name,
+        native_shared_libs_32 = [name + "_lib_cc"],
+        android_manifest = "AndroidManifest.xml",
+    )
+
+    apex_sbom_test(
+        name = test_name,
+        target_under_test = name,
+    )
+
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -2739,5 +2825,6 @@ def apex_test_suite(name):
             _test_apex_no_compression(),
             _test_min_target_sdk_version_api_fingerprint_min_sdk_version_specified(),
             _test_min_target_sdk_version_api_fingerprint_min_sdk_version_not_specified(),
+            _test_apex_sbom(),
         ] + _test_apex_transition(),
     )

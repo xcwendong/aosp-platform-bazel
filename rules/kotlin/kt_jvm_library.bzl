@@ -14,26 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_kotlin//kotlin:compiler_opt.bzl", "kt_compiler_opt")
 load("@rules_kotlin//kotlin:jvm_library.bzl", _kt_jvm_library = "kt_jvm_library")
-load("//build/bazel/rules/java:rules.bzl", "java_import")
-load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition", "sdk_transition_attrs")
+load("//build/bazel/rules/java:import.bzl", "java_import")
+load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition_attrs")
 
 def _kotlin_resources_impl(ctx):
-    output_file = ctx.actions.declare_file("kt_resources.jar")
+    java_runtime = ctx.attr._runtime[java_common.JavaRuntimeInfo]
 
-    args = ctx.actions.args()
-    args.add("cvf")
-    args.add(output_file.path)
-    args.add("-C")
-    args.add(ctx.attr.resource_strip_prefix)
-    args.add(".")
+    output_file = ctx.actions.declare_file(ctx.attr.name + "_kt_resources.jar")
 
-    ctx.actions.run(
+    ctx.actions.run_shell(
         outputs = [output_file],
         inputs = ctx.files.srcs,
-        executable = ctx.executable._jar,
-        arguments = [args],
+        tools = java_runtime.files,
+        command = "{} cvf {} -C {} .".format(
+            paths.join(java_runtime.java_home, "bin", "jar"),
+            output_file.path,
+            ctx.attr.resource_strip_prefix,
+        ),
     )
 
     return [DefaultInfo(files = depset([output_file]))]
@@ -55,9 +55,27 @@ kotlin_resources = rule(
                    files. For example, a source file at stuff/java/foo/bar/a.txt
                     will be located at foo/bar/a.txt.""",
         ),
-        "_jar": attr.label(default = "@bazel_tools//tools/jdk:jar", executable = True, cfg = "exec"),
+        "_runtime": attr.label(
+            default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
+            cfg = "exec",
+            providers = [java_common.JavaRuntimeInfo],
+        ),
     },
 )
+
+def make_kt_compiler_opt(
+        name,
+        kotlincflags = None):
+    custom_kotlincopts = None
+    if kotlincflags != None:
+        ktcopts_name = name + "_kotlincopts"
+        kt_compiler_opt(
+            name = ktcopts_name,
+            opts = kotlincflags,
+        )
+        custom_kotlincopts = [":" + ktcopts_name]
+
+    return custom_kotlincopts
 
 # TODO(b/277801336): document these attributes.
 def kt_jvm_library(
@@ -89,14 +107,7 @@ def kt_jvm_library(
 
         deps = deps + [":" + java_import_name]
 
-    custom_kotlincopts = None
-    if kotlincflags != None:
-        ktcopts_name = name + "_kotlincopts"
-        kt_compiler_opt(
-            name = ktcopts_name,
-            opts = kotlincflags,
-        )
-        custom_kotlincopts = [":" + ktcopts_name]
+    custom_kotlincopts = make_kt_compiler_opt(name, kotlincflags)
 
     lib_name = name + "_private"
     _kt_jvm_library(

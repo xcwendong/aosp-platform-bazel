@@ -142,8 +142,6 @@ def aidl_interface(
         fail("cannot have versions for unstable interface")
 
     aidl_flags = ["--structured"]
-    if flags != None:
-        aidl_flags.extend(flags)
 
     enabled_backend_configs = {}
     if _is_config_enabled(java_config):
@@ -177,12 +175,17 @@ def aidl_interface(
 
         for version_with_info in versions_with_info:
             deps_for_version = version_with_info.get("deps", [])
+            version = version_with_info.get("version")
+            flags_for_version = aidl_flags
+
+            if version == next_version and frozen == False and flags != None:
+                flags_for_version.extend(flags)
 
             create_aidl_binding_for_backends(
                 name = name,
                 version = version_with_info["version"],
                 deps = deps_for_version,
-                aidl_flags = aidl_flags,
+                aidl_flags = flags_for_version,
                 backend_configs = enabled_backend_configs,
                 tags = tags,
                 **kwargs

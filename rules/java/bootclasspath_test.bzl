@@ -13,7 +13,7 @@
 # limitations under the License.
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":bootclasspath.bzl", "bootclasspath")
-load(":rules.bzl", "java_import")
+load(":import.bzl", "java_import")
 load(":java_system_modules.bzl", "java_system_modules")
 
 def _bootclasspath_test_impl(ctx):

@@ -18,9 +18,9 @@ load(
     "//build/bazel/rules/android/android_binary_aosp_internal:rule.bzl",
     "android_binary_aosp_internal_macro",
 )
+load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition_attrs")
 load("android_app_certificate.bzl", "android_app_certificate_with_default_cert")
 load("android_app_keystore.bzl", "android_app_keystore")
-load("//build/bazel/rules/java:sdk_transition.bzl", "sdk_transition", "sdk_transition_attrs")
 
 # TODO(b/277801336): document these attributes.
 def _android_binary_helper(**attrs):

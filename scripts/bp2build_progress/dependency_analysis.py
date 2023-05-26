@@ -45,6 +45,7 @@ class _ModuleKey:
 # to be recorded in the graph or report currently.
 IGNORED_KINDS = set([
     "cc_defaults",
+    "cpython3_python_stdlib",
     "hidl_package_root",  # not being converted, contents converted as part of hidl_interface
     "java_defaults",
     "license",
@@ -65,6 +66,19 @@ _QUERYVIEW_IGNORE_KINDS = set([
     "java_import",
     "java_import_host",
     "java_sdk_library_import",
+    "cpython3_python_stdlib",
+    "cpython2_python_stdlib",
+])
+
+
+# Soong adds some dependencies that are handled by Bazel as part of the
+# toolchain
+_TOOLCHAIN_DEP_TYPES = frozenset([
+    "python.dependencyTag {BaseDependencyTag:{} name:hostLauncher}",
+    "python.dependencyTag {BaseDependencyTag:{} name:hostLauncherSharedLib}",
+    "python.dependencyTag {BaseDependencyTag:{} name:hostStdLib}",
+    "python.dependencyTag {BaseDependencyTag:{} name:launcher}",
+    "python.installDependencyTag {BaseDependencyTag:{} InstallAlwaysNeededDependencyTag:{} name:launcherSharedLib}",
 ])
 
 SRC_ROOT_DIR = os.path.abspath(__file__ + "/../../../../..")
@@ -118,6 +132,31 @@ def get_properties(json_module):
 
 def get_property_names(json_module):
   return get_properties(json_module).keys()
+
+
+def get_queryview_module_info_by_type(types, banchan_mode):
+  """Returns the list of transitive dependencies of input module as built by queryview."""
+  _build_with_soong("queryview", banchan_mode)
+
+  queryview_xml = subprocess.check_output(
+      [
+          "build/bazel/bin/bazel",
+          "query",
+          "--config=ci",
+          "--config=queryview",
+          "--output=xml",
+          # union of queries to get the deps of all Soong modules with the give names
+          " + ".join(f'deps(attr("soong_module_type", "^{t}$", //...))'
+                     for t in types)
+      ],
+      cwd=SRC_ROOT_DIR,
+  )
+  try:
+    return xml.etree.ElementTree.fromstring(queryview_xml)
+  except xml.etree.ElementTree.ParseError as err:
+    sys.exit(f"""Could not parse XML:
+{queryview_xml}
+ParseError: {err}""")
 
 
 def get_queryview_module_info(modules, banchan_mode):
@@ -417,6 +456,9 @@ def is_prebuilt_to_source_dep(dep):
   return dep["Tag"] == "android.prebuiltDependencyTag {BaseDependencyTag:{}}"
 
 
+def _is_toolchain_dep(dep):
+  return dep["Tag"] in _TOOLCHAIN_DEP_TYPES
+
 def _is_java_auto_dep(dep):
   # Soong adds a number of dependencies automatically for Java deps, making it
   # difficult to understand the actual dependencies, remove the
@@ -457,6 +499,10 @@ def ignore_json_dep(dep, module_name, ignored_keys, ignore_java_auto_deps):
     ignored_names: a set of _ModuleKey to ignore
   """
   if is_prebuilt_to_source_dep(dep):
+    return True
+  if _is_toolchain_dep(dep):
+    return True
+  elif dep["Name"] == 'py3-stdlib':
     return True
   if ignore_java_auto_deps and _is_java_auto_dep(dep):
     return True

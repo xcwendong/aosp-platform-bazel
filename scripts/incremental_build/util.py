@@ -38,8 +38,8 @@ def _is_important(column) -> bool:
       'description', 'build_type', r'build\.ninja(\.size)?', 'targets',
       'log', 'actions', 'time',
       'soong/soong', 'bp2build/', 'symlink_forest/', r'soong_build/\*',
-      r'soong_build/\*\.bazel', 'bp2build/', 'kati/kati build', 'ninja/ninja'
-      }
+      r'soong_build/\*\.bazel', 'kati/kati build', 'ninja/ninja'
+  }
   for pattern in patterns:
     if re.fullmatch(pattern, column):
       return True
@@ -55,9 +55,10 @@ def get_csv_columns_cmd(d: Path) -> str:
   return f'head -n 1 "{csv_file.absolute()}" | sed "s/,/\\n/g" | nl'
 
 
-def get_cmd_to_display_tabulated_metrics(d: Path) -> str:
+def get_cmd_to_display_tabulated_metrics(d: Path, ci_mode: bool) -> str:
   """
   :param d: the log directory
+  :param ci_mode: if true all top-level events are displayed
   :return: a quick shell command to view some collected metrics
   """
   csv_file = d.joinpath(METRICS_TABLE)
@@ -68,8 +69,19 @@ def get_cmd_to_display_tabulated_metrics(d: Path) -> str:
       headers = reader.fieldnames or []
 
   columns: list[int] = [i for i, h in enumerate(headers) if _is_important(h)]
+  if ci_mode:
+    # ci mode contains all information about the top level events
+    for i, h in enumerate(headers):
+      if re.match(r'^\w+/[^.]+$', h) and i not in columns:
+        columns.append(i)
+
+  if len(columns):
+    # just so that the command is "correct" even if the file doesn't exist
+    # or is empty
+    columns.append(1)
+
   f = ','.join(str(i + 1) for i in columns)
-  return f'grep -v rebuild- "{csv_file}" | grep -v FAILED | ' \
+  return f'grep -v rebuild- "{csv_file}" | grep -v WARMUP | grep -v FAILED | ' \
          f'cut -d, -f{f} | column -t -s,'
 
 
@@ -105,7 +117,7 @@ def get_default_log_dir() -> Path:
 
 def is_interactive_shell() -> bool:
   return sys.__stdin__.isatty() and sys.__stdout__.isatty() \
-         and sys.__stderr__.isatty()
+    and sys.__stderr__.isatty()
 
 
 # see test_next_path_helper() for examples
@@ -124,7 +136,6 @@ def next_path(path: Path) -> Generator[Path, None, None]:
   :returns a new Path with an increasing number suffix to the name
   e.g. _to_file('a.txt') = a-5.txt (if a-4.txt already exists)
   """
-  path.parent.mkdir(parents=True, exist_ok=True)
   while True:
     name = _next_path_helper(path.name)
     path = path.parent.joinpath(name)
@@ -154,24 +165,6 @@ def is_ninja_dry_run(ninja_args: str = None) -> bool:
     ninja_args = os.environ.get('NINJA_ARGS') or ''
   ninja_dry_run = re.compile(r'(?:^|\s)-n\b')
   return ninja_dry_run.search(ninja_args) is not None
-
-
-def count_explanations(process_log_file: Path) -> int:
-  """
-  Builds are run with '-d explain' flag and ninja's explanations for running
-  build statements (except for phony outputs) are counted. The explanations
-  help debugging. The count is an over-approximation of actions run, but it
-  will be ZERO for a no-op build.
-  """
-  explanations = 0
-  pattern = re.compile(
-      r'^ninja explain:(?! edge with output .* is a phony output,'
-      r' so is always dirty$)')
-  with open(process_log_file) as f:
-    for line in f:
-      if pattern.match(line):
-        explanations += 1
-  return explanations
 
 
 def is_git_repo(p: Path) -> bool:
@@ -250,21 +243,25 @@ def any_match_under(root: Path, *patterns: str) -> (Path, list[str]):
   raise RuntimeError(f'No suitable directory for {patterns}')
 
 
-def hhmmss(t: datetime.timedelta) -> str:
+def hhmmss(t: datetime.timedelta, decimal_precision: bool) -> str:
   """pretty prints time periods, prefers mm:ss.sss and resorts to hh:mm:ss.sss
   only if t >= 1 hour.
-  Examples: 02:12.231, 00:00.512, 00:01:11.321, 1:12:13.121
+  Examples(non_decimal_precision): 02:12, 1:12:13
+  Examples(decimal_precision): 02:12.231, 00:00.512, 00:01:11.321, 1:12:13.121
   See unit test for more examples."""
   h, f = divmod(t.seconds, 60 * 60)
   m, f = divmod(f, 60)
   s = f + t.microseconds / 1000_000
-  return f'{h}:{m:02d}:{s:06.3f}' if h else f'{m:02d}:{s:06.3f}'
+  if decimal_precision:
+    return f'{h}:{m:02d}:{s:06.3f}' if h else f'{m:02d}:{s:06.3f}'
+  else:
+    return f'{h}:{m:02}:{s:02.0f}' if h else f'{m:02}:{s:02.0f}'
 
 
 def period_to_seconds(s: str) -> float:
   """converts a time period into seconds. The input is expected to be in the
   format used by hhmmss().
-  Example: 02:04.000 -> 125.0
+  Example: 02:04 -> 125
   See unit test for more examples."""
   if s == '':
     return 0.0

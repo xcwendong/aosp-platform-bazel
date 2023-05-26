@@ -271,7 +271,7 @@ def _apex_aab_impl(ctx):
             apex_info.signed_output: arch_subdir,
             apex_info.symbols_used_by_apex: arch_subdir + "/ndk_apis_usedby_apex",
             apex_info.backing_libs: arch_subdir + "/ndk_apis_backedby_apex",
-            apex_info.java_symbols_used_by_apex: arch_subdir + "/java_apis_usedby_apex",
+            apex_info.java_symbols_used_by_apex: arch_subdir + "/java_apis_used_by_apex",
             # TODO(b/262267680): create licensetexts
             # TODO(b/262267551): create shareprojects
         }

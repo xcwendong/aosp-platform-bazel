@@ -25,46 +25,22 @@ import os
 import subprocess
 import sys
 
+from google.protobuf import json_format
+from metrics_proto.metrics_pb2 import SoongBuildMetrics
 
 class Event(object):
   """Contains nested event data.
 
   Fields:
     name: The short name of this event e.g. the 'b' in an event called a.b.
-    children: Nested events
     start_time_relative_ns: Time since the epoch that the event started
     duration_ns: Duration of this event, including time spent in children.
   """
 
-  def __init__(self, name):
+  def __init__(self, name, start_time_relative_ns, duration_ns):
     self.name = name
-    self.children = list()
-    self.start_time_relative_ns = 0
-    self.duration_ns = 0
-
-  def get_child(self, name):
-    "Get a child called 'name' or return None"
-    for child in self.children:
-      if child.name == name:
-        return child
-    return None
-
-  def get_or_add_child(self, name):
-    "Get a child called 'name', or if it isn't there, add it and return it."
-    child = self.get_child(name)
-    if not child:
-      child = Event(name)
-      self.children.append(child)
-    return child
-
-
-def _get_proto_output_file():
-  """Returns the location of the proto file used for analyzing out/soong_build_metrics.pb.
-
-  This corresponds to soong/ui/metrics/metrics_proto/metrics.proto.
-  """
-  return os.getenv("ANDROID_BUILD_TOP"
-                  ) + "/build/soong/ui/metrics/metrics_proto/metrics.proto"
+    self.start_time_relative_ns = start_time_relative_ns
+    self.duration_ns = duration_ns
 
 
 def _get_default_output_file():
@@ -79,40 +55,14 @@ def _get_default_output_file():
   return os.path.join(build_top, out_dir, "soong_build_metrics.pb")
 
 
-def _make_nested_events(root_event, event):
-  """Splits the event into its '.' separated name parts, and adds Event objects for it to the
-
-  synthetic root_event event.
-  """
-  node = root_event
-  for sub_event in event["description"].split("."):
-    node = node.get_or_add_child(sub_event)
-  node.start_time_relative_ns = event["start_time_relative_ns"]
-  node.duration_ns = event["real_time"]
-
-
-def _write_events(out, events, parent=None):
-  """Writes the list of events.
-
-  Args:
-    out: The stream to write to
-    events: The list of events to write
-    parent: Prefix parent's name
-  """
-  for event in events:
-    _write_event(out, event, parent)
-
-
-def _write_event(out, event, parent=None):
+def _write_event(out, event):
   "Writes an event. See _write_events for args."
-  full_event_name = parent + "." + event.name if parent else event.name
   out.write(
       "%(start)9s  %(duration)9s  %(name)s\n" % {
           "start": _format_ns(event.start_time_relative_ns),
           "duration": _format_ns(event.duration_ns),
-          "name": full_event_name,
+          "name": event.name,
       })
-  _write_events(out, event.children, full_event_name)
 
 
 def _format_ns(duration_ns):
@@ -121,14 +71,14 @@ def _format_ns(duration_ns):
 
 
 def _save_file(data, file):
-  f = open(file, "wb")
+  f = open(file, "w")
   f.write(data)
   f.close()
 
 
 def main():
   # Parse args
-  parser = argparse.ArgumentParser(description="")
+  parser = argparse.ArgumentParser(description="", prog='analyze_build')
   parser.add_argument(
       "metrics_file",
       nargs="?",
@@ -148,49 +98,37 @@ def main():
   if not os.path.exists(metrics_file):
     raise Exception("File " + metrics_file + " not found. Did you run a build?")
 
-  # Check the proto definition file
-  proto_file = _get_proto_output_file()
-  if not os.path.exists(proto_file):
-    raise Exception(
-        "$ANDROID_BUILD_TOP not found in environment. Have you run lunch?")
-
-  # Load the metrics file from the out dir
-  cmd = r"""printproto --proto2 --raw_protocol_buffer --json \
-              --json_accuracy_loss_reaction=ignore \
-              --message=soong_build_metrics.SoongBuildMetrics --multiline \
-              --proto=""" + proto_file + " " + metrics_file
-  json_out = subprocess.check_output(cmd, shell=True)
+  soong_build_metrics = SoongBuildMetrics()
+  with open(metrics_file, "rb") as f:
+    soong_build_metrics.ParseFromString(f.read())
 
   if args.save_proto_output_file != "":
+    json_out = json_format.MessageToJson(soong_build_metrics)
     _save_file(json_out, args.save_proto_output_file)
 
-  build_output = json.loads(json_out)
-
   # Bail if there are no events
-  raw_events = build_output.get("events")
+  raw_events = soong_build_metrics.events
   if not raw_events:
     print("No events to display")
     return
 
   # Update the start times to be based on the first event
-  first_time_ns = min([event["start_time"] for event in raw_events])
-  for event in raw_events:
-    event["start_time_relative_ns"] = event["start_time"] - first_time_ns
+  first_time_ns = min([event.start_time for event in raw_events])
+  events = []
+  for raw_event in raw_events:
+    event = Event(raw_event.description,
+                  raw_event.start_time - first_time_ns,
+                  raw_event.real_time)
+    events += [event]
 
   # Sort by start time so the nesting also is sorted by time
-  raw_events.sort(key=lambda x: x["start_time_relative_ns"])
-
-  # We don't show this event, so that there doesn't have to be a single top level event
-  fake_root_event = Event("<root>")
-
-  # Convert the flat event list into the tree
-  for event in raw_events:
-    _make_nested_events(fake_root_event, event)
+  events.sort(key=lambda x: x.start_time_relative_ns)
 
   # Output the results
   print("    start   duration")
 
-  _write_events(sys.stdout, fake_root_event.children)
+  for event in events:
+    _write_event(sys.stdout, event)
 
 
 if __name__ == "__main__":

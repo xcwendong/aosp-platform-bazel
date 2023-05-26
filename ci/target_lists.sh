@@ -65,12 +65,9 @@ HOST_ONLY_TEST_TARGETS=(
   -//packages/modules/adb:adb_test
   # TODO(b/268185249): libbase_test asserts on the Soong basename of the test
   -//system/libbase:libbase_test
-)
-
-HOST_INCOMPATIBLE_TARGETS=(
-  # TODO(b/216626461): add support for host_ldlibs
-  -//packages/modules/adb:all
-  -//packages/modules/adb/pairing_connection:all
+  # TODO (b/282953338): these tests depend on adb which is unconverted
+  -//packages/modules/adb:adb_integration_test_adb
+  -//packages/modules/adb:adb_integration_test_device
 )
 
 # These targets are used to ensure that the aosp-specific rule wrappers forward

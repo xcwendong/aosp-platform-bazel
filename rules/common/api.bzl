@@ -17,8 +17,8 @@
 # parse_api_level_with_version.
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("@soong_injection//api_levels:api_levels.bzl", "api_levels_released_versions")
 load("@soong_injection//api_levels:platform_versions.bzl", "platform_versions")
+load(":api_constants.bzl", "api_levels_released_versions")
 
 _NONE_API_LEVEL_INT = -1
 _PREVIEW_API_LEVEL_BASE = 9000  # Base constant for preview API levels.

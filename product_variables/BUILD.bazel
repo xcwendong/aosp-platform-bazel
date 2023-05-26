@@ -68,11 +68,11 @@ soong_config_variables(
 # }),
 [
     [config_setting(
-        name = product_variable + "-" + variant,
+        name = product_variable + "-" + arch,
         constraint_values = [
             ":" + product_variable,
-            variantConstraint,
+            archConstraint,
         ],
-    ) for variant, variantConstraint in constants.ArchVariantToConstraints.items()]
+    ) for arch, archConstraint in constants.ArchVariantToConstraints.items()]
     for product_variable in constants.ArchVariantProductVariables
 ]

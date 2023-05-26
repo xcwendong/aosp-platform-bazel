@@ -439,6 +439,35 @@ def _cc_library_static_whole_archive_deps_objects_precede_target_objects():
 
     return test_name
 
+def _cc_library_static_whole_archive_deps_objects_excluded_when_shared_linking():
+    name = "cc_library_static_whole_archive_deps_objects_excluded_when_shared_linking"
+    dep_name = name + "_dep"
+    test_name = name + "_test"
+
+    cc_library_static(
+        name = dep_name,
+        srcs = ["first.c"],
+        tags = ["manual"],
+    )
+
+    cc_library_static(
+        name = name,
+        shared_linking = True,
+        srcs = ["second.c"],
+        whole_archive_deps = [dep_name],
+        tags = ["manual"],
+    )
+
+    _cc_library_static_linking_object_ordering_test(
+        name = test_name,
+        target_under_test = name,
+        expected_objects_in_order = [
+            "second.o",
+        ],
+    )
+
+    return test_name
+
 def _cc_library_static_provides_androidmk_info():
     name = "cc_library_static_provides_androidmk_info"
     dep_name = name + "_static_dep"
@@ -476,7 +505,7 @@ def _cc_library_static_provides_androidmk_info():
         target_under_test = name,
         expected_static_libs = [dep_name, "libc++_static", "libc++demangle"],
         expected_whole_static_libs = [whole_archive_dep_name],
-        expected_shared_libs = [dynamic_dep_name, "libc", "libdl", "libm"],
+        expected_shared_libs = [dynamic_dep_name, "libc_stub_libs-current", "libdl_stub_libs-current", "libm_stub_libs-current"],
         target_compatible_with = ["//build/bazel/platforms/os:android"],
     )
     target_provides_androidmk_info_test(
@@ -593,6 +622,7 @@ def cc_library_static_test_suite(name):
             _cc_library_static_does_not_propagate_implementation_dynamic_deps(),
             _cc_library_static_links_against_prebuilt_library(),
             _cc_library_static_whole_archive_deps_objects_precede_target_objects(),
+            _cc_library_static_whole_archive_deps_objects_excluded_when_shared_linking(),
         ] + (
             _cc_rules_do_not_allow_absolute_includes() +
             _cc_library_static_provides_androidmk_info() +

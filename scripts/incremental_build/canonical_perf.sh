@@ -40,11 +40,14 @@ done
 shift $((OPTIND - 1))
 readonly -a build_types=("$@")
 
+log_dir=${log_dir:-"$TOP/../timing-$(date +%b%d-%H%M)"}
+log_dir=$(realpath "$log_dir")
+
 function build() {
   date
   set -x
   if ! "$TOP/build/bazel/scripts/incremental_build/incremental_build.sh" \
-    --ignore-repo-diff ${log_dir:+--log-dir "$log_dir"} \
+    --ignore-repo-diff --log-dir "$log_dir" \
     ${build_types:+--build-types "${build_types[@]}"} \
     "$@"; then
     echo "See logs for errors"
@@ -52,7 +55,7 @@ function build() {
   fi
   set +x
 }
-build --cujs clean 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
+build --cujs clean 'no change' 'create bionic/unreferenced.txt' 'modify Android.bp' -- droid
 build --cujs 'modify bionic/.*/stdio.cpp' --append-csv libc
 build --cujs 'modify .*/adb/daemon/main.cpp' --append-csv adbd
 build --cujs 'modify frameworks/.*/View.java' --append-csv framework

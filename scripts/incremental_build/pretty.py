@@ -90,7 +90,8 @@ def summarize_metrics(log_dir: Path):
         else:
           times = [util.period_to_seconds(sl['time']) for sl in selected_lines]
           cell = util.hhmmss(
-              datetime.timedelta(seconds=statistics.median(times)))
+              datetime.timedelta(seconds=statistics.median(times)),
+              decimal_precision=False)
           if len(selected_lines) > 1:
             cell = f'{cell}[N={len(selected_lines)}]'
           row.append(cell)
@@ -102,7 +103,8 @@ def summarize_metrics(log_dir: Path):
 
 def display_summarized_metrics(log_dir: Path):
   f = log_dir.joinpath(util.SUMMARY_TABLE)
-  cmd = f'grep -v rebuild {f} | grep -v WARMUP | column -t -s,'
+  cmd = f'grep -v rebuild {f} | grep -v WARMUP | grep -v revert ' \
+        f'| grep -v delete | column -t -s,'
   output = subprocess.check_output(cmd, shell=True, text=True)
   logging.info(textwrap.dedent(f'''
   %s

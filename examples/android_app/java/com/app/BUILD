@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/bazel/rules/android:rules.bzl", "aar_import", "android_binary", "android_library")
+load("//build/bazel/rules/android:aar_import.bzl", "aar_import")
+load("//build/bazel/rules/android:android_binary.bzl", "android_binary")
+load("//build/bazel/rules/android:android_library.bzl", "android_library")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 
@@ -25,6 +27,8 @@ android_binary(
     target_compatible_with = ["//build/bazel/platforms/os:android"],
     deps = [
         ":applib",
+        # TODO(b/240555494): re-enable JNI when it is supported
+        # ":jni",
     ],
 )
 
@@ -62,8 +66,6 @@ android_library(
     sdk_version = "current",
     target_compatible_with = ["//build/bazel/platforms/os:android"],
     deps = [
-        # TODO(b/240555494): re-enable JNI when it is supported
-        # ":jni",
         ":lib",
     ],
 )
