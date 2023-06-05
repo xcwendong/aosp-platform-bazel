@@ -26,6 +26,14 @@ ProductVariablesInfo = provider(
         "ManifestPackageNameOverrides": "A list of string:string mapping from APEX/APK name to package name to override the AndroidManifest.xml package of the module.",
         "CertificateOverrides": "A list of string:string mapping from APEX/APK name to the certificate name to override the certificate used to sign the APEX/APK container.",
         "DeviceMaxPageSizeSupported": "String indicating the max-page-size supported by the device.",
+        "DeviceProduct": "Device product",
+        "DeviceName": "Device name",
+        "Platform_version_name": "Platform version name",
+        "BuildId": "Build ID",
+        "ProductManufacturer": "Product manufacturer",
+        "ProductBrand": "Product brand",
+        "TargetBuildVariant": "Target build variant",
+        "BuildVersionTags": "Build version tags",
     },
 )
 
@@ -42,6 +50,11 @@ def _product_variables_providing_rule_impl(ctx):
 
     tidy_checks = vars.get("TidyChecks", "")
     tidy_checks = tidy_checks.split(",") if tidy_checks else []
+    target_build_variant = "user"
+    if vars.get("Eng"):
+        target_build_variant = "eng"
+    elif vars.get("Debuggable"):
+        target_build_variant = "userdebug"
 
     return [
         platform_common.TemplateVariableInfo(ctx.attr.attribute_vars),
@@ -55,6 +68,14 @@ def _product_variables_providing_rule_impl(ctx):
             ManifestPackageNameOverrides = vars.get("ManifestPackageNameOverrides", []),
             CertificateOverrides = vars.get("CertificateOverrides", []),
             DeviceMaxPageSizeSupported = vars.get("DeviceMaxPageSizeSupported", ""),
+            DeviceProduct = vars.get("DeviceProduct", ""),
+            DeviceName = vars.get("DeviceName", ""),
+            Platform_version_name = vars.get("Platform_version_name", ""),
+            BuildId = vars.get("BuildId", ""),
+            ProductManufacturer = vars.get("ProductManufacturer", ""),
+            ProductBrand = vars.get("ProductBrand", ""),
+            TargetBuildVariant = target_build_variant,
+            BuildVersionTags = vars.get("BuildVersionTags", []),
         ),
         ProductVariablesDepsInfo(
             DefaultAppCertificateFiles = ctx.files.default_app_certificate_filegroup,

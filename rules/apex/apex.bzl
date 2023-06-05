@@ -18,6 +18,7 @@ load("@soong_injection//apex_toolchain:constants.bzl", "default_manifest_version
 load("//build/bazel/platforms:platform_utils.bzl", "platforms")
 load("//build/bazel/product_config:product_variables_providing_rule.bzl", "ProductVariablesInfo")
 load("//build/bazel/rules:common.bzl", "get_dep_targets")
+load("//build/bazel/rules:metadata.bzl", "MetadataFileInfo")
 load("//build/bazel/rules:prebuilt_file.bzl", "PrebuiltFileInfo")
 load("//build/bazel/rules:sh_binary.bzl", "ShBinaryInfo")
 load("//build/bazel/rules:toolchain_utils.bzl", "verify_toolchain_exists")
@@ -61,6 +62,7 @@ def _create_file_mapping(ctx):
     requires = {}
     provides = {}
     make_modules_to_install = {}
+    metadata_file_mapping = {}
 
     # Generate a str -> str dictionary to define Make modules and variables for the
     # packaging step in a mixed build. This is necessary as long as there are
@@ -71,13 +73,14 @@ def _create_file_mapping(ctx):
     arch = platforms.get_target_arch(ctx.attr._platform_utils)
     is_target_64_bit = platforms.get_target_bitness(ctx.attr._platform_utils) == 64
 
-    def add_file_mapping(install_dir, basename, bazel_file, klass, owner, arch = None, unstripped = None):
+    def add_file_mapping(install_dir, basename, bazel_file, klass, owner, arch = None, unstripped = None, metadata_file = None):
         installed_path = paths.join(install_dir, basename)
         if installed_path in file_mapping and file_mapping[installed_path] != bazel_file:
             # TODO: we should figure this out and make it a failure
             print("Warning: %s in this apex is already installed to %s, overwriting it with %s" %
                   (file_mapping[installed_path].path, installed_path, bazel_file.path))
         file_mapping[installed_path] = bazel_file
+        metadata_file_mapping[installed_path] = metadata_file
 
         files_info = {
             "built_file": bazel_file.path,
@@ -110,6 +113,7 @@ def _create_file_mapping(ctx):
                     stripped.owner,
                     arch = arch,
                     unstripped = unstripped,
+                    metadata_file = lib_file.metadata_file,
                 )
 
             # For bundled builds.
@@ -139,7 +143,15 @@ def _create_file_mapping(ctx):
             filename = prebuilt_file_info.filename
         else:
             filename = dep.label.name
-        add_file_mapping(prebuilt_file_info.dir, filename, prebuilt_file_info.src, "etc", dep.label, arch = arch)
+        add_file_mapping(
+            prebuilt_file_info.dir,
+            filename,
+            prebuilt_file_info.src,
+            "etc",
+            dep.label,
+            arch = arch,
+            metadata_file = dep[MetadataFileInfo].metadata_file,
+        )
 
     # Handle binaries
     for dep in ctx.attr.binaries:
@@ -155,7 +167,15 @@ def _create_file_mapping(ctx):
                 if sh_binary_info.filename:
                     filename = sh_binary_info.filename
 
-                add_file_mapping(directory, filename, dep[DefaultInfo].files_to_run.executable, "shBinary", dep.label, arch = arch)
+                add_file_mapping(
+                    directory,
+                    filename,
+                    dep[DefaultInfo].files_to_run.executable,
+                    "shBinary",
+                    dep.label,
+                    arch = arch,
+                    metadata_file = dep[MetadataFileInfo].metadata_file,
+                )
         elif ApexCcInfo in dep:
             # cc_binary just takes the final executable from the runfiles.
             add_file_mapping(
@@ -166,6 +186,7 @@ def _create_file_mapping(ctx):
                 dep.label,
                 arch,
                 unstripped = dep[CcUnstrippedInfo].unstripped[0].files.to_list()[0],
+                metadata_file = dep[MetadataFileInfo].metadata_file,
             )
 
             # Add transitive shared lib deps of apex binaries to the apex.
@@ -181,6 +202,7 @@ def _create_file_mapping(ctx):
         backing_libs,
         sorted(make_modules_to_install),
         sorted(make_files_info.values(), key = lambda x: ":".join([x["package"], x["make_module_name"], x["arch"]])),
+        metadata_file_mapping,
     )
 
 def _add_so(label):
@@ -406,7 +428,7 @@ def _run_apexer(ctx, apex_toolchain):
     pubkey = apex_key_info.public_key
     android_jar = apex_toolchain.android_jar
 
-    file_mapping, requires_native_libs, provides_native_libs, backing_libs, make_modules_to_install, make_files_info = _create_file_mapping(ctx)
+    file_mapping, requires_native_libs, provides_native_libs, backing_libs, make_modules_to_install, make_files_info, metadata_file_mapping = _create_file_mapping(ctx)
     canned_fs_config = _generate_canned_fs_config(ctx, file_mapping.keys())
     file_contexts = _generate_file_contexts(ctx)
     full_apex_manifest_json = _add_apex_manifest_information(ctx, apex_toolchain, requires_native_libs, provides_native_libs)
@@ -567,6 +589,8 @@ def _run_apexer(ctx, apex_toolchain):
         installed_files = _generate_installed_files_list(ctx, file_mapping),
         make_modules_to_install = make_modules_to_install,
         make_files_info = make_files_info,
+        file_mapping = file_mapping,
+        metadata_file_mapping = metadata_file_mapping,
     )
 
 def _run_signapk(ctx, unsigned_file, signed_file, private_key, public_key, mnemonic):
@@ -757,6 +781,65 @@ def _verify_updatability(ctx):
     if not ctx.attr.min_sdk_version:
         fail("updatable APEXes must set min_sdk_version.")
 
+def _generate_sbom(ctx, file_mapping, metadata_file_mapping, apex_file):
+    apex_filename = paths.basename(apex_file.path)
+    sbom_metadata_csv = ctx.actions.declare_file(apex_filename + "-sbom-metadata.csv")
+    command = []
+    metadata_files = []
+    command.append("echo installed_file,module_path,soong_module_type,is_prebuilt_make_module,product_copy_files,kernel_module_copy_files,is_platform_generated,build_output_path")
+    command.append("echo %s,%s,,,,,,%s" % (apex_filename, ctx.label.package, apex_file.path))
+    for installed_file, bazel_output_file in file_mapping.items():
+        if metadata_file_mapping[installed_file]:
+            metadata_files.append(metadata_file_mapping[installed_file])
+        command.append("echo %s,%s,,,,,,%s" % (installed_file, paths.dirname(bazel_output_file.short_path), bazel_output_file.path))
+    ctx.actions.run_shell(
+        inputs = file_mapping.values(),
+        outputs = [sbom_metadata_csv],
+        mnemonic = "GenerateSBOMMetadata",
+        command = "(" + "; ".join(command) + ") > " + sbom_metadata_csv.path,
+    )
+
+    sbom_file = ctx.actions.declare_file(apex_filename + ".spdx.json")
+    sbom_fragment_file = ctx.actions.declare_file(apex_filename + "-fragment.spdx")
+    inputs = [
+        apex_file,
+        sbom_metadata_csv,
+        ctx.executable._generate_sbom,
+    ]
+    inputs += file_mapping.values()
+    inputs += metadata_files
+
+    product_vars = ctx.attr._product_variables[ProductVariablesInfo]
+    build_fingerprint = "%s/%s/%s:%s/%s/%s:%s/%s" % (
+        product_vars.ProductBrand,
+        product_vars.DeviceProduct,
+        product_vars.DeviceName,
+        product_vars.Platform_version_name,
+        product_vars.BuildId,
+        "",
+        product_vars.TargetBuildVariant,
+        "_".join(product_vars.BuildVersionTags),
+    )
+    ctx.actions.run(
+        inputs = inputs,
+        outputs = [sbom_file, sbom_fragment_file],
+        arguments = [
+            "--output_file",
+            sbom_file.path,
+            "--metadata",
+            sbom_metadata_csv.path,
+            "--build_version",
+            build_fingerprint,
+            "--product_mfr",
+            product_vars.ProductManufacturer,
+            "--json",
+            "--unbundled_apex",
+        ],
+        mnemonic = "GenerateSBOM",
+        executable = ctx.executable._generate_sbom,
+    )
+    return [sbom_file, sbom_fragment_file]
+
 # See the APEX section in the README on how to use this rule.
 def _apex_rule_impl(ctx):
     verify_toolchain_exists(ctx, "//build/bazel/rules/apex:apex_toolchain_type")
@@ -829,6 +912,8 @@ def _apex_rule_impl(ctx):
             backing_libs = depset([apexer_outputs.backing_libs]),
             installed_files = depset([apexer_outputs.installed_files]),
             transitive_unvalidated_targets = depset([transitive_unvalidated_targets_output_file]),
+            apex_sbom = depset(_generate_sbom(ctx, apexer_outputs.file_mapping, apexer_outputs.metadata_file_mapping, signed_apex)),
+            capex_sbom = depset(_generate_sbom(ctx, apexer_outputs.file_mapping, apexer_outputs.metadata_file_mapping, signed_capex) if signed_capex else []),
             _validation = apex_deps_validation_files,
             **optional_output_groups
         ),
@@ -895,13 +980,13 @@ APEX is truly updatable. To be updatable, min_sdk_version should be set as well.
         # Attributes that contribute to the payload.
         "native_shared_libs_32": attr.label_list(
             providers = [ApexCcInfo, ApexCcMkInfo, RuleLicensedDependenciesInfo],
-            aspects = [apex_cc_aspect] + STANDARD_PAYLOAD_ASPECTS,
+            aspects = STANDARD_PAYLOAD_ASPECTS + [apex_cc_aspect],
             cfg = shared_lib_transition_32,
             doc = "The libs compiled for 32-bit",
         ),
         "native_shared_libs_64": attr.label_list(
             providers = [ApexCcInfo, ApexCcMkInfo, RuleLicensedDependenciesInfo],
-            aspects = [apex_cc_aspect] + STANDARD_PAYLOAD_ASPECTS,
+            aspects = STANDARD_PAYLOAD_ASPECTS + [apex_cc_aspect],
             cfg = shared_lib_transition_64,
             doc = "The libs compiled for 64-bit",
         ),
@@ -912,7 +997,7 @@ APEX is truly updatable. To be updatable, min_sdk_version should be set as well.
                 [StrippedCcBinaryInfo, CcInfo, ApexCcInfo, ApexCcMkInfo, RuleLicensedDependenciesInfo],  # cc_binary (stripped)
             ],
             cfg = apex_transition,
-            aspects = [apex_cc_aspect] + STANDARD_PAYLOAD_ASPECTS,
+            aspects = STANDARD_PAYLOAD_ASPECTS + [apex_cc_aspect],
         ),
         "prebuilts": attr.label_list(
             providers = [PrebuiltFileInfo, RuleLicensedDependenciesInfo],
@@ -952,6 +1037,12 @@ APEX is truly updatable. To be updatable, min_sdk_version should be set as well.
         ),
         "_platform_utils": attr.label(
             default = Label("//build/bazel/platforms:platform_utils"),
+        ),
+        "_generate_sbom": attr.label(
+            cfg = "exec",
+            doc = "SBOM generation tool",
+            executable = True,
+            default = "//build/make/tools/sbom:generate-sbom",
         ),
 
         # allowed deps check
