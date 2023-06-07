@@ -174,7 +174,6 @@ variables = json.decode('''{
     "ProductPublicSepolicyDirs": [],
     "ProductPrivateSepolicyDirs": [],
     "TargetFSConfigGen": [],
-    "MissingUsesLibraries": ["com.google.android.ble","com.google.android.media.effects","com.google.android.wearable"],
     "VendorVars": {
         "ANDROID": {
             "BOARD_USES_ODMIMAGE": "",

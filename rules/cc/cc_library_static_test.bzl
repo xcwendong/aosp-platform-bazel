@@ -34,11 +34,11 @@ def _cc_library_static_propagating_compilation_context_test_impl(ctx):
     cc_info = target[CcInfo]
     compilation_context = cc_info.compilation_context
 
-    header_paths = [f.path for f in compilation_context.headers.to_list()]
+    header_paths = [f.short_path for f in compilation_context.headers.to_list()]
     for hdr in ctx.files.expected_hdrs:
         asserts.true(
             env,
-            hdr.path in header_paths,
+            hdr.short_path in header_paths,
             "Did not find {hdr} in includes: {hdrs}.".format(hdr = hdr, hdrs = compilation_context.headers),
         )
 

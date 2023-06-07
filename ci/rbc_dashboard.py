@@ -150,7 +150,7 @@ async def has_diffs(success: bool, file_pairs: List[Tuple[str]], results_folder:
     return False
   results = []
   for pair in file_pairs:
-    name = 'soong_build.ninja' if pair[0].endswith('soong/build.ninja') else os.path.basename(pair[0])
+    name = 'soong_build.ninja' if re.search('soong/build\.[^.]+\.ninja$', pair[0]) else os.path.basename(pair[0])
     with open(os.path.join(results_folder, name)+'.diff', 'wb') as f:
       results.append((await asyncio.create_subprocess_exec(
           'diff',
@@ -251,7 +251,7 @@ async def test_one_product(product: Product, dirs: Directories) -> ProductResult
       with open(f'{product_dashboard_folder}/product/build.log', 'a') as f:
         f.write(f'\nPaths involving out/rbc are actually under {dirs.out_product}\n')
 
-  files = [f'build-{product.product}.ninja', f'build-{product.product}-package.ninja', 'soong/build.ninja']
+  files = [f'build-{product.product}.ninja', f'build-{product.product}-package.ninja', f'soong/build.{product.product}.ninja']
   product_files = [(os.path.join(dirs.out_baseline, x), os.path.join(dirs.out_product, x)) for x in files]
   product_has_diffs = await has_diffs(baseline_success and product_success, product_files, product_dashboard_folder+'/product')
 

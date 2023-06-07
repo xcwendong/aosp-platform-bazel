@@ -223,9 +223,12 @@ def _add_apex_manifest_information(
     args.add_all(["-a", "provideNativeLibs"])
     args.add_all(provides_native_libs, map_each = _add_so)
 
-    manifest_version = ctx.attr._override_apex_manifest_default_version[BuildSettingInfo].value
-    if not manifest_version:
-        manifest_version = default_manifest_version
+    manifest_version = default_manifest_version
+    if ctx.attr.variant_version != "":
+        manifest_version = manifest_version + int(ctx.attr.variant_version)
+    override_manifest_version = ctx.attr._override_apex_manifest_default_version[BuildSettingInfo].value
+    if override_manifest_version:
+        manifest_version = override_manifest_version
     args.add_all(["-se", "version", "0", manifest_version])
 
     # TODO: support other optional flags like -v name and -a jniLibs
@@ -975,6 +978,17 @@ APEX is truly updatable. To be updatable, min_sdk_version should be set as well.
         "base_apex_name": attr.string(
             default = "",
             doc = "The name of the base apex of this apex. For example, the AOSP variant of this apex.",
+        ),
+        "apex_available_name": attr.string(
+            default = "",
+            doc = "The name that dependencies can specify in their apex_available " +
+                  "properties to refer to this module. If not specified, this " +
+                  "defaults to Soong module name.",
+        ),
+        "variant_version": attr.string(
+            default = "",
+            doc = "Variant version of the mainline module. Must be an integer between 0-9",
+            values = [""] + [str(i) for i in range(10)],
         ),
 
         # Attributes that contribute to the payload.

@@ -27,6 +27,7 @@ load("//build/bazel/rules/cc:cc_library_shared.bzl", "cc_library_shared")
 load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "cc_stub_suite")
 load("//build/bazel/rules/test_common:rules.bzl", "expect_failure_test", "target_under_test_exist_test")
+load("//build/bazel/rules/test_common:flags.bzl", "action_flags_present_only_for_mnemonic_test")
 load(":apex_deps_validation.bzl", "ApexDepsInfo", "apex_dep_infos_to_allowlist_strings")
 load(":apex_info.bzl", "ApexInfo", "ApexMkInfo")
 load(":apex_test_helpers.bzl", "test_apex")
@@ -2768,6 +2769,26 @@ def _test_apex_sbom():
 
     return test_name
 
+def _test_apex_variant_version():
+    name = "apex_variant_version"
+    test_name = name + "_test"
+
+    test_apex(
+        name = name,
+        variant_version = "3",
+    )
+
+    expected_manifest_version = default_manifest_version + 3
+
+    action_flags_present_only_for_mnemonic_test(
+        name = test_name,
+        target_under_test = name,
+        mnemonics = ["ApexManifestModify"],
+        expected_flags = ["-se", "version", "0", str(expected_manifest_version)],
+    )
+
+    return test_name
+
 def apex_test_suite(name):
     native.test_suite(
         name = name,
@@ -2826,5 +2847,6 @@ def apex_test_suite(name):
             _test_min_target_sdk_version_api_fingerprint_min_sdk_version_specified(),
             _test_min_target_sdk_version_api_fingerprint_min_sdk_version_not_specified(),
             _test_apex_sbom(),
+            _test_apex_variant_version(),
         ] + _test_apex_transition(),
     )

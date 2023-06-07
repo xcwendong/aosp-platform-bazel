@@ -81,7 +81,21 @@ def get_cmd_to_display_tabulated_metrics(d: Path, ci_mode: bool) -> str:
     columns.append(1)
 
   f = ','.join(str(i + 1) for i in columns)
-  return f'grep -v rebuild- "{csv_file}" | grep -v WARMUP | grep -v FAILED | ' \
+  # the sed invocations are to account for
+  # https://man7.org/linux/man-pages/man1/column.1.html#BUGS
+  # example: if a row were `,,,hi,,,,`
+  # the successive sed conversions would be
+  #    `,,,hi,,,,` =>
+  #    `,--,,hi,--,,--,` =>
+  #    `,--,--,hi,--,--,--,` =>
+  #    `--,--,--,hi,--,--,--,` =>
+  #    `--,--,--,hi,--,--,--,--`
+  # Note sed doesn't support lookahead or lookbehinds
+  return f'grep -v "WARMUP\\|rebuild-\\|FAILED" "{csv_file}" | ' \
+         f'sed "s/,,/,--,/g" | ' \
+         f'sed "s/,,/,--,/g" | ' \
+         f'sed "s/^,/--,/" | ' \
+         f'sed "s/,$/,--/" | ' \
          f'cut -d, -f{f} | column -t -s,'
 
 

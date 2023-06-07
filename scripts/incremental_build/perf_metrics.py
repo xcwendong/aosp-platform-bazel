@@ -110,8 +110,8 @@ def read_pbs(d: Path) -> dict[str, str]:
       metrics_base.ParseFromString(f.read())
     extract_perf_info(metrics_base)
 
+  soong_build_metrics = SoongBuildMetrics()
   if soong_build_pb.exists():
-    soong_build_metrics = SoongBuildMetrics()
     with open(soong_build_pb, "rb") as f:
       soong_build_metrics.ParseFromString(f.read())
     extract_perf_info(soong_build_metrics)
@@ -129,8 +129,18 @@ def read_pbs(d: Path) -> dict[str, str]:
   def normalize(desc: str) -> str:
     return re.sub(r'^(?:soong_build|mixed_build)', '*', desc)
 
-  return {f'{m.name}/{normalize(m.description)}':
-            util.hhmmss(m.real_time, decimal_precision=True) for m in events}
+  retval = {}
+  if soong_build_metrics.mixed_builds_info:
+    ll = soong_build_metrics.mixed_builds_info.mixed_build_enabled_modules
+    if ll:
+      retval['mixed.enabled'] = len(ll)
+    ll = soong_build_metrics.mixed_builds_info.mixed_build_disabled_modules
+    if ll:
+      retval['mixed.disabled'] = len(ll)
+  for m in events:
+    retval[f'{m.name}/{normalize(m.description)}'] = \
+      util.hhmmss(m.real_time, decimal_precision=True)
+  return retval
 
 
 Row = dict[str, any]
@@ -227,8 +237,7 @@ def tabulate_metrics_csv(log_dir: Path):
   headers: list[str] = _get_column_headers(rows, allow_cycles=True)
 
   def row2line(r):
-    #if a column value is missing, use '-' as a placeholder
-    return ','.join([str(r.get(col, '-')) for col in headers])
+    return ','.join([str(r.get(col, '')) for col in headers])
 
   lines = [','.join(headers)]
   lines.extend(row2line(r) for r in rows)

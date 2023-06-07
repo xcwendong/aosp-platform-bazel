@@ -18,7 +18,7 @@ load("//build/bazel/rules/common:api.bzl", "api")
 load(":cc_library_headers.bzl", "cc_library_headers")
 load(":cc_library_shared.bzl", "CcStubLibrariesInfo")
 load(":cc_library_static.bzl", "cc_library_static")
-load(":composed_transitions.bzl", "drop_lto_and_fdo_profile_incoming_transition")
+load(":composed_transitions.bzl", "drop_lto_sanitizer_and_fdo_profile_incoming_transition")
 load(":fdo_profile_transitions.bzl", "FDO_PROFILE_ATTR_KEY")
 load(":generate_toc.bzl", "CcTocInfo", "generate_toc")
 
@@ -219,7 +219,7 @@ _cc_stub_library_shared = rule(
     # Incoming transition to reset //command_line_option:fdo_profile to None
     # to converge the configurations of the stub targets
     # This also resets any lto transitions.
-    cfg = drop_lto_and_fdo_profile_incoming_transition,
+    cfg = drop_lto_sanitizer_and_fdo_profile_incoming_transition,
     attrs = {
         FDO_PROFILE_ATTR_KEY: attr.label(),
         "stub_target": attr.label(

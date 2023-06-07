@@ -26,6 +26,54 @@ load(":product_variables_providing_rule.bzl", "product_variables_providing_rule"
 
 all_android_product_labels = _product_labels + _test_product_labels
 
+# This dict denotes the suffixes for host platforms (keys) and the constraints
+# associated with them (values). Used in transitions and tests, in addition to
+# here.
+host_platforms = {
+    "linux_x86": [
+        "@//build/bazel/platforms/arch:x86",
+        "@//build/bazel/platforms/os:linux",
+    ],
+    "linux_x86_64": [
+        "@//build/bazel/platforms/arch:x86_64",
+        "@//build/bazel/platforms/os:linux",
+    ],
+    "linux_musl_x86": [
+        "@//build/bazel/platforms/arch:x86",
+        "@//build/bazel/platforms/os:linux_musl",
+    ],
+    "linux_musl_x86_64": [
+        "@//build/bazel/platforms/arch:x86_64",
+        "@//build/bazel/platforms/os:linux_musl",
+    ],
+    # linux_bionic is the OS for the Linux kernel plus the Bionic libc runtime,
+    # but without the rest of Android.
+    "linux_bionic_arm64": [
+        "@//build/bazel/platforms/arch:arm64",
+        "@//build/bazel/platforms/os:linux_bionic",
+    ],
+    "linux_bionic_x86_64": [
+        "@//build/bazel/platforms/arch:x86_64",
+        "@//build/bazel/platforms/os:linux_bionic",
+    ],
+    "darwin_arm64": [
+        "@//build/bazel/platforms/arch:arm64",
+        "@//build/bazel/platforms/os:darwin",
+    ],
+    "darwin_x86_64": [
+        "@//build/bazel/platforms/arch:x86_64",
+        "@//build/bazel/platforms/os:darwin",
+    ],
+    "windows_x86": [
+        "@//build/bazel/platforms/arch:x86",
+        "@//build/bazel/platforms/os:windows",
+    ],
+    "windows_x86_64": [
+        "@//build/bazel/platforms/arch:x86_64",
+        "@//build/bazel/platforms/os:windows",
+    ],
+}
+
 def _is_variant_default(arch, variant):
     return variant == None or variant in (arch, "generic")
 
@@ -350,84 +398,8 @@ def android_product(name, soong_variables):
     # Now define the host platforms. We need a host platform per product because
     # the host platforms still use the product variables.
     # TODO(b/262753134): Investigate making the host platforms product-independant
-    native.platform(
-        name = name + "_linux_x86",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:x86",
-            "@//build/bazel/platforms/os:linux",
-        ],
-    )
-
-    native.platform(
-        name = name + "_linux_x86_64",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:x86_64",
-            "@//build/bazel/platforms/os:linux",
-        ],
-    )
-
-    native.platform(
-        name = name + "_linux_musl_x86",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:x86",
-            "@//build/bazel/platforms/os:linux_musl",
-        ],
-    )
-
-    native.platform(
-        name = name + "_linux_musl_x86_64",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:x86_64",
-            "@//build/bazel/platforms/os:linux_musl",
-        ],
-    )
-
-    # linux_bionic is the OS for the Linux kernel plus the Bionic libc runtime, but
-    # without the rest of Android.
-    native.platform(
-        name = name + "_linux_bionic_arm64",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:arm64",
-            "@//build/bazel/platforms/os:linux_bionic",
-        ],
-    )
-
-    native.platform(
-        name = name + "_linux_bionic_x86_64",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:x86_64",
-            "@//build/bazel/platforms/os:linux_bionic",
-        ],
-    )
-
-    native.platform(
-        name = name + "_darwin_arm64",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:arm64",
-            "@//build/bazel/platforms/os:darwin",
-        ],
-    )
-
-    native.platform(
-        name = name + "_darwin_x86_64",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:x86_64",
-            "@//build/bazel/platforms/os:darwin",
-        ],
-    )
-
-    native.platform(
-        name = name + "_windows_x86",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:x86",
-            "@//build/bazel/platforms/os:windows",
-        ],
-    )
-
-    native.platform(
-        name = name + "_windows_x86_64",
-        constraint_values = common_constraints + [
-            "@//build/bazel/platforms/arch:x86_64",
-            "@//build/bazel/platforms/os:windows",
-        ],
-    )
+    for suffix, constraints in host_platforms.items():
+        native.platform(
+            name = name + "_" + suffix,
+            constraint_values = common_constraints + constraints,
+        )

@@ -42,8 +42,16 @@ constants = struct(
 # Constants for use in cc transitions
 _FEATURES_ATTR_KEY = "features"
 _CLI_FEATURES_KEY = "//command_line_option:features"
+_CLI_PLATFORMS_KEY = "//command_line_option:platforms"
+_CFI_INCLUDE_PATHS_KEY = "@//build/bazel/rules/cc:cfi_include_paths"
+_CFI_EXCLUDE_PATHS_KEY = "@//build/bazel/rules/cc:cfi_exclude_paths"
+_ENABLE_CFI_KEY = "@//build/bazel/rules/cc:enable_cfi"
 
 transition_constants = struct(
     features_attr_key = _FEATURES_ATTR_KEY,
     cli_features_key = _CLI_FEATURES_KEY,
+    cfi_include_paths_key = _CFI_INCLUDE_PATHS_KEY,
+    cfi_exclude_paths_key = _CFI_EXCLUDE_PATHS_KEY,
+    enable_cfi_key = _ENABLE_CFI_KEY,
+    cli_platforms_key = _CLI_PLATFORMS_KEY,
 )

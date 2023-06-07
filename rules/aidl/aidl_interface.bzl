@@ -277,6 +277,8 @@ def create_aidl_binding_for_backends(
             min_sdk_version = config["min_sdk_version"]
 
         if lang == JAVA:
+            #TODO(b/285574832) re-enable Java backend
+            continue
             java_aidl_library(
                 name = aidl_library_name + "-java",
                 deps = [":" + aidl_library_name],

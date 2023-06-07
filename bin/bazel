@@ -235,8 +235,15 @@ else
     fi
 fi
 
+# Change the PATH variable for the bazel invocation to include RESTRICTED_PATH.
+# This only affects the workspace_status_marker script environment and
+# the bazel run environment, and works around a bug for Bazelisk where Bazelisk
+# behaves differently if no PATH is present.
+BAZEL_PATH=$PATH:${RESTRICTED_PATH}
+
 # TODO(b/240354506): Re-enable hsperfdata file creation without causing SIGBUS errors
-JAVA_HOME="${ANDROID_BAZEL_JDK_PATH}" "${ANDROID_BAZEL_PATH}" \
+PATH="${BAZEL_PATH}" JAVA_HOME="${ANDROID_BAZEL_JDK_PATH}" \
+  "${ANDROID_BAZEL_PATH}" \
   --server_javabase="${ANDROID_BAZEL_JDK_PATH}" \
   --output_user_root="${BAZEL_METADATA_OUT}/output_user_root" \
   --host_jvm_args=-Djava.io.tmpdir="${BAZEL_METADATA_OUT}/javatmp" \

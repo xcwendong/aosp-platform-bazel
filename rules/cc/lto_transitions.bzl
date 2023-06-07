@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 load(":cc_constants.bzl", "transition_constants")
 
 LTO_FEATURE = "android_thin_lto"
@@ -20,18 +19,23 @@ LTO_FEATURE = "android_thin_lto"
 # enable it explicitly
 # TODO(b/270418352): Move this logic to the incoming transition when incoming
 #                    transitions support select statements
-def lto_deps_transition_impl(settings, attr):
-    features = getattr(attr, transition_constants.features_attr_key)
-    new_cli_features = list(settings[transition_constants.cli_features_key])
+def apply_lto_deps(features, old_cli_features):
+    new_cli_features = list(old_cli_features)
     if LTO_FEATURE in features and LTO_FEATURE not in new_cli_features:
         new_cli_features.append(LTO_FEATURE)
 
+    return new_cli_features
+
+def _lto_deps_transition_impl(settings, attr):
     return {
-        transition_constants.cli_features_key: new_cli_features,
+        transition_constants.cli_features_key: apply_lto_deps(
+            getattr(attr, transition_constants.features_attr_key),
+            settings[transition_constants.cli_features_key],
+        ),
     }
 
 lto_deps_transition = transition(
-    implementation = lto_deps_transition_impl,
+    implementation = _lto_deps_transition_impl,
     inputs = [
         transition_constants.cli_features_key,
     ],
@@ -48,15 +52,4 @@ def apply_drop_lto(old_cli_features):
     if LTO_FEATURE in old_cli_features:
         new_cli_features.remove(LTO_FEATURE)
 
-    return {
-        transition_constants.cli_features_key: new_cli_features,
-    }
-
-def drop_lto_transition_impl(settings, _):
-    return apply_drop_lto(settings[transition_constants.cli_features_key])
-
-drop_lto_transition = transition(
-    implementation = drop_lto_transition_impl,
-    inputs = [transition_constants.cli_features_key],
-    outputs = [transition_constants.cli_features_key],
-)
+    return new_cli_features

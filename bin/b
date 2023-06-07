@@ -87,8 +87,8 @@ else
     # Call Bazel.
     set +e
     "$TOP/build/bazel/bin/bazel" ${bazel_args_with_config[@]}
-    set -e
     bazel_exit_code=$?
+    set -e
     bazel_exit_code_string="--bazel-exit-code=$bazel_exit_code"
     "$TOP/build/bazel/bin/bazel" analyze-profile $PROFILE_OUT/bazel_metrics-profile 1> $PROFILE_OUT/analyzed_bazel_profile.txt 2>/dev/null
     rm $PROFILE_OUT/bazel_metrics-profile

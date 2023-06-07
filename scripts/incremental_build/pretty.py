@@ -69,7 +69,7 @@ def summarize_metrics(log_dir: Path):
   lines: list[dict] = []
   for line in csv_lines:
     if line["build_result"] == "FAILED":
-      logging.warning(f"{line['description']} / {line['build_type']}")
+      logging.warning(f"Failed {line['description']}/{line['build_type']}")
     else:
       lines.append(line)
 
@@ -103,8 +103,7 @@ def summarize_metrics(log_dir: Path):
 
 def display_summarized_metrics(log_dir: Path):
   f = log_dir.joinpath(util.SUMMARY_TABLE)
-  cmd = f'grep -v rebuild {f} | grep -v WARMUP | grep -v revert ' \
-        f'| grep -v delete | column -t -s,'
+  cmd = f'grep -v "WARMUP\\|rebuild\\|revert\\|delete" {f} | column -t -s,'
   output = subprocess.check_output(cmd, shell=True, text=True)
   logging.info(textwrap.dedent(f'''
   %s

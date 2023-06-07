@@ -59,7 +59,7 @@ def _prepare_env() -> (Mapping[str, str], str):
         sys.exit(1)
     else:
       logging.warning(
-        f'Using {target_product}-{variant} instead of {default_product}-eng')
+          f'Using {target_product}-{variant} instead of {default_product}-eng')
   env['TARGET_PRODUCT'] = target_product
   env['TARGET_BUILD_VARIANT'] = variant
   pretty_env_str = [f'{k}={v}' for (k, v) in env.items()]
@@ -67,10 +67,11 @@ def _prepare_env() -> (Mapping[str, str], str):
   return env, '\n'.join(pretty_env_str)
 
 
-def _build_file_sha() -> str:
-  build_file = util.get_out_dir().joinpath('soong/build.ninja')
+def _build_file_sha(target_product: str) -> str:
+  build_file = util.get_out_dir().joinpath(
+      f'soong/build.{target_product}.ninja')
   if not build_file.exists():
-    return '--'
+    return ''
   with open(build_file, mode="rb") as f:
     h = hashlib.sha256()
     for block in iter(lambda: f.read(4096), b''):
@@ -78,8 +79,9 @@ def _build_file_sha() -> str:
     return h.hexdigest()[0:8]
 
 
-def _build_file_size() -> int:
-  build_file = util.get_out_dir().joinpath('soong/build.ninja')
+def _build_file_size(target_product: str) -> int:
+  build_file = util.get_out_dir().joinpath(
+      f'soong/build.{target_product}.ninja')
   return os.path.getsize(build_file) if build_file.exists() else 0
 
 
@@ -94,6 +96,7 @@ def _build(build_type: ui.BuildType, run_dir: Path) -> (int, BuildInfo):
   logging.info('Command: %s', cmd)
   env, env_str = _prepare_env()
   ninja_log_file = util.get_out_dir().joinpath('.ninja_log')
+  target_product = env.get("TARGET_PRODUCT", "aosp_arm")
 
   def get_action_count() -> int:
     if not ninja_log_file.exists():
@@ -104,14 +107,14 @@ def _build(build_type: ui.BuildType, run_dir: Path) -> (int, BuildInfo):
 
   def recompact_ninja_log():
     subprocess.run([
-      util.get_top_dir().joinpath(
-        'prebuilts/build-tools/linux-x86/bin/ninja'),
-      '-f',
-      util.get_out_dir().joinpath(
-        f'combined-{env.get("TARGET_PRODUCT", "aosp_arm")}.ninja'),
-      '-t', 'recompact'],
-      check=False, cwd=util.get_top_dir(), shell=False,
-      stdout=f, stderr=f)
+        util.get_top_dir().joinpath(
+            'prebuilts/build-tools/linux-x86/bin/ninja'),
+        '-f',
+        util.get_out_dir().joinpath(
+        f'combined-{target_product}.ninja'),
+        '-t', 'recompact'],
+        check=False, cwd=util.get_top_dir(), shell=False,
+        stdout=f, stderr=f)
 
   with open(logfile, mode='w') as f:
     action_count_before = get_action_count()
@@ -129,8 +132,8 @@ def _build(build_type: ui.BuildType, run_dir: Path) -> (int, BuildInfo):
 
   return (p.returncode, {
       'build_type': build_type.to_flag(),
-      'build.ninja': _build_file_sha(),
-      'build.ninja.size': _build_file_size(),
+      'build.ninja': _build_file_sha(target_product),
+      'build.ninja.size': _build_file_size(target_product),
       'targets': ' '.join(ui.get_user_input().targets),
       'log': str(run_dir.relative_to(ui.get_user_input().log_dir)),
       'actions': action_count_after - action_count_before,
@@ -156,8 +159,8 @@ def _run_cuj(run_dir: Path, build_type: ui.BuildType,
   # summarize
   log_desc = desc if run == 0 else f'rebuild-{run} after {desc}'
   build_info = {
-                 'description': log_desc,
-                 'build_result': build_result
+                   'description': log_desc,
+                   'build_result': build_result
                } | build_info
   return build_info
 
@@ -205,16 +208,19 @@ def main():
           break
         run_dir = next(run_dir_gen)
         build_info = _run_cuj(run_dir, build_type, cujstep, desc, run)
-        logging.info(json.dumps(build_info,indent=2))
+        logging.info(json.dumps(build_info, indent=2))
         if user_input.ci_mode:
           if build_info['build_result'] == 'FAILED':
-            sys.exit('Failed CI build runs detected!')
+            sys.exit(f'Failed CI build runs detected! Please see logs in: '
+                     f'{str(user_input.log_dir)}/{build_info["log"]}')
           if cuj_group != cuj_catalog.Warmup:
             stop_building = True
             logs_dir_for_ci = user_input.log_dir.parent.joinpath('logs')
             if logs_dir_for_ci.exists():
               perf_metrics.archive_run(logs_dir_for_ci, build_info)
         perf_metrics.archive_run(run_dir, build_info)
+        # we are doing tabulation and summary after each run
+        # so that we can look at intermediate results
         perf_metrics.tabulate_metrics_csv(user_input.log_dir)
         pretty.summarize_metrics(user_input.log_dir)
         if build_info['actions'] == 0:

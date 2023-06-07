@@ -59,12 +59,18 @@ _DEFAULT_CHECKS = [
     "-cert-err33-c",
     "-bugprone-unchecked-optional-access",
     "-misc-use-anonymous-namespace",
+    "-performance-avoid-endl",
 ]
 _DEFAULT_CHECKS_AS_ERRORS = [
     "-bugprone-assignment-in-if-condition",
     "-bugprone-branch-clone",
     "-bugprone-signed-char-misuse",
     "-misc-const-correctness",
+    "-bugprone-unsafe-functions",
+    "-cert-msc24-c",
+    "-cert-msc33-c",
+    "-modernize-type-traits",
+    "-readability-avoid-unconditional-preprocessor-if",
 ]
 _EXTRA_ARGS_BEFORE = [
     "-D__clang_analyzer__",

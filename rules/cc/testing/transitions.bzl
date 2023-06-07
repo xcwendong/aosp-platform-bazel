@@ -1,5 +1,6 @@
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 ActionArgsInfo = provider(
     fields = {
@@ -56,3 +57,50 @@ def compile_action_argv_aspect_generator(attr_aspects):
             "_attr_aspect_dict": attr.string_list_dict(default = attr_aspects),
         },
     )
+
+def transition_deps_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target_under_test = analysistest.target_under_test(env)
+    argv_map = target_under_test[ActionArgsInfo].argv_map
+
+    for target in ctx.attr.targets_with_flag:
+        asserts.true(
+            env,
+            target in argv_map,
+            "can't find {} in argv map".format(target),
+        )
+        if target in argv_map:
+            argv = argv_map[target]
+            for flag in ctx.attr.flags:
+                asserts.true(
+                    env,
+                    flag in argv,
+                    "Compile action of {} didn't have {} flag but it was expected".format(
+                        target,
+                        flag,
+                    ),
+                )
+    for target in ctx.attr.targets_without_flag:
+        asserts.true(
+            env,
+            target in argv_map,
+            "can't find {} in argv map".format(target),
+        )
+        if target in argv_map:
+            argv = argv_map[target]
+            for flag in ctx.attr.flags:
+                asserts.true(
+                    env,
+                    flag not in argv,
+                    "Compile action of {} had {} flag but it wasn't expected".format(
+                        target,
+                        flag,
+                    ),
+                )
+    return analysistest.end(env)
+
+transition_deps_test_attrs = {
+    "targets_with_flag": attr.string_list(),
+    "targets_without_flag": attr.string_list(),
+    "flags": attr.string_list(),
+}

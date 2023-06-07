@@ -14,17 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-load(":merged_txts_test.bzl", "merged_txts_test_suite")
-load(":sdk_library_test.bzl", "java_sdk_library_test_suite")
-load(":java_system_modules_test.bzl", "java_system_modules_test_suite")
-load(":bootclasspath_test.bzl", "bootclasspath_test_suite")
-load(":versions_test.bzl", "versions_test_suite")
-load(":versions.bzl", "java_versions")
-load(":sdk_transition_test.bzl", "sdk_transition_test_suite")
-load(":host_for_device_test.bzl", "host_for_device_test_suite")
 load("@bazel_skylib//rules:common_settings.bzl", "string_setting")
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "DEFAULT_JAVACOPTS", "default_java_toolchain")
 load("@soong_injection//java_toolchain:constants.bzl", "constants")
+load(":bootclasspath_test.bzl", "bootclasspath_test_suite")
+load(":host_for_device_test.bzl", "host_for_device_test_suite")
+load(":java_system_modules_test.bzl", "java_system_modules_test_suite")
+load(":java_xsd_config_library_test.bzl", "java_xsd_config_library_test_suite")
+load(":merged_txts_test.bzl", "merged_txts_test_suite")
+load(":sdk_library_test.bzl", "java_sdk_library_test_suite")
+load(":sdk_transition_test.bzl", "sdk_transition_test_suite")
+load(":versions.bzl", "java_versions")
+load(":versions_test.bzl", "versions_test_suite")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -43,6 +44,8 @@ versions_test_suite(name = "versions_tests")
 sdk_transition_test_suite(name = "sdk_transition_tests")
 
 host_for_device_test_suite(name = "host_for_device_test_suite")
+
+java_xsd_config_library_test_suite(name = "java_xsd_config_library_tests")
 
 string_setting(
     name = "version",

@@ -21,7 +21,7 @@ load(
     "parse_sdk_version",
     "system_dynamic_deps_defaults",
 )
-load(":lto_transitions.bzl", "lto_deps_transition")
+load(":composed_transitions.bzl", "drop_sanitizer_transition")
 load(":stl.bzl", "stl_info_from_attr")
 
 # "cc_object" module copts, taken from build/soong/cc/object.go
@@ -224,6 +224,7 @@ def _cc_object_impl(ctx):
 
 _cc_object = rule(
     implementation = _cc_object_impl,
+    cfg = drop_sanitizer_transition,
     attrs = {
         "srcs": attr.label_list(allow_files = constants.all_dot_exts),
         "srcs_as": attr.label_list(allow_files = constants.all_dot_exts),
@@ -235,13 +236,16 @@ _cc_object = rule(
         "linkopts": attr.string_list(),
         "objs": attr.label_list(
             providers = [CcInfo, CcObjectInfo],
-            cfg = lto_deps_transition,
         ),
         "includes_deps": attr.label_list(providers = [CcInfo]),
         "linker_script": attr.label(allow_single_file = True),
         "sdk_version": attr.string(),
         "min_sdk_version": attr.string(),
         "crt": attr.bool(default = False),
+        "package_name": attr.string(
+            mandatory = True,
+            doc = "Just the path to the target package. Used by transitions.",
+        ),
         "_android_product_variables": attr.label(
             default = Label("//build/bazel/product_config:product_vars"),
             providers = [platform_common.TemplateVariableInfo],
@@ -295,5 +299,6 @@ def cc_object(
         includes_deps = stl_info.static_deps + stl_info.shared_deps + system_dynamic_deps + deps,
         sdk_version = sdk_version,
         min_sdk_version = min_sdk_version,
+        package_name = native.package_name(),
         **kwargs
     )

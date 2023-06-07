@@ -1,3 +1,5 @@
+load("//build/bazel/product_config:android_product.bzl", "host_platforms")
+
 config_setting(
     name = "android_arm",
     constraint_values = [
@@ -38,22 +40,15 @@ config_setting(
     ],
 )
 
-config_setting(
-    name = "darwin_arm64",
-    constraint_values = [
-        "//build/bazel/platforms/arch:arm64",
-        "//build/bazel/platforms/os:darwin",
-    ],
-)
+[
+    config_setting(
+        name = name,
+        constraint_values = constraints,
+    )
+    for name, constraints in host_platforms.items()
+]
 
-config_setting(
-    name = "darwin_x86_64",
-    constraint_values = [
-        "//build/bazel/platforms/arch:x86_64",
-        "//build/bazel/platforms/os:darwin",
-    ],
-)
-
+# These settings must exist, but are not yet supported by our toolchains
 config_setting(
     name = "linux_glibc_x86",
     constraint_values = [
@@ -71,22 +66,6 @@ config_setting(
 )
 
 config_setting(
-    name = "linux_bionic_arm64",
-    constraint_values = [
-        "//build/bazel/platforms/arch:arm64",
-        "//build/bazel/platforms/os:linux_bionic",
-    ],
-)
-
-config_setting(
-    name = "linux_bionic_x86_64",
-    constraint_values = [
-        "//build/bazel/platforms/arch:x86_64",
-        "//build/bazel/platforms/os:linux_bionic",
-    ],
-)
-
-config_setting(
     name = "linux_musl_arm",
     constraint_values = [
         "//build/bazel/platforms/arch:arm",
@@ -99,37 +78,5 @@ config_setting(
     constraint_values = [
         "//build/bazel/platforms/arch:arm64",
         "//build/bazel/platforms/os:linux_musl",
-    ],
-)
-
-config_setting(
-    name = "linux_musl_x86",
-    constraint_values = [
-        "//build/bazel/platforms/arch:x86",
-        "//build/bazel/platforms/os:linux_musl",
-    ],
-)
-
-config_setting(
-    name = "linux_musl_x86_64",
-    constraint_values = [
-        "//build/bazel/platforms/arch:x86_64",
-        "//build/bazel/platforms/os:linux_musl",
-    ],
-)
-
-config_setting(
-    name = "windows_x86",
-    constraint_values = [
-        "//build/bazel/platforms/arch:x86",
-        "//build/bazel/platforms/os:windows",
-    ],
-)
-
-config_setting(
-    name = "windows_x86_64",
-    constraint_values = [
-        "//build/bazel/platforms/arch:x86_64",
-        "//build/bazel/platforms/os:windows",
     ],
 )

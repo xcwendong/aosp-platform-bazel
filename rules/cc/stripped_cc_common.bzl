@@ -17,9 +17,9 @@
 load(":cc_library_common.bzl", "CcAndroidMkInfo", "check_valid_ldlibs")
 load(":clang_tidy.bzl", "collect_deps_clang_tidy_info")
 load(
-    ":lto_transitions.bzl",
-    "drop_lto_transition",
-    "lto_deps_transition",
+    ":composed_transitions.bzl",
+    "drop_lto_and_sanitizer_transition",
+    "lto_and_sanitizer_deps_transition",
 )
 
 CcUnstrippedInfo = provider(
@@ -227,7 +227,7 @@ _rule_attrs = dict(
         mandatory = True,
         allow_single_file = True,
         providers = [CcInfo],
-        cfg = lto_deps_transition,
+        cfg = lto_and_sanitizer_deps_transition,
     ),
     runtime_deps = attr.label_list(
         providers = [CcInfo],
@@ -235,13 +235,18 @@ _rule_attrs = dict(
     ),
     androidmk_deps = attr.label_list(
         providers = [CcAndroidMkInfo],
+        cfg = lto_and_sanitizer_deps_transition,
     ),
     suffix = attr.string(),
     unstripped = attr.label(
         mandatory = True,
         allow_single_file = True,
-        cfg = lto_deps_transition,
+        cfg = lto_and_sanitizer_deps_transition,
         doc = "Unstripped binary to be returned by ",
+    ),
+    package_name = attr.string(
+        mandatory = True,
+        doc = "Just the path to the target package. Used by transitions.",
     ),
     _allowlist_function_transition = attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
@@ -250,7 +255,7 @@ _rule_attrs = dict(
 
 stripped_binary = rule(
     implementation = _stripped_binary_impl,
-    cfg = drop_lto_transition,
+    cfg = drop_lto_and_sanitizer_transition,
     attrs = _rule_attrs,
     executable = True,
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
@@ -258,7 +263,7 @@ stripped_binary = rule(
 
 stripped_test = rule(
     implementation = _stripped_binary_impl,
-    cfg = drop_lto_transition,
+    cfg = drop_lto_and_sanitizer_transition,
     attrs = _rule_attrs,
     test = True,
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],

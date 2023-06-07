@@ -35,8 +35,8 @@ function test_libc_stripping_basic() {
       exit 2
     fi
 
-    local stripped_size=$(stat -c %s "${stripped}")
-    local unstripped_size=$(stat -c %s "${unstripped}")
+    local stripped_size=$(stat -L -c %s "${stripped}")
+    local unstripped_size=$(stat -L -c %s "${unstripped}")
 
     # Check that the unstripped size is not greater or equal to the stripped size.
     if [ "${stripped_size}" -ge "${unstripped_size}"  ]; then

@@ -57,11 +57,11 @@ class BuildType(Enum):
 
 @dataclasses.dataclass(frozen=True)
 class UserInput:
-  build_types: list[BuildType]
-  chosen_cujgroups: list[int]
+  build_types: tuple[BuildType]
+  chosen_cujgroups: tuple[int]
   description: Optional[str]
   log_dir: Path
-  targets: list[str]
+  targets: tuple[str]
   ci_mode: bool
 
 
@@ -74,6 +74,10 @@ def get_user_input() -> UserInput:
       i = int(input_str)
       if 0 <= i < len(cujgroups):
         return [i]
+      raise argparse.ArgumentError(
+          argument=None,
+          message=f'Invalid input: "{input_str}" '
+                  f'expected an index <= {len(cujgroups)} ')
     else:
       pattern = re.compile(input_str)
 
@@ -89,11 +93,10 @@ def get_user_input() -> UserInput:
                              matches(cujgroup)]
       if len(matching_cuj_groups):
         return matching_cuj_groups
-    raise argparse.ArgumentError(
-        argument=None,
-        message=f'Invalid input: "{input_str}" '
-                f'expected an index <= {len(cujgroups)} '
-                'or a regex pattern for a CUJ descriptions')
+      raise argparse.ArgumentError(
+          argument=None,
+          message=f'Invalid input: "{input_str}" does not match any CUJ'
+      )
 
   # importing locally here to avoid chances of cyclic import
   import incremental_build
@@ -106,14 +109,11 @@ def get_user_input() -> UserInput:
   cuj_list = '\n'.join(
       [f'{i:2}: {cujgroup}' for i, cujgroup in enumerate(cujgroups)])
   p.add_argument('-c', '--cujs', nargs='+',
+                 required=True,
                  type=validate_cujgroups,
                  help='Index number(s) for the CUJ(s) from the following list. '
                       'Or substring matches for the CUJ description.'
                       f'Note the ordering will be respected:\n{cuj_list}')
-  p.add_argument('-C', '--exclude-cujs', nargs='+',
-                 type=validate_cujgroups,
-                 help='Index number(s) or substring match(es) for the CUJ(s) '
-                      'to be excluded')
   p.add_argument('-d', '--description', type=str, default='',
                  help='Any additional tag/description for the set of builds')
 
@@ -156,18 +156,8 @@ def get_user_input() -> UserInput:
   if options.verbosity:
     logging.root.setLevel(options.verbosity)
 
-  if options.cujs and options.exclude_cujs:
-    sys.exit('specify either --cujs or --exclude-cujs not both')
-  chosen_cujgroups: list[int]
-  if options.exclude_cujs:
-    exclusions: list[int] = [i for sublist in options.exclude_cujs for i in
-                             sublist]
-    chosen_cujgroups = [i for i in range(0, len(cujgroups)) if
-                        i not in exclusions]
-  elif options.cujs:
-    chosen_cujgroups = [i for sublist in options.cujs for i in sublist]
-  else:
-    chosen_cujgroups = [i for i in range(0, len(cujgroups))]
+  chosen_cujgroups: tuple[int] = \
+    tuple(int(i) for sublist in options.cujs for i in sublist)
 
   bazel_labels: list[str] = [target for target in options.targets if
                              target.startswith('//')]
@@ -177,8 +167,8 @@ def get_user_input() -> UserInput:
   if os.getenv('BUILD_BROKEN_DISABLE_BAZEL') is not None:
     raise RuntimeError(f'use -b {BuildType.SOONG_ONLY.to_flag()} '
                        f'instead of BUILD_BROKEN_DISABLE_BAZEL')
-  build_types: list[BuildType] = [i for sublist in options.build_types for i in
-                                  sublist]
+  build_types: tuple[BuildType] = \
+    tuple(BuildType(i) for sublist in options.build_types for i in sublist)
   if len(bazel_labels) > 0:
     non_b = [b.name for b in build_types if
              b != BuildType.B and b != BuildType.B_ANDROID]
@@ -209,8 +199,8 @@ def get_user_input() -> UserInput:
       sys.exit(1)
 
   if log_dir.is_relative_to(util.get_top_dir()):
-    sys.exit(f" choose a log_dir outside the source tree; "
-             f"{options.log_dir}' resolves to {log_dir}")
+    sys.exit(f"choose a log_dir outside the source tree; "
+             f"'{options.log_dir}' resolves to {log_dir}")
 
   if options.ci_mode:
     if len(chosen_cujgroups) > 1:
