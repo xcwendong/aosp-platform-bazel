@@ -14,6 +14,7 @@
 
 """A macro to handle shared library stripping."""
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load(":cc_library_common.bzl", "CcAndroidMkInfo", "check_valid_ldlibs")
 load(":clang_tidy.bzl", "collect_deps_clang_tidy_info")
 load(
@@ -58,17 +59,30 @@ def _get_strip_args(attrs):
     return strip_args
 
 # https://cs.android.com/android/platform/superproject/+/master:build/soong/cc/builder.go;l=131-146;drc=master
-def stripped_impl(ctx, prefix = "", suffix = "", extension = ""):
+def stripped_impl(ctx, prefix = "", stem = "", suffix = "", extension = "", subdir = ""):
     check_valid_ldlibs(ctx, ctx.attr.linkopts)
 
-    out_file = ctx.actions.declare_file(prefix + ctx.attr.name + suffix + extension)
+    filename_stem = stem or ctx.attr.name
+    filename = prefix + filename_stem + suffix + extension
+    out_file = ctx.actions.declare_file(
+        paths.join(
+            subdir,  # Prevent name collision by generating in a directory unique to the target
+            filename,
+        ),
+    )
     if not _needs_strip(ctx):
         ctx.actions.symlink(
             output = out_file,
             target_file = ctx.files.src[0],
         )
         return out_file
-    d_file = ctx.actions.declare_file(ctx.attr.name + ".d")
+    d_file = ctx.actions.declare_file(
+        paths.join(
+            subdir,
+            filename + ".d",
+        ),
+    )
+
     ctx.actions.run(
         env = {
             "CREATE_MINIDEBUGINFO": ctx.executable._create_minidebuginfo.path,
@@ -170,7 +184,7 @@ common_strip_attrs = dict(
 )
 
 def _stripped_shared_library_impl(ctx):
-    out_file = stripped_impl(ctx, prefix = "lib", extension = ".so")
+    out_file = stripped_impl(ctx, prefix = "lib", extension = ".so", subdir = ctx.attr.name)
 
     return [
         DefaultInfo(files = depset([out_file])),
@@ -212,7 +226,10 @@ def _stripped_binary_impl(ctx):
         for d in ctx.attr.androidmk_deps
     ]
 
-    out_file = stripped_impl(ctx, suffix = ctx.attr.suffix)
+    # Generate binary in a directory unique to this target to prevent possible collisions due to common `stem`
+    # Generate in `bin` to prevent incrementality issues for mixed builds where <package>/<name> could be a file and not a dir
+    subdir = paths.join("bin", ctx.attr.name)
+    out_file = stripped_impl(ctx, stem = ctx.attr.stem, suffix = ctx.attr.suffix, subdir = subdir)
 
     return [
         DefaultInfo(
@@ -237,6 +254,7 @@ _rule_attrs = dict(
         providers = [CcAndroidMkInfo],
         cfg = lto_and_sanitizer_deps_transition,
     ),
+    stem = attr.string(),
     suffix = attr.string(),
     unstripped = attr.label(
         mandatory = True,

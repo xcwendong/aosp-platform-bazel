@@ -18,9 +18,9 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(":cc_proto.bzl", "PROTO_GEN_NAME_SUFFIX", "cc_proto_library")
 
-PROTO_GEN = "external/protobuf/aprotoc"
+PROTO_GEN = "external/protobuf/bin/aprotoc/aprotoc"
 VIRTUAL_IMPORT = "_virtual_imports"
-RUNFILES = "_middlemen/external_Sprotobuf_Saprotoc-runfiles"
+RUNFILES = "_middlemen/external_Sprotobuf_Sbin_Saprotoc_Saprotoc-runfiles"
 
 GEN_SUFFIX = [
     ".pb.h",

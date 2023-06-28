@@ -40,8 +40,8 @@ ProductVariablesInfo = provider(
 ProductVariablesDepsInfo = provider(
     "ProductVariablesDepsInfo provides fields that are not regular product config variables, but rather the concrete files that other product config vars reference.",
     fields = {
-        "DefaultAppCertificateFiles": "All the .pk8, .pem, and .avbpubkey files in the DefaultAppCertificate directory.",
-        "OverridingCertificateFiles": "All the android_certificate_directory filegroups referenced by certificates in the CertificateOverrides mapping. Superset of DefaultAppCertificateFiles.",
+        "DefaultAppCertificateFilegroup": "The filegroup containing all .pk8, .pem, and .avbpubkey files in the DefaultAppCertificate directory.",
+        "OverridingCertificateFilegroups": "All filegroups of referenced certificates in the CertificateOverrides mapping.",
     },
 )
 
@@ -78,8 +78,8 @@ def _product_variables_providing_rule_impl(ctx):
             BuildVersionTags = vars.get("BuildVersionTags", []),
         ),
         ProductVariablesDepsInfo(
-            DefaultAppCertificateFiles = ctx.files.default_app_certificate_filegroup,
-            OverridingCertificateFiles = ctx.files.overriding_cert_filegroups,
+            DefaultAppCertificateFilegroup = ctx.attr.default_app_certificate_filegroup,
+            OverridingCertificateFilegroups = ctx.attr.overriding_cert_filegroups,
         ),
     ]
 
@@ -89,8 +89,8 @@ _product_variables_providing_rule = rule(
     attrs = {
         "attribute_vars": attr.string_dict(doc = "Variables that can be expanded using make-style syntax in attributes"),
         "product_vars": attr.string(doc = "Regular android product variables, a copy of the soong.variables file. Unfortunately this needs to be a json-encoded string because bazel attributes can only be simple types."),
-        "default_app_certificate_filegroup": attr.label(doc = "The filegroup that contains all the .pem, .pk8, and .avbpubkey files in $(dirname product_vars.DefaultAppCertificate)"),
-        "overriding_cert_filegroups": attr.label_list(doc = "All certificates that are used to override an android_app_certificate using the CertificatesOverride product variable."),
+        "default_app_certificate_filegroup": attr.label(doc = "Filegroup that contains all the .pem, .pk8, and .avbpubkey files in $(dirname product_vars.DefaultAppCertificate)"),
+        "overriding_cert_filegroups": attr.label_list(doc = "All filegroups of certs used to override an android_app_certificate using the CertificatesOverride product variable."),
     },
 )
 
@@ -130,7 +130,7 @@ def product_variables_providing_rule(
             pkg = modules.get(module_name)  # use the global mapping of module names to their enclosing package.
             if pkg:
                 # not everything is converted.
-                cert_filegroups["@" + pkg + ":android_certificate_directory"] = True
+                cert_filegroups["@" + pkg + ":" + module_name + "__internal_filegroup"] = True
 
     _product_variables_providing_rule(
         name = name,

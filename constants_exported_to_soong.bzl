@@ -13,5 +13,7 @@
 # limitations under the License.
 
 load("//build/bazel/rules/common/api_constants.bzl", _api_levels_released_versions = "api_levels_released_versions")
+load("//build/bazel/rules/env_variables.bzl", _CAPTURED_ENV_VARS = "CAPTURED_ENV_VARS")
 
 api_levels_released_versions = _api_levels_released_versions
+captured_env_vars = _CAPTURED_ENV_VARS

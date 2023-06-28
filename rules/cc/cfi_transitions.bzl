@@ -16,6 +16,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/bazel/product_config:android_product.bzl", "host_platforms")
 
 CFI_FEATURE = "android_cfi"
+CFI_ASSEMBLY_FEATURE = "android_cfi_assembly_support"
 DISABLE_CFI_FEATURE = "-" + CFI_FEATURE
 
 # This propagates CFI enablement and disablement down the dependency graph

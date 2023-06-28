@@ -22,7 +22,6 @@ sh_test(
         "//external/avb:avbtool",
         "//external/e2fsprogs/contrib/android:e2fsdroid",
         "//external/e2fsprogs/debugfs",
-        "//external/e2fsprogs/misc:blkid",
         "//external/e2fsprogs/misc:mke2fs",
         "//external/e2fsprogs/resize:resize2fs",
         "//external/erofs-utils:fsck.erofs",

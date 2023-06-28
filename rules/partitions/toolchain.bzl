@@ -16,15 +16,21 @@ PartitionToolchainInfo = provider(
     doc = "Partitions toolchain",
     fields = [
         "build_image",
+        "e2fsdroid",
+        "mke2fs",
         "mkuserimg_mke2fs",
+        "tune2fs",
     ],
 )
 
 def _partition_toolchain_impl(ctx):
     toolchain_info = platform_common.ToolchainInfo(
         toolchain_info = PartitionToolchainInfo(
-            build_image = ctx.file.build_image,
-            mkuserimg_mke2fs = ctx.file.mkuserimg_mke2fs,
+            build_image = ctx.attr.build_image,
+            e2fsdroid = ctx.attr.e2fsdroid,
+            mke2fs = ctx.attr.mke2fs,
+            mkuserimg_mke2fs = ctx.attr.mkuserimg_mke2fs,
+            tune2fs = ctx.attr.tune2fs,
         ),
     )
     return [toolchain_info]
@@ -32,7 +38,10 @@ def _partition_toolchain_impl(ctx):
 partition_toolchain = rule(
     implementation = _partition_toolchain_impl,
     attrs = {
-        "build_image": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
-        "mkuserimg_mke2fs": attr.label(allow_single_file = True, cfg = "exec", executable = True, mandatory = True),
+        "build_image": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "e2fsdroid": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "mke2fs": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "mkuserimg_mke2fs": attr.label(cfg = "exec", executable = True, mandatory = True),
+        "tune2fs": attr.label(cfg = "exec", executable = True, mandatory = True),
     },
 )

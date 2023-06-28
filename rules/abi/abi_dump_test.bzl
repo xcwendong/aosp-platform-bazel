@@ -55,7 +55,8 @@ def _abi_linker_action_test_impl(ctx):
 
     action = link_actions[0]
 
-    stripped_so = paths.join(bazel_out_base, "lib" + ctx.attr.lib_name + "_stripped.so")
+    output_lib_dir = ctx.attr.lib_name + "_stripped"
+    stripped_so = paths.join(bazel_out_base, output_lib_dir, "lib" + output_lib_dir + ".so")
     symbol_file = paths.join(ctx.label.package, ctx.attr.symbol_file)
     asserts.set_equals(
         env,

@@ -81,6 +81,7 @@ def py_proto_library(
         name,
         deps = [],
         target_compatible_with = [],
+        data = [],
         **kwargs):
     proto_lib_name = name + "_proto_gen"
 
@@ -98,6 +99,7 @@ def py_proto_library(
         name = name,
         srcs = [":" + proto_lib_name],
         deps = [":" + proto_lib_name] + (["//external/protobuf:libprotobuf-python"] if "libprotobuf-python" not in name else []),
+        data = data,
         target_compatible_with = target_compatible_with,
         **kwargs
     )

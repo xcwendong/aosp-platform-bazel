@@ -28,10 +28,6 @@ if [[ ! -f ${OUT_DIR}/soong/workspace/WORKSPACE ]]; then
     bp2build
 fi
 
-# to debug use `--run_under /usr/lib/python3.10/pdb.py`
-# or simply add `breakpoint()` in the code somewhere
 ANDROID_BUILD_TOP=$TOP "$TOP/build/bazel/bin/bazel" \
   run --config=bp2build --verbose_failures \
-  //build/bazel/scripts/incremental_build -- "$@"
-
-# Alternatively, we could use python_zip_file, https://github.com/bazelbuild/bazel/pull/9453
+  //build/bazel/scripts/incremental_build:pretty -- "$@"

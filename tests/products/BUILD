@@ -62,7 +62,7 @@ android_product(
                 "package_name_override_from_config:another.package",
             ],
             "CertificateOverrides": [
-                "apex_certificate_label_with_overrides:another.certificate",
+                "apex_certificate_label_with_overrides:another",
             ],
             "DefaultAppCertificate": "build/bazel/rules/apex/testdata/devkey",
         },

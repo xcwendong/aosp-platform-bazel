@@ -180,18 +180,29 @@ def _cc_binary_suffix_test_impl(ctx):
         len(outputs) == 1,
         "Expected 1 output file; got %s" % outputs,
     )
-    out = outputs[0].path
+    out = outputs[0]
     asserts.true(
         env,
-        out.endswith(suffix),
+        out.path.endswith(suffix),
         "Expected output filename to end in `%s`; it was instead %s" % (suffix, out),
     )
+
+    if ctx.attr.stem:
+        asserts.equals(
+            env,
+            out.basename,
+            ctx.attr.stem,
+            "Expected output filename %s to be equal to `stem` attribute %s" % (out, ctx.attr.stem),
+        )
 
     return analysistest.end(env)
 
 cc_binary_suffix_test = analysistest.make(
     _cc_binary_suffix_test_impl,
-    attrs = {"suffix": attr.string()},
+    attrs = {
+        "stem": attr.string(),
+        "suffix": attr.string(),
+    },
 )
 
 def _cc_binary_suffix():
@@ -223,6 +234,23 @@ def _cc_binary_empty_suffix():
     )
     cc_binary_suffix_test(
         name = test_name,
+        target_under_test = name,
+    )
+    return test_name
+
+def _cc_binary_with_stem():
+    name = "cc_binary_with_stem"
+    test_name = name + "_test"
+
+    cc_binary(
+        name,
+        srcs = ["src.cc"],
+        stem = "bar",
+        tags = ["manual"],
+    )
+    cc_binary_suffix_test(
+        name = test_name,
+        stem = "bar",
         target_under_test = name,
     )
     return test_name
@@ -325,6 +353,7 @@ def cc_binary_test_suite(name):
             _cc_binary_strip_all(),
             _cc_binary_suffix(),
             _cc_binary_empty_suffix(),
+            _cc_binary_with_stem(),
             _cc_binary_bad_linkopts(),
         ] + _cc_binary_provides_androidmk_info(),
     )

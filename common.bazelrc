@@ -100,6 +100,7 @@ build --nouse_workers_with_dexbuilder
 build --python_top=//prebuilts/build-tools:python3
 build --noincompatible_use_python_toolchains
 
+
 # Enable optimization compilation mode to build cc with fdo
 # https://github.com/bazelbuild/bazel/blob/de7b26acfdfcd9c36ec957305a889ac29f0da30e/src/main/java/com/google/devtools/build/lib/rules/cpp/FdoHelper.java#L55
 build --compilation_mode=opt
@@ -138,3 +139,8 @@ build --noexperimental_link_static_libraries_once
 #
 # See also message in https://github.com/bazelbuild/bazel/commit/2e558ed5dccdcc72622df52bf6d4dfe90ddc390c
 build --noincompatible_python_disallow_native_rules
+
+# Google internal operations
+try-import %workspace%/vendor/google/tools/soong_config/googler.bazelrc
+
+build --incompatible_visibility_private_attributes_at_definition

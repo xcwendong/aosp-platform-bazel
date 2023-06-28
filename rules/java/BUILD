@@ -22,6 +22,7 @@ load(":host_for_device_test.bzl", "host_for_device_test_suite")
 load(":java_system_modules_test.bzl", "java_system_modules_test_suite")
 load(":java_xsd_config_library_test.bzl", "java_xsd_config_library_test_suite")
 load(":merged_txts_test.bzl", "merged_txts_test_suite")
+load(":platform_compat_config_test.bzl", "platform_compat_config_test_suite")
 load(":sdk_library_test.bzl", "java_sdk_library_test_suite")
 load(":sdk_transition_test.bzl", "sdk_transition_test_suite")
 load(":versions.bzl", "java_versions")
@@ -46,6 +47,8 @@ sdk_transition_test_suite(name = "sdk_transition_tests")
 host_for_device_test_suite(name = "host_for_device_test_suite")
 
 java_xsd_config_library_test_suite(name = "java_xsd_config_library_tests")
+
+platform_compat_config_test_suite(name = "platform_compat_config_tests")
 
 string_setting(
     name = "version",

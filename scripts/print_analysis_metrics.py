@@ -22,12 +22,15 @@ may pass in a different directory instead using the metrics_files_dir flag.
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tarfile
 
-from google.protobuf import json_format
-from metrics_proto.metrics_pb2 import SoongBuildMetrics, MetricsBase
 from bazel_metrics_proto.bazel_metrics_pb2 import BazelMetrics
+from bp2build_metrics_proto.bp2build_metrics_pb2 import Bp2BuildMetrics, UnconvertedReasonType
+from google.protobuf import json_format
+from metrics_proto.metrics_pb2 import MetricsBase, SoongBuildMetrics
 
 
 class Event(object):
@@ -79,17 +82,22 @@ def _write_event(out, event):
   )
 
 
-def _print_soong_build_metrics(soong_build_metrics):
+def _print_metrics_event_times(description, metrics):
   # Bail if there are no events
-  raw_events = soong_build_metrics.events
+  raw_events = metrics.events
   if not raw_events:
-    print("No events to display")
+    print("%s: No events to display" % description)
     return
+  print("-- %s events --" % description)
 
   # Update the start times to be based on the first event
   first_time_ns = min([event.start_time for event in raw_events])
   events = [
-      Event(e.description, e.start_time - first_time_ns, e.real_time)
+      Event(
+          getattr(e, "description", e.name),
+          e.start_time - first_time_ns,
+          e.real_time,
+      )
       for e in raw_events
   ]
 
@@ -101,6 +109,7 @@ def _print_soong_build_metrics(soong_build_metrics):
 
   for event in events:
     _write_event(sys.stdout, event)
+  print()
 
 
 def _format_ns(duration_ns):
@@ -128,69 +137,213 @@ def _save_file(data, file):
     f.close()
 
 
-def main():
-  # Parse args
-  parser = argparse.ArgumentParser(
-      description=(
-          "Parses metrics protocol buffer files from the user's most recent"
-          " build and prints "
-          + " metrics events in a user-friendly format. Information will be"
-          " saved by default in "
-          + " out/analyze_build_output."
-      )
-      + " It will also save those protos in a json format by default.",
-      prog="analyze_build",
-  )
+def _handle_missing_metrics(args, filename):
+  """Handles cleanup for a metrics file that doesn't exist.
+
+  This will delete any output files under the tool's output directory that
+  would have been generated as a result of a metrics file from a previous
+  build. This prevents stale analysis files from polluting the output dir.
+  """
+  if args.skip_metrics:
+    # If skip_metrics is enabled, then don't write or delete any data.
+    return
+  output_filepath = _get_output_file(args.output_dir, filename)
+  if os.path.exists(output_filepath):
+    os.remove(output_filepath)
+
+
+def process_timing_mode(args):
+  metrics_files_dir = args.metrics_files_dir
+  if not args.skip_metrics:
+    os.makedirs(args.output_dir, exist_ok=True)
+    print("Writing build analysis files to " + args.output_dir, file=sys.stderr)
+
+  bp2build_file = os.path.join(metrics_files_dir, "bp2build_metrics.pb")
+  if os.path.exists(bp2build_file):
+    bp2build_metrics = Bp2BuildMetrics()
+    _read_data(bp2build_file, bp2build_metrics)
+    _print_metrics_event_times("bp2build", bp2build_metrics)
+    _maybe_save_data(bp2build_metrics, "bp2build_metrics.pb", args)
+  else:
+    _handle_missing_metrics(args, "bp2build_metrics.pb")
+
+  soong_build_file = os.path.join(metrics_files_dir, "soong_build_metrics.pb")
+  if os.path.exists(soong_build_file):
+    soong_build_metrics = SoongBuildMetrics()
+    _read_data(soong_build_file, soong_build_metrics)
+    _print_metrics_event_times("soong_build", soong_build_metrics)
+    _maybe_save_data(soong_build_metrics, "soong_build_metrics.pb", args)
+  else:
+    _handle_missing_metrics(args, "soong_build_metrics.pb")
+
+  soong_metrics_file = os.path.join(metrics_files_dir, "soong_metrics")
+  if os.path.exists(soong_metrics_file):
+    metrics_base = MetricsBase()
+    _read_data(soong_metrics_file, metrics_base)
+    _maybe_save_data(metrics_base, "soong_metrics", args)
+  else:
+    _handle_missing_metrics(args, "soong_metrics")
+
+  bazel_metrics_file = os.path.join(metrics_files_dir, "bazel_metrics.pb")
+  if os.path.exists(bazel_metrics_file):
+    bazel_metrics = BazelMetrics()
+    _read_data(bazel_metrics_file, bazel_metrics)
+    _maybe_save_data(bazel_metrics, "bazel_metrics.pb", args)
+  else:
+    _handle_missing_metrics(args, "bazel_metrics.pb")
+
+
+def process_build_files_mode(args):
+  if args.skip_metrics:
+    raise Exception("build_files mode incompatible with --skip-metrics")
+  os.makedirs(args.output_dir, exist_ok=True)
+  tar_out = os.path.join(args.output_dir, "build_files.tar.gz")
+
+  os.chdir(args.metrics_files_dir)
+
+  if os.path.exists(tar_out):
+    os.remove(tar_out)
+  print("adding build files to", tar_out, "...", file=sys.stderr)
+
+  with tarfile.open(tar_out, "w:gz", dereference=True) as tar:
+    for root, dirs, files in os.walk("."):
+      for file in files:
+        if (
+            file.endswith(".bzl")
+            or file.endswith("BUILD")
+            or file.endswith("BUILD.bazel")
+        ):
+          tar.add(os.path.join(root, file), arcname=os.path.join(root, file))
+
+
+def process_bp2build_mode(args):
+  metrics_files_dir = args.metrics_files_dir
+  if not args.skip_metrics:
+    os.makedirs(args.output_dir, exist_ok=True)
+    print("Writing build analysis files to " + args.output_dir, file=sys.stderr)
+
+  bp2build_file = os.path.join(metrics_files_dir, "bp2build_metrics.pb")
+  if not os.path.exists(bp2build_file):
+    raise Exception("bp2build mode requires that the last build ran bp2build")
+
+  bp2build_metrics = Bp2BuildMetrics()
+  _read_data(bp2build_file, bp2build_metrics)
+  _maybe_save_data(bp2build_metrics, "bp2build_metrics.pb", args)
+  converted_modules = {}
+  for module in bp2build_metrics.convertedModules:
+    converted_modules[module] = True
+
+  for name in args.module_names:
+    if name in converted_modules:
+      print(name, "converted successfully.")
+    elif name in bp2build_metrics.unconvertedModules:
+      unconverted_summary = name + " not converted: "
+      t = bp2build_metrics.unconvertedModules[name].type
+      if t > -1 and t < len(UnconvertedReasonType.keys()):
+        unconverted_summary += UnconvertedReasonType.keys()[t]
+      else:
+        unconverted_summary += "UNKNOWN_TYPE"
+      if len(bp2build_metrics.unconvertedModules[name].detail) > 0:
+        unconverted_summary += (
+            " detail: " + bp2build_metrics.unconvertedModules[name].detail
+        )
+      print(unconverted_summary)
+    else:
+      print(name, "does not exist.")
+
+
+def _define_global_flags(parser, suppress_default=False):
+  """Adds global flags to the given parser object.
+
+  Global flags should be added to both the global args parser and subcommand
+  parsers. This allows global flags to be specified before or after the
+  subcommand.
+
+  Subcommand parser binding should pass suppress_default=True. This uses the
+  default value specified in the global parser.
+  """
   parser.add_argument(
-      "metrics_files_dir",
-      nargs="?",
-      default=_get_default_metrics_dir(),
+      "--metrics_files_dir",
+      default=(
+          argparse.SUPPRESS if suppress_default else _get_default_metrics_dir()
+      ),
       help="The directory contained metrics files to analyze."
       + " Defaults to $OUT_DIR if set, $ANDROID_BUILD_TOP/out otherwise.",
   )
   parser.add_argument(
       "--skip-metrics",
       action="store_true",
+      default=(argparse.SUPPRESS if suppress_default else None),
       help="If set, do not save the output of printproto commands.",
   )
   parser.add_argument(
-      "output_dir",
-      nargs="?",
+      "--output_dir",
+      default=(argparse.SUPPRESS if suppress_default else None),
       help="The directory to save analyzed proto output to. "
       + "If unspecified, will default to the directory specified with"
       " --metrics_files_dir + '/analyze_build_output/'",
   )
+
+
+def main():
+  # Parse args
+  parser = argparse.ArgumentParser(
+      description=(
+          "Analyzes build artifacts from the user's most recent build. Prints"
+          " and/or saves data in a user-friendly format. See"
+          " subcommand-specific help for analysis options."
+      ),
+      prog="analyze_build",
+  )
+  _define_global_flags(parser)
+  subparsers = parser.add_subparsers(
+      title="subcommands",
+      help='types of analysis to run, "timing" by default.',
+      dest="mode",
+  )
+  timing_parser = subparsers.add_parser(
+      "timing", help="print per-phase build timing information"
+  )
+  _define_global_flags(timing_parser, True)
+  build_files_parser = subparsers.add_parser(
+      "build_files",
+      help="create a tar containing all bazel-related build files",
+  )
+  _define_global_flags(build_files_parser, True)
+  bp2build_parser = subparsers.add_parser(
+      "bp2build",
+      help="print whether a module was generated by bp2build",
+  )
+  _define_global_flags(bp2build_parser, True)
+  bp2build_parser.add_argument(
+      "module_names",
+      nargs="+",
+      help="print conversion info about these modules",
+  )
+
   args = parser.parse_args()
 
-  # Check the metrics file
-  metrics_files_dir = args.metrics_files_dir
-  args.output_dir = args.output_dir or _get_default_out_dir(metrics_files_dir)
-  if not args.skip_metrics:
-    os.makedirs(args.output_dir, exist_ok=True)
-
-  if not os.path.exists(metrics_files_dir):
+  # Use `timing` as the default build mode.
+  if not args.mode:
+    args.mode = "timing"
+  # Check the metrics dir.
+  if not os.path.exists(args.metrics_files_dir):
     raise Exception(
-        "File " + metrics_files_dir + " not found. Did you run a build?"
+        "Directory "
+        + arg.metrics_files_dir
+        + " not found. Did you run a build?"
     )
 
-  soong_build_file = os.path.join(metrics_files_dir, "soong_build_metrics.pb")
-  if os.path.exists(soong_build_file):
-    soong_build_metrics = SoongBuildMetrics()
-    _read_data(soong_build_file, soong_build_metrics)
-    _print_soong_build_metrics(soong_build_metrics)
-    _maybe_save_data(soong_build_metrics, "soong_build_metrics.pb", args)
+  args.output_dir = args.output_dir or _get_default_out_dir(
+      args.metrics_files_dir
+  )
 
-  soong_metrics_file = os.path.join(metrics_files_dir, "soong_metrics")
-  if os.path.exists(soong_metrics_file) and not args.skip_metrics:
-    metrics_base = MetricsBase()
-    _read_data(soong_metrics_file, metrics_base)
-    _maybe_save_data(metrics_base, "soong_metrics", args)
-
-  bazel_metrics_file = os.path.join(metrics_files_dir, "bazel_metrics.pb")
-  if os.path.exists(bazel_metrics_file) and not args.skip_metrics:
-    bazel_metrics = BazelMetrics()
-    _read_data(bazel_metrics_file, bazel_metrics)
-    _maybe_save_data(bazel_metrics, "bazel_metrics.pb", args)
+  if args.mode == "timing":
+    process_timing_mode(args)
+  elif args.mode == "build_files":
+    process_build_files_mode(args)
+  elif args.mode == "bp2build":
+    process_bp2build_mode(args)
 
 
 if __name__ == "__main__":

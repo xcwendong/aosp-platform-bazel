@@ -39,6 +39,7 @@ load(":cfi_transition_test.bzl", "cfi_transition_test_suite")
 load(":clang_tidy_test.bzl", "clang_tidy_test_suite")
 load(":flex_test.bzl", "flex_test_suite")
 load(":lto_transitions_test.bzl", "lto_transition_test_suite")
+load(":rscript_to_cpp_test.bzl", "rscript_to_cpp_test_suite")
 load(":stl_test.bzl", "stl_test_suite")
 load(":yasm_test.bzl", "yasm_test_suite")
 
@@ -47,9 +48,35 @@ config_setting(
     values = {"collect_code_coverage": "True"},
 )
 
+bool_setting(
+    name = "cfi_assembly",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "coverage_cfi_enabled",
+    flag_values = {":cfi_assembly": "True"},
+)
+
+config_setting(
+    name = "coverage_cfi_disabled",
+    flag_values = {":cfi_assembly": "False"},
+)
+
+selects.config_setting_group(
+    name = "android_coverage_lib_flag_cfi",
+    match_all = [
+        ":coverage_cfi_enabled",
+        ":coverage_lib_flag",
+        "//build/bazel/platforms/os:android_config_setting",
+    ],
+)
+
 selects.config_setting_group(
     name = "android_coverage_lib_flag",
     match_all = [
+        ":coverage_cfi_disabled",
         ":coverage_lib_flag",
         "//build/bazel/platforms/os:android_config_setting",
     ],
@@ -124,3 +151,5 @@ lto_transition_test_suite(name = "lto_transition_tests")
 stl_test_suite(name = "stl_tests")
 
 yasm_test_suite(name = "yasm_tests")
+
+rscript_to_cpp_test_suite(name = "rscript_to_cpp_tests")

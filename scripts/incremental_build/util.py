@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import csv
+import dataclasses
 import datetime
+import enum
 import functools
 import glob
+import json
 import logging
 import os
 import re
@@ -22,10 +25,14 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
+from typing import Callable
 from typing import Final
 from typing import Generator
 
 INDICATOR_FILE: Final[str] = 'build/soong/soong_ui.bash'
+# metrics.csv is written to but not read by this tool.
+# It's supposed to be viewed as a spreadsheet that compiles data from multiple
+# builds to be analyzed by other external tools.
 METRICS_TABLE: Final[str] = 'metrics.csv'
 SUMMARY_TABLE: Final[str] = 'summary.csv'
 RUN_DIR_PREFIX: Final[str] = 'run'
@@ -35,15 +42,81 @@ BUILD_INFO_JSON: Final[str] = 'build_info.json'
 @functools.cache
 def _is_important(column) -> bool:
   patterns = {
-      'description', 'build_type', r'build\.ninja(\.size)?', 'targets',
-      'log', 'actions', 'time',
-      'soong/soong', 'bp2build/', 'symlink_forest/', r'soong_build/\*',
-      r'soong_build/\*\.bazel', 'kati/kati build', 'ninja/ninja'
+      'actions', r'build_ninja_(?:hash|size)', 'build_root_deps', 'build_type',
+      'cquery_out_size', 'description', r'mixed\.enabled', 'log', 'time',
+      'targets', 'soong/soong', r'kati/kati (?:build|package)',
+      'bp2build', 'symlink_forest', r'soong_build/\*(?:\.bazel)?', 'ninja/ninja'
   }
   for pattern in patterns:
     if re.fullmatch(pattern, column):
       return True
   return False
+
+
+class BuildResult(enum.Enum):
+  SUCCESS = enum.auto()
+  FAILED = enum.auto()
+  TEST_FAILURE = enum.auto()
+
+
+class BuildType(enum.Enum):
+  # see https://docs.python.org/3/library/enum.html#enum.Enum._ignore_
+  _ignore_ = '_soong_cmd'
+  # _sooong_cmd_ will not be listed as an enum constant because of `_ignore_`
+  _soong_cmd = ['build/soong/soong_ui.bash',
+                '--make-mode',
+                '--skip-soong-tests']
+
+  SOONG_ONLY = [*_soong_cmd, 'BUILD_BROKEN_DISABLE_BAZEL=true']
+  MIXED_PROD = [*_soong_cmd, '--bazel-mode']
+  MIXED_STAGING = [*_soong_cmd, '--bazel-mode-staging']
+  B = ['build/bazel/bin/b', 'build']
+  B_ANDROID = [*B, '--config=android']
+
+  @staticmethod
+  def from_flag(s: str) -> list['BuildType']:
+    chosen: list[BuildType] = []
+    for e in BuildType:
+      if s.lower() in e.name.lower():
+        chosen.append(e)
+    if len(chosen) == 0:
+      raise RuntimeError(f'no such build type: {s}')
+    return chosen
+
+  def to_flag(self):
+    return self.name.lower()
+
+
+CURRENT_BUILD_TYPE: BuildType
+"""global state capturing what the current build type is"""
+
+
+@dataclasses.dataclass
+class BuildInfo:
+  build_type: BuildType
+  build_result: BuildResult
+  build_ninja_hash: str  # hash
+  build_ninja_size: int
+  product: str
+  time: datetime.timedelta
+  actions: int
+  build_root_deps: int
+  cquery_out_size: int = None
+  description: str = '<unset>'
+  warmup: bool = False
+  rebuild: bool = False
+  targets: tuple[str, ...] = None
+
+
+class CustomEncoder(json.JSONEncoder):
+  def default(self, obj):
+    if isinstance(obj, BuildInfo):
+      return dataclasses.asdict(obj)
+    if isinstance(obj, datetime.timedelta):
+      return hhmmss(obj, decimal_precision=True)
+    if isinstance(obj, enum.Enum):
+      return obj.name
+    return json.JSONEncoder.default(self, obj)
 
 
 def get_csv_columns_cmd(d: Path) -> str:
@@ -52,7 +125,7 @@ def get_csv_columns_cmd(d: Path) -> str:
   :return: a quick shell command to view columns in metrics.csv
   """
   csv_file = d.joinpath(METRICS_TABLE)
-  return f'head -n 1 "{csv_file.absolute()}" | sed "s/,/\\n/g" | nl'
+  return f'head -n 1 "{csv_file.absolute()}" | sed "s/,/\\n/g" | less -N'
 
 
 def get_cmd_to_display_tabulated_metrics(d: Path, ci_mode: bool) -> str:
@@ -68,19 +141,18 @@ def get_cmd_to_display_tabulated_metrics(d: Path, ci_mode: bool) -> str:
       reader = csv.DictReader(r)
       headers = reader.fieldnames or []
 
-  columns: list[int] = [i for i, h in enumerate(headers) if _is_important(h)]
+  cols: list[int] = [i + 1 for i, h in enumerate(headers) if _is_important(h)]
   if ci_mode:
     # ci mode contains all information about the top level events
     for i, h in enumerate(headers):
-      if re.match(r'^\w+/[^.]+$', h) and i not in columns:
-        columns.append(i)
+      if re.match(r'^\w+/[^.]+$', h) and i not in cols:
+        cols.append(i)
 
-  if len(columns):
-    # just so that the command is "correct" even if the file doesn't exist
-    # or is empty
-    columns.append(1)
+  if len(cols) == 0:
+    # syntactically correct command even if the file doesn't exist or is empty
+    cols.append(1)
 
-  f = ','.join(str(i + 1) for i in columns)
+  f = ','.join(str(i) for i in cols)
   # the sed invocations are to account for
   # https://man7.org/linux/man-pages/man1/column.1.html#BUGS
   # example: if a row were `,,,hi,,,,`
@@ -165,20 +237,11 @@ def has_uncommitted_changes() -> bool:
   for cmd in ['diff', 'diff --staged']:
     diff = subprocess.run(
         args=f'repo forall -c git {cmd} --quiet --exit-code'.split(),
-        cwd=get_top_dir(), text=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL)
+        cwd=get_top_dir(), text=True, capture_output=True)
     if diff.returncode != 0:
+      logging.error(diff.stderr)
       return True
   return False
-
-
-@functools.cache
-def is_ninja_dry_run(ninja_args: str = None) -> bool:
-  if ninja_args is None:
-    ninja_args = os.environ.get('NINJA_ARGS') or ''
-  ninja_dry_run = re.compile(r'(?:^|\s)-n\b')
-  return ninja_dry_run.search(ninja_args) is not None
 
 
 def is_git_repo(p: Path) -> bool:
@@ -287,3 +350,11 @@ def period_to_seconds(s: str) -> float:
       s = right[0]
     else:
       return acc
+
+
+def groupby(xs: list[dict], key: Callable[[dict], str]) -> dict[
+  str, list[dict]]:
+  grouped = {}
+  for x in xs:
+    grouped.setdefault(key(x), []).append(x)
+  return grouped

@@ -12,24 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import dataclasses
-import enum
 import functools
 import io
 import logging
-import os
 import shutil
 import tempfile
 import textwrap
 import uuid
-from enum import Enum
 from pathlib import Path
-from typing import Callable, Optional
 from typing import Final
-from typing import TypeAlias
+from typing import Optional
 
-import util
+import clone
 import ui
+import util
+from cuj import CujGroup
+from cuj import CujStep
+from cuj import InWorkspace
+from cuj import Verifier
+from cuj import de_src
+from cuj import skip_for
+from cuj import src
+from util import BuildType
 
 """
 Provides some representative CUJs. If you wanted to manually run something but
@@ -37,127 +41,8 @@ would like the metrics to be collated in the metrics.csv file, use
 `perf_metrics.py` as a stand-alone after your build.
 """
 
-
-class BuildResult(Enum):
-  SUCCESS = enum.auto()
-  FAILED = enum.auto()
-  TEST_FAILURE = enum.auto()
-
-
-Action: TypeAlias = Callable[[], None]
-Verifier: TypeAlias = Callable[[], None]
-
-
-def skip_when_soong_only(func: Verifier) -> Verifier:
-  """A decorator for Verifiers that are not applicable to soong-only builds"""
-
-  def wrapper():
-    if InWorkspace.ws_counterpart(util.get_top_dir()).exists():
-      func()
-
-  return wrapper
-
-
-@skip_when_soong_only
-def verify_symlink_forest_has_only_symlink_leaves():
-  """Verifies that symlink forest has only symlinks or directories but no
-  files except for merged BUILD.bazel files"""
-
-  top_in_ws = InWorkspace.ws_counterpart(util.get_top_dir())
-
-  for root, dirs, files in os.walk(top_in_ws, topdown=True, followlinks=False):
-    for file in files:
-      if file == 'symlink_forest_version' and top_in_ws.samefile(root):
-        continue
-      f = Path(root).joinpath(file)
-      if file != 'BUILD.bazel' and not f.is_symlink():
-        raise AssertionError(f'{f} unexpected')
-
-  logging.info('VERIFIED Symlink Forest has no real files except BUILD.bazel')
-
-
-@dataclasses.dataclass(frozen=True)
-class CujStep:
-  verb: str
-  """a human-readable description"""
-  apply_change: Action
-  """user action(s) that are performed prior to a build attempt"""
-  verify: Verifier = verify_symlink_forest_has_only_symlink_leaves
-  """post-build assertions, i.e. tests.
-  Should raise `Exception` for failures.
-  """
-
-
-@dataclasses.dataclass(frozen=True)
-class CujGroup:
-  """A sequence of steps to be performed, such that at the end of all steps the
-  initial state of the source tree is attained.
-  NO attempt is made to achieve atomicity programmatically. It is left as the
-  responsibility of the user.
-  """
-  description: str
-  steps: list[CujStep]
-
-  def __str__(self) -> str:
-    if len(self.steps) < 2:
-      return f'{self.steps[0].verb} {self.description}'.strip()
-    return ' '.join(
-        [f'({chr(ord("a") + i)}) {step.verb} {self.description}'.strip() for
-         i, step in enumerate(self.steps)])
-
-
 Warmup: Final[CujGroup] = CujGroup('WARMUP',
                                    [CujStep('no change', lambda: None)])
-
-
-class InWorkspace(Enum):
-  """For a given file in the source tree, the counterpart in the symlink forest
-   could be one of these kinds.
-  """
-  SYMLINK = enum.auto()
-  NOT_UNDER_SYMLINK = enum.auto()
-  UNDER_SYMLINK = enum.auto()
-  OMISSION = enum.auto()
-
-  @staticmethod
-  def ws_counterpart(src_path: Path) -> Path:
-    return util.get_out_dir().joinpath('soong/workspace').joinpath(
-        de_src(src_path))
-
-  def verifier(self, src_path: Path) -> Verifier:
-    @skip_when_soong_only
-    def f():
-      ws_path = InWorkspace.ws_counterpart(src_path)
-      actual: Optional[InWorkspace] = None
-      if ws_path.is_symlink():
-        actual = InWorkspace.SYMLINK
-        if not ws_path.exists():
-          logging.warning('Dangling symlink %s', ws_path)
-      elif not ws_path.exists():
-        actual = InWorkspace.OMISSION
-      else:
-        for p in ws_path.parents:
-          if not p.is_relative_to(util.get_out_dir()):
-            actual = InWorkspace.NOT_UNDER_SYMLINK
-            break
-          if p.is_symlink():
-            actual = InWorkspace.UNDER_SYMLINK
-            break
-
-      if self != actual:
-        raise AssertionError(
-            f'{ws_path} expected {self.name} but got {actual.name}')
-      logging.info(f'VERIFIED {de_src(ws_path)} {self.name}')
-
-    return f
-
-
-def de_src(p: Path) -> str:
-  return str(p.relative_to(util.get_top_dir()))
-
-
-def src(p: str) -> Path:
-  return util.get_top_dir().joinpath(p)
 
 
 def modify_revert(file: Path, text: Optional[str] = None) -> CujGroup:
@@ -311,14 +196,14 @@ def content_verfiers(
           return True
     return False
 
-  @skip_when_soong_only
+  @skip_for(BuildType.SOONG_ONLY)
   def contains():
     if not search():
       raise AssertionError(
           f'{de_src(ws_build_file)} expected to contain {content}')
     logging.info(f'VERIFIED {de_src(ws_build_file)} contains {content}')
 
-  @skip_when_soong_only
+  @skip_for(BuildType.SOONG_ONLY)
   def does_not_contain():
     if search():
       raise AssertionError(
@@ -479,6 +364,11 @@ def get_cujgroups() -> list[CujGroup]:
   return [
       CujGroup('', [CujStep('clean', clean)]),
       CujGroup('', Warmup.steps),
+      clone.get_cuj_group(
+          src('packages/modules/adb/Android.bp'), 'adbd'),
+      clone.get_cuj_group(
+          src('packages/modules/NeuralNetworks/runtime/Android.bp'),
+          'libneuralnetworks'),
 
       create_delete(src('bionic/libc/tzcode/globbed.c'),
                     InWorkspace.UNDER_SYMLINK),

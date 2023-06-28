@@ -5,30 +5,6 @@ load("//build/bazel/rules:soong_injection.bzl", "soong_injection_repository")
 
 soong_injection_repository(name = "soong_injection")
 
-# ! WARNING ! WARNING ! WARNING !
-# make_injection is a repository rule to allow Bazel builds to depend on
-# Soong-built prebuilts for experimental purposes. It is fragile, slow, and
-# works for very limited use cases. Do not add a dependency that will cause
-# make_injection to run for any prod builds or tests.
-#
-# If you need to add something in this list, please contact the Roboleaf
-# team and ask jingwen@ for a review.
-load("//build/bazel/rules:make_injection.bzl", "make_injection_repository")
-
-make_injection_repository(
-    name = "make_injection",
-    binaries = [
-        "build_image",
-        "mkuserimg_mke2fs",
-    ],
-    target_module_files = {},
-    watch_android_bp_files = [
-        "//:build/make/tools/releasetools/Android.bp",  # for build_image
-        "//:system/extras/ext4_utils/Android.bp",  # for mkuserimg_mke2fs
-    ],
-)
-# ! WARNING ! WARNING ! WARNING !
-
 load("//build/bazel/rules:env.bzl", "env_repository")
 
 env_repository(
@@ -189,3 +165,48 @@ register_toolchains("@rules_kotlin//toolchains/kotlin_jvm:kt_jvm_toolchain")
 load("//prebuilts/clang/host/linux-x86:cc_toolchain_config.bzl", "cc_register_toolchains")
 
 cc_register_toolchains()
+
+local_repository(
+    name = "io_bazel_rules_go",
+    path = "external/bazelbuild-rules_go",
+)
+
+load(
+    "@io_bazel_rules_go//go:deps.bzl",
+    "go_register_toolchains",
+    "go_rules_dependencies",
+    "go_wrap_sdk",
+)
+
+go_wrap_sdk(
+    name = "go_sdk",
+    # Add coveragedesign to experiments. This is a temporary hack due to two separate issues combinining together
+    # 1. android:
+    # Starting with go 1.20, the standard go sdk does not ship with .a files for the standard libraries
+    # However, this breaks the go rules in build/blueprint. As a temporary workaround, we distribute prebuilts of the standard libaries
+    # in prebuilts/go using GODEBUG='installgoroot=all' in the prebuilt update script
+    #
+    # 2. rules_go:
+    # coverage is not supported in rules_go, and therefore it adds nocoveragedesign to GOEXPERIMENT. This is not an issue for non Android cases
+    # since the go SDK used in those cases does not contain prebuilts of standard libraries. The stdlib is built from scratch with `nocoverageredesign`.
+    #
+    # Without this, we run into isues during compilation
+    # ```
+    # GoCompilePkg build/blueprint/blueprint-deptools.a failed
+    # build/blueprint/deptools/depfile.go:18:2: could not import fmt (object is [go object linux amd64 go1.20.2 GOAMD64=v1 X:unified,regabiwrappers,regabiargs,coverageredesign
+    #                                                                                                                                                          ^^^^^^^^^^^^^^^^
+    # ] expected [go object linux amd64 go1.20.2 GOAMD64=v1 X:unified,regabiwrappers,regabiargs
+    # ```
+    # TODO - b/288456805: Remove this hardcoded experiment value
+    experiments = ["coverageredesign"],
+    # The expected key format is <goos>_<goarch>
+    # The value is any file in the GOROOT for that platform
+    root_files = {
+        "linux_amd64": "@//:prebuilts/go/linux-x86/README.md",
+        "darwin_amd64": "@//prebuilts/go/darwin-x86/README.md",
+    },
+)
+
+go_rules_dependencies()
+
+go_register_toolchains(experiments = [])

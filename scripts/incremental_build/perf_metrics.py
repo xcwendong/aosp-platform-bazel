@@ -39,10 +39,9 @@ class PerfInfoOrEvent:
   A duck-typed union of `soong_build_metrics.PerfInfo` and
   `soong_build_bp2build_metrics.Event` protobuf message types
   """
-  name: str
+  id: str
   real_time: datetime.timedelta
   start_time: datetime.datetime
-  description: str = ''  # Bp2BuildMetrics#Event doesn't have description
 
   def __post_init__(self):
     if isinstance(self.real_time, int):
@@ -70,13 +69,13 @@ def _copy_pbs_to(d: Path):
     shutil.copy(bp2build_pb, d.joinpath(BP2BUILD_PB))
 
 
-def archive_run(d: Path, build_info: dict[str, any]):
+def archive_run(d: Path, build_info: util.BuildInfo):
   _copy_pbs_to(d)
   with open(d.joinpath(util.BUILD_INFO_JSON), 'w') as f:
-    json.dump(build_info, f, indent=True)
+    json.dump(build_info, f, indent=True, cls=util.CustomEncoder)
 
 
-def read_pbs(d: Path) -> dict[str, str]:
+def read_pbs(d: Path) -> tuple[dict[str, any], list[PerfInfoOrEvent]]:
   """
   Reads metrics data from pb files and archives the file by copying
   them under the log_dir.
@@ -91,6 +90,11 @@ def read_pbs(d: Path) -> dict[str, str]:
 
   events: list[PerfInfoOrEvent] = []
 
+  def gen_id(name: str, desc: str) -> str:
+    # Bp2BuildMetrics#Event doesn't have description
+    normalized = re.sub(r'^(?:soong_build|mixed_build)', '*', desc)
+    return f'{name}/{normalized}'
+
   def extract_perf_info(root_obj):
     for field_name in dir(root_obj):
       if field_name.startswith('__'):
@@ -101,8 +105,9 @@ def read_pbs(d: Path) -> dict[str, str]:
           if not isinstance(item, PerfInfo):
             break
           events.append(
-            PerfInfoOrEvent(item.name, item.real_time, item.start_time,
-                            item.description))
+              PerfInfoOrEvent(gen_id(item.name, item.description),
+                              item.real_time,
+                              item.start_time))
 
   if soong_pb.exists():
     metrics_base = MetricsBase()
@@ -122,25 +127,22 @@ def read_pbs(d: Path) -> dict[str, str]:
       bp2build_metrics.ParseFromString(f.read())
     for event in bp2build_metrics.events:
       events.append(
-        PerfInfoOrEvent(event.name, event.real_time, event.start_time, ''))
+          PerfInfoOrEvent(event.name, event.real_time, event.start_time))
 
   events.sort(key=lambda e: e.start_time)
 
-  def normalize(desc: str) -> str:
-    return re.sub(r'^(?:soong_build|mixed_build)', '*', desc)
-
   retval = {}
   if soong_build_metrics.mixed_builds_info:
-    ll = soong_build_metrics.mixed_builds_info.mixed_build_enabled_modules
-    if ll:
-      retval['mixed.enabled'] = len(ll)
-    ll = soong_build_metrics.mixed_builds_info.mixed_build_disabled_modules
-    if ll:
-      retval['mixed.disabled'] = len(ll)
-  for m in events:
-    retval[f'{m.name}/{normalize(m.description)}'] = \
-      util.hhmmss(m.real_time, decimal_precision=True)
-  return retval
+    ms = soong_build_metrics.mixed_builds_info.mixed_build_enabled_modules
+    if ms:
+      retval['mixed.enabled'] = len(ms)
+      with open(d.joinpath('mixed.enabled.txt'), 'w') as f:
+        for m in ms:
+          print(m, file=f)
+    ms = soong_build_metrics.mixed_builds_info.mixed_build_disabled_modules
+    if ms:
+      retval['mixed.disabled'] = len(ms)
+  return retval, events
 
 
 Row = dict[str, any]
@@ -201,7 +203,7 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
     if entry.indegree != 0:
       cycle = '->'.join(entry.dfs(entry.header))
       s = f'event ordering has a cycle {cycle}'
-      logging.warning(s)
+      logging.debug(s)
       if not allow_cycles:
         raise ValueError(s)
     acc.append(entry.header)
@@ -215,32 +217,55 @@ def _get_column_headers(rows: list[Row], allow_cycles: bool) -> list[str]:
   return acc
 
 
-def get_build_info_and_perf(d: Path) -> dict[str, any]:
-  perf = read_pbs(d)
+def get_build_info(d: Path) -> dict[str, any]:
   build_info_json = d.joinpath(util.BUILD_INFO_JSON)
   if not build_info_json.exists():
-    return perf
+    return {}
   with open(build_info_json, 'r') as f:
+    logging.debug('reading %s', build_info_json)
     build_info = json.load(f)
-    return build_info | perf
+    return build_info
+
+
+def _get_prefix_headers(prefix_rows: list[Row]) -> list[str]:
+  prefix_headers = []
+  seen: set[str] = set()
+  for prefix_row in prefix_rows:
+    for prefix_header in prefix_row.keys():
+      if prefix_header not in seen:
+        prefix_headers.append(prefix_header)
+        seen.add(prefix_header)
+  return prefix_headers
 
 
 def tabulate_metrics_csv(log_dir: Path):
-  rows: list[dict[str, any]] = []
+  prefix_rows: list[Row] = []
+  rows: list[Row] = []
   dirs = glob.glob(f'{util.RUN_DIR_PREFIX}*', root_dir=log_dir)
   dirs.sort(key=lambda x: int(x[1 + len(util.RUN_DIR_PREFIX):]))
   for d in dirs:
     d = log_dir.joinpath(d)
-    row = get_build_info_and_perf(d)
+    prefix_row = get_build_info(d)
+    prefix_row['log'] = d.name
+    prefix_row['targets'] = ' '.join(prefix_row.get('targets', []))
+    extra, events = read_pbs(d)
+    prefix_row = prefix_row | extra
+    row = {
+        e.id: util.hhmmss(e.real_time, decimal_precision=True) for e in events
+    }
+    prefix_rows.append(prefix_row)
     rows.append(row)
 
+  prefix_headers: list[str] = _get_prefix_headers(prefix_rows)
   headers: list[str] = _get_column_headers(rows, allow_cycles=True)
 
-  def row2line(r):
-    return ','.join([str(r.get(col, '')) for col in headers])
+  def getcols(r, keys):
+    return [str(r.get(col, '')) for col in keys]
 
-  lines = [','.join(headers)]
-  lines.extend(row2line(r) for r in rows)
+  lines = [','.join(prefix_headers + headers)]
+  for i in range(len(rows)):
+    cols = getcols(prefix_rows[i], prefix_headers) + getcols(rows[i], headers)
+    lines.append(','.join(cols))
 
   with open(log_dir.joinpath(util.METRICS_TABLE), mode='wt') as f:
     f.writelines(f'{line}\n' for line in lines)

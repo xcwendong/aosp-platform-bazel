@@ -31,9 +31,9 @@ def _apex_key_rule_impl(ctx):
     # key in that directory instead, with the exact same basenames for both the
     # avbpubkey and pem files.
     product_var_cert = ctx.attr._product_variables[ProductVariablesInfo].DefaultAppCertificate
-    cert_files_to_search = ctx.attr._product_variables[ProductVariablesDepsInfo].DefaultAppCertificateFiles
+    cert_files_to_search = ctx.attr._product_variables[ProductVariablesDepsInfo].DefaultAppCertificateFilegroup
     if product_var_cert and cert_files_to_search:
-        for f in cert_files_to_search:
+        for f in cert_files_to_search[DefaultInfo].files.to_list():
             if f.basename == ctx.file.public_key.basename:
                 public_key = f
             elif f.basename == ctx.file.private_key.basename:

@@ -79,7 +79,7 @@ class InputModule:
   def __str__(self):
     total = self.num_deps
     converted = self.num_deps - self.num_unconverted_deps
-    percent = 1
+    percent = 100
     if self.num_deps > 0:
       percent = converted / self.num_deps * 100
     return f"{self.module.name}: {percent:.1f}% ({converted}/{total}) converted"

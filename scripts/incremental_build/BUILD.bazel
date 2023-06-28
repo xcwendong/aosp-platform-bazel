@@ -15,6 +15,8 @@
 py_binary(
     name = "incremental_build",
     srcs = [
+        "clone.py",
+        "cuj.py",
         "cuj_catalog.py",
         "incremental_build.py",
         "pretty.py",
@@ -23,6 +25,37 @@ py_binary(
     main = "incremental_build.py",
     python_version = "PY3",
     deps = [":perf_metrics"],
+)
+
+py_binary(
+    name = "pretty",
+    srcs = ["pretty.py"],
+    main = "pretty.py",
+    python_version = "PY3",
+    deps = [":util"],
+)
+
+py_test(
+    name = "pretty_test",
+    srcs = ["pretty_test.py"],
+    deps = [":pretty"],
+)
+
+py_binary(
+    name = "clone",
+    srcs = [
+        "clone.py",
+        "cuj.py",
+    ],
+    main = "clone.py",
+    python_version = "PY3",
+    deps = [":util"],
+)
+
+py_test(
+    name = "clone_test",
+    srcs = ["clone_test.py"],
+    deps = [":clone"],
 )
 
 py_library(

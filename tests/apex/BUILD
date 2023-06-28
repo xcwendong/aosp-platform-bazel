@@ -82,7 +82,6 @@ genrule(
         "--deapexer-path $(location //system/apex/tools:deapexer)",
         "--readelf-path $(location //prebuilts/clang/host/linux-x86:llvm-readelf)",
         "--debugfs-path $(location //external/e2fsprogs/debugfs)",
-        "--blkid-path $(location //external/e2fsprogs/misc:blkid)",
         "--fsckerofs-path $(location //external/erofs-utils:fsck.erofs)",
         "$<",
         "$@",
@@ -91,7 +90,6 @@ genrule(
     tools = [
         ":apks_binary_arches",
         "//external/e2fsprogs/debugfs",
-        "//external/e2fsprogs/misc:blkid",
         "//external/erofs-utils:fsck.erofs",
         "//prebuilts/clang/host/linux-x86:llvm-readelf",
         "//system/apex/tools:deapexer",

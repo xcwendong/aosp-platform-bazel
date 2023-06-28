@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 load(":cc_constants.bzl", "transition_constants")
-load(":cfi_transitions.bzl", "apply_cfi_deps", "apply_drop_cfi")
+load(":cfi_transitions.bzl", "CFI_ASSEMBLY_FEATURE", "CFI_FEATURE", "apply_cfi_deps", "apply_drop_cfi")
 load(
     ":fdo_profile_transitions.bzl",
     "CLI_CODECOV_KEY",
@@ -39,7 +39,7 @@ def _lto_and_fdo_profile_incoming_transition_impl(settings, attr):
         transition_constants.cli_features_key: new_cli_features,
     }
 
-    return new_fdo_settings | new_cli_setting
+    return new_fdo_settings | new_cli_setting | {transition_constants.cfi_assembly_key: False}
 
 lto_and_fdo_profile_incoming_transition = transition(
     implementation = _lto_and_fdo_profile_incoming_transition_impl,
@@ -50,6 +50,7 @@ lto_and_fdo_profile_incoming_transition = transition(
     outputs = [
         CLI_FDO_KEY,
         transition_constants.cli_features_key,
+        transition_constants.cfi_assembly_key,
     ],
 )
 
@@ -67,9 +68,10 @@ def _lto_and_sanitizer_deps_transition_impl(settings, attr):
         settings[transition_constants.enable_cfi_key],
         settings[transition_constants.cli_platforms_key],
     )
-
+    cfi_assembly = CFI_FEATURE in new_cli_features and CFI_ASSEMBLY_FEATURE in features
     return {
         transition_constants.cli_features_key: new_cli_features,
+        transition_constants.cfi_assembly_key: cfi_assembly,
     }
 
 lto_and_sanitizer_deps_transition = transition(
@@ -83,6 +85,7 @@ lto_and_sanitizer_deps_transition = transition(
     ],
     outputs = [
         transition_constants.cli_features_key,
+        transition_constants.cfi_assembly_key,
     ],
 )
 
@@ -97,12 +100,15 @@ def _apply_drop_lto_and_sanitizers(old_cli_features):
 def _drop_lto_and_sanitizer_transition_impl(settings, _):
     return _apply_drop_lto_and_sanitizers(
         settings[transition_constants.cli_features_key],
-    )
+    ) | {transition_constants.cfi_assembly_key: False}
 
 drop_lto_and_sanitizer_transition = transition(
     implementation = _drop_lto_and_sanitizer_transition_impl,
     inputs = [transition_constants.cli_features_key],
-    outputs = [transition_constants.cli_features_key],
+    outputs = [
+        transition_constants.cli_features_key,
+        transition_constants.cfi_assembly_key,
+    ],
 )
 
 # Drop lto, sanitizer, and fdo transitions in order to avoid duplicate
@@ -115,7 +121,7 @@ def _drop_lto_sanitizer_and_fdo_profile_transition_impl(settings, _):
 
     new_fdo_setting = apply_drop_fdo_profile()
 
-    return new_cli_features | new_fdo_setting
+    return new_cli_features | new_fdo_setting | {transition_constants.cfi_assembly_key: False}
 
 drop_lto_sanitizer_and_fdo_profile_incoming_transition = transition(
     implementation = _drop_lto_sanitizer_and_fdo_profile_transition_impl,
@@ -126,6 +132,7 @@ drop_lto_sanitizer_and_fdo_profile_incoming_transition = transition(
     outputs = [
         transition_constants.cli_features_key,
         CLI_FDO_KEY,
+        transition_constants.cfi_assembly_key,
     ],
 )
 

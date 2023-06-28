@@ -2720,7 +2720,7 @@ def _apex_sbom_test(ctx):
         "build/bazel/rules/apex/apex_sbom.apex",
         "build/bazel/rules/apex/apex_sbom.apex-sbom-metadata.csv",
         "build/make/tools/sbom/generate-sbom",
-        "build/bazel/rules/apex/apex_sbom_lib_cc.so",
+        "build/bazel/rules/apex/apex_sbom_lib_cc/apex_sbom_lib_cc.so",
         "build/bazel/rules/apex/METADATA",
     ]
     asserts.true(

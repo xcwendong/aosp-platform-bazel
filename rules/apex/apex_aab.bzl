@@ -177,7 +177,6 @@ def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
         ctx.executable._sign_apex,
         ctx.executable._openssl,
         ctx.executable._zip2zip,
-        ctx.executable._blkid,
         aapt2,
         avbtool.files_to_run.executable,
         python_interpreter,
@@ -210,7 +209,6 @@ def _sign_bundle(ctx, aapt2, avbtool, module_name, bundle_file, apex_info):
     args.add_all(["--aapt2_path", aapt2.path])
     args.add_all(["--bundletool_path", bundletool_jarfile.path])
     args.add_all(["--deapexer_path", ctx.executable._deapexer.path])
-    args.add_all(["--blkid_path", ctx.executable._blkid.path])
     args.add_all(["--debugfs_path", ctx.executable._debugfs.path])
     args.add_all(["--java_binary_path", paths.join(java_bin, "java")])
     args.add_all(["--apex_signer_path", ctx.executable._sign_apex])
@@ -341,11 +339,6 @@ _apex_aab = rule(
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
             doc = "Allow transition.",
-        ),
-        "_blkid": attr.label(
-            cfg = "exec",
-            executable = True,
-            default = "//external/e2fsprogs/misc:blkid",
         ),
         "_bundletool": attr.label(
             cfg = "exec",

@@ -59,7 +59,6 @@ fi
 # disabled.
 build/soong/soong_ui.bash --make-mode \
   --mk-metrics \
-  DISABLE_ARTIFACT_PATH_REQUIREMENTS=true \
   BUILD_BROKEN_DISABLE_BAZEL=true \
   BAZEL_STARTUP_ARGS="--max_idle_secs=5" \
   BAZEL_BUILD_ARGS="--color=no --curses=no --show_progress_rate_limit=5" \
@@ -81,7 +80,6 @@ build/soong/soong_ui.bash --make-mode clean
 # causes analysis to be rerun.
 build/soong/soong_ui.bash --make-mode \
   --mk-metrics \
-  DISABLE_ARTIFACT_PATH_REQUIREMENTS=true \
   BAZEL_STARTUP_ARGS="--max_idle_secs=5" \
   BAZEL_BUILD_ARGS="--color=no --curses=no --show_progress_rate_limit=5" \
   TARGET_PRODUCT=aosp_arm64 \

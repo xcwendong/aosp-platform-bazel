@@ -21,47 +21,21 @@ import re
 import sys
 import textwrap
 from datetime import date
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 import cuj_catalog
 import util
-
-
-class BuildType(Enum):
-  _ignore_ = '_soong_cmd'
-  _soong_cmd = ['build/soong/soong_ui.bash',
-                '--make-mode',
-                '--skip-soong-tests']
-  SOONG_ONLY = [*_soong_cmd, 'BUILD_BROKEN_DISABLE_BAZEL=true']
-  MIXED_PROD = [*_soong_cmd, '--bazel-mode']
-  MIXED_STAGING = [*_soong_cmd, '--bazel-mode-staging']
-  MIXED_DEV = [*_soong_cmd, '--bazel-mode-dev']
-  B = ['build/bazel/bin/b', 'build']
-  B_ANDROID = [*B, '--config=android']
-
-  @staticmethod
-  def from_flag(s: str) -> list['BuildType']:
-    chosen: list[BuildType] = []
-    for e in BuildType:
-      if s.lower() in e.name.lower():
-        chosen.append(e)
-    if len(chosen) == 0:
-      raise RuntimeError(f'no such build type: {s}')
-    return chosen
-
-  def to_flag(self):
-    return self.name.lower()
+from util import BuildType
 
 
 @dataclasses.dataclass(frozen=True)
 class UserInput:
-  build_types: tuple[BuildType]
-  chosen_cujgroups: tuple[int]
+  build_types: tuple[BuildType, ...]
+  chosen_cujgroups: tuple[int, ...]
   description: Optional[str]
   log_dir: Path
-  targets: tuple[str]
+  targets: tuple[str, ...]
   ci_mode: bool
 
 
@@ -74,10 +48,11 @@ def get_user_input() -> UserInput:
       i = int(input_str)
       if 0 <= i < len(cujgroups):
         return [i]
-      raise argparse.ArgumentError(
-          argument=None,
-          message=f'Invalid input: "{input_str}" '
-                  f'expected an index <= {len(cujgroups)} ')
+      logging.critical(
+          f'Invalid input: {input_str}. '
+          f'Expected an index between 1 and {len(cujgroups)}. '
+          'Try --help to view the list of available CUJs')
+      raise argparse.ArgumentTypeError()
     else:
       pattern = re.compile(input_str)
 
@@ -93,10 +68,10 @@ def get_user_input() -> UserInput:
                              matches(cujgroup)]
       if len(matching_cuj_groups):
         return matching_cuj_groups
-      raise argparse.ArgumentError(
-          argument=None,
-          message=f'Invalid input: "{input_str}" does not match any CUJ'
-      )
+      logging.critical(
+          f'Invalid input: "{input_str}" does not many any CUJ. '
+          'Try --help to view the list of available CUJs')
+      raise argparse.ArgumentTypeError()
 
   # importing locally here to avoid chances of cyclic import
   import incremental_build
@@ -120,8 +95,7 @@ def get_user_input() -> UserInput:
   log_levels = dict(getattr(logging, '_levelToName')).values()
   p.add_argument('-v', '--verbosity', choices=log_levels, default='INFO',
                  help='Log level. Defaults to %(default)s')
-  default_log_dir = util.get_top_dir().parent.joinpath(
-      f'timing-{date.today().strftime("%b%d")}')
+  default_log_dir = util.get_default_log_dir()
   p.add_argument('-l', '--log-dir', type=Path, default=default_log_dir,
                  help=textwrap.dedent(f'''
                  Directory for timing logs. Defaults to %(default)s
@@ -156,18 +130,20 @@ def get_user_input() -> UserInput:
   if options.verbosity:
     logging.root.setLevel(options.verbosity)
 
-  chosen_cujgroups: tuple[int] = \
+  chosen_cujgroups: tuple[int, ...] = \
     tuple(int(i) for sublist in options.cujs for i in sublist)
 
   bazel_labels: list[str] = [target for target in options.targets if
                              target.startswith('//')]
   if 0 < len(bazel_labels) < len(options.targets):
-    sys.exit(f'Don\'t mix bazel labels {bazel_labels} with soong targets '
-             f'{[t for t in options.targets if t not in bazel_labels]}')
+    logging.critical(
+      f'Don\'t mix bazel labels {bazel_labels} with soong targets '
+      f'{[t for t in options.targets if t not in bazel_labels]}')
+    sys.exit(1)
   if os.getenv('BUILD_BROKEN_DISABLE_BAZEL') is not None:
     raise RuntimeError(f'use -b {BuildType.SOONG_ONLY.to_flag()} '
                        f'instead of BUILD_BROKEN_DISABLE_BAZEL')
-  build_types: tuple[BuildType] = \
+  build_types: tuple[BuildType, ...] = \
     tuple(BuildType(i) for sublist in options.build_types for i in sublist)
   if len(bazel_labels) > 0:
     non_b = [b.name for b in build_types if
@@ -183,32 +159,40 @@ def get_user_input() -> UserInput:
     error_message = 'THERE ARE UNCOMMITTED CHANGES (TIP: repo status).' \
                     'Use --ignore-repo-diff to skip this check.'
     if not util.is_interactive_shell():
-      sys.exit(error_message)
-    response = input(f'{error_message}\nContinue?[Y/n]')
+      logging.critical(error_message)
+      sys.exit(1)
+    logging.error(error_message)
+    response = input('Continue?[Y/n]')
     if response.upper() != 'Y':
       sys.exit(1)
 
   log_dir = Path(options.log_dir).resolve()
   if not options.append_csv and log_dir.exists():
     error_message = f'{log_dir} already exists. ' \
-                    'Use --append-csv to skip this check.'
+                    'Use --append-csv to skip this check.' \
+                    'Consider --description to annotate your new runs'
     if not util.is_interactive_shell():
-      sys.exit(error_message)
-    response = input(f'{error_message}\nContinue?[Y/n]')
+      logging.critical(error_message)
+      sys.exit(1)
+    logging.error(error_message)
+    response = input('Continue?[Y/n]')
     if response.upper() != 'Y':
       sys.exit(1)
 
   if log_dir.is_relative_to(util.get_top_dir()):
-    sys.exit(f"choose a log_dir outside the source tree; "
-             f"'{options.log_dir}' resolves to {log_dir}")
+    logging.critical(f"choose a log_dir outside the source tree; "
+                     f"'{options.log_dir}' resolves to {log_dir}")
+    sys.exit(1)
 
   if options.ci_mode:
     if len(chosen_cujgroups) > 1:
-      sys.exit('CI mode can only allow one cuj group. '
-               'Remove --ci-mode flag to skip this check.')
+      logging.critical('CI mode can only allow one cuj group. '
+                       'Remove --ci-mode flag to skip this check.')
+      sys.exit(1)
     if len(build_types) > 1:
-      sys.exit('CI mode can only allow one build type. '
-               'Remove --ci-mode flag to skip this check.')
+      logging.critical('CI mode can only allow one build type. '
+                       'Remove --ci-mode flag to skip this check.')
+      sys.exit(1)
 
   return UserInput(
       build_types=build_types,

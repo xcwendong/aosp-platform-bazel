@@ -17,7 +17,6 @@ limitations under the License.
 load("//build/bazel/rules/java:sdk_library.bzl", "JavaSdkLibraryInfo")
 
 METALAVA_ARGS = [
-    "-J--add-opens=java.base/java.util=ALL-UNNAMED",
     "--quiet",
     "--no-banner",
     "--format=v2",

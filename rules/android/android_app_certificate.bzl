@@ -25,16 +25,40 @@ AndroidAppCertificateInfo = provider(
     },
 )
 
-def _search_cert_files(cert_name, cert_files_to_search):
+def _search_cert_files(cert_name, cert_filegroups):
     pk8 = None
     pem = None
-    for file in cert_files_to_search:
-        if file.basename == cert_name + ".pk8":
-            pk8 = file
-        elif file.basename == cert_name + ".x509.pem":
-            pem = file
-    if not pk8 or not pem:
-        fail("Could not find .x509.pem and/or .pk8 file with name '%s' in the following files: %s" % (cert_name, cert_files_to_search))
+    searched_files = []
+    for target in cert_filegroups:
+        files = target[DefaultInfo].files.to_list()
+        searched_files.extend(files)
+        if target.label.name.removesuffix("__internal_filegroup") == cert_name:
+            # For overriding to a specific android_app_certificate target named as cert_name
+            for f in files:
+                # the files may not be named as cert_name
+                if f.basename.endswith(".pk8"):
+                    pk8 = f
+                elif f.basename.endswith(".x509.pem"):
+                    # can't use f.extension because it only picks up .pem without .x509
+                    pem = f
+
+        elif target.label.name == "android_certificate_directory":
+            # For overriding to a specific *file* in a provided directory with cert_name in the actual filename
+            for f in files:
+                if f.basename == cert_name + ".pk8":
+                    pk8 = f
+                elif f.basename == cert_name + ".x509.pem":
+                    pem = f
+        if pk8 or pem:
+            # found, stop looking
+            # use 'or' so that we don't accidentally read the two files from different modules.
+            break
+
+    if not pk8:
+        fail("Could not find .pk8 file for the module '%s' in the list: %s" % (cert_name, searched_files))
+    if not pem:
+        fail("Could not find .x509.pem file for the module '%s' in the list: %s" % (cert_name, searched_files))
+
     return pk8, pem
 
 def _maybe_override(ctx, cert_name):
@@ -61,7 +85,7 @@ def _maybe_override(ctx, cert_name):
 
     # e.g. test1_com.android.tzdata:com.google.android.tzdata5.certificate
     new_cert_name = matches[0].split(":")[1]
-    return new_cert_name.removesuffix(".certificate"), True
+    return new_cert_name, True
 
 def _android_app_certificate_rule_impl(ctx):
     cert_name = ctx.attr.certificate
@@ -73,7 +97,7 @@ def _android_app_certificate_rule_impl(ctx):
     overridden_cert_name, overridden = _maybe_override(ctx, cert_name)
     if overridden:
         cert_name = overridden_cert_name
-        cert_files_to_search = ctx.attr._product_variables[ProductVariablesDepsInfo].OverridingCertificateFiles
+        cert_files_to_search = ctx.attr._product_variables[ProductVariablesDepsInfo].OverridingCertificateFilegroups
         pk8, pem = _search_cert_files(cert_name, cert_files_to_search)
 
     return [
@@ -113,6 +137,19 @@ def android_app_certificate(
         **kwargs
     )
 
+    # This standalone filegroup is necessary to expose the intended certificates
+    # as files to be used in android_app_certificate/product_vars override
+    # without incurring a cyclic dependency from android_app_certificate ->
+    # product vars -> android_app_certificate -> ...
+    native.filegroup(
+        name = name + "__internal_filegroup",
+        srcs = [
+            certificate + ".x509.pem",
+            certificate + ".pk8",
+        ],
+        tags = ["manual"],
+    )
+
 default_cert_directory = "build/make/target/product/security"
 
 def _android_app_certificate_with_default_cert_impl(ctx):
@@ -132,14 +169,14 @@ def _android_app_certificate_with_default_cert_impl(ctx):
         cert_dir = default_cert_directory
 
     if cert_dir != default_cert_directory:
-        cert_files_to_search = ctx.attr._product_variables[ProductVariablesDepsInfo].DefaultAppCertificateFiles
+        filegroups_to_search = [ctx.attr._product_variables[ProductVariablesDepsInfo].DefaultAppCertificateFilegroup]
     else:
-        cert_files_to_search = ctx.files._hardcoded_certs
+        filegroups_to_search = [ctx.attr._hardcoded_certs]
 
     cert_name, overridden = _maybe_override(ctx, cert_name)
     if overridden:
-        cert_files_to_search = ctx.attr._product_variables[ProductVariablesDepsInfo].OverridingCertificateFiles
-    pk8, pem = _search_cert_files(cert_name, cert_files_to_search)
+        filegroups_to_search = ctx.attr._product_variables[ProductVariablesDepsInfo].OverridingCertificateFilegroups
+    pk8, pem = _search_cert_files(cert_name, filegroups_to_search)
 
     return [
         AndroidAppCertificateInfo(
