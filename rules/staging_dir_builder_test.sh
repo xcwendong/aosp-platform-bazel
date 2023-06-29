@@ -77,15 +77,17 @@ echo '
 output_file="${output_dir}/test.apex"
 
 # Create the wrapper manifest file
-staging_dir_builder_manifest_file=$(mktemp)
+staging_dir_builder_options_file=$(mktemp)
 echo "{
-\"dir1/file1\": \"${input_dir}/file1\",
-\"dir2/dir3/file2\": \"${input_dir}/file2\",
-\"dir4/one_level_sym\": \"${input_dir}/one_level_sym\",
-\"dir5/two_level_sym_in_execroot\": \"${input_dir}/two_level_sym_in_execroot\",
-\"dir6/two_level_sym_not_in_execroot\": \"${input_dir}/two_level_sym_not_in_execroot\",
-\"dir7/three_level_sym_in_execroot\": \"${input_dir}/three_level_sym_in_execroot\"
-}" > ${staging_dir_builder_manifest_file}
+  \"file_mapping\": {
+    \"dir1/file1\": \"${input_dir}/file1\",
+    \"dir2/dir3/file2\": \"${input_dir}/file2\",
+    \"dir4/one_level_sym\": \"${input_dir}/one_level_sym\",
+    \"dir5/two_level_sym_in_execroot\": \"${input_dir}/two_level_sym_in_execroot\",
+    \"dir6/two_level_sym_not_in_execroot\": \"${input_dir}/two_level_sym_not_in_execroot\",
+    \"dir7/three_level_sym_in_execroot\": \"${input_dir}/three_level_sym_in_execroot\"
+  }
+}" > ${staging_dir_builder_options_file}
 
 canned_fs_config=$(mktemp)
 echo "/ 0 2000 0755
@@ -114,7 +116,7 @@ trap 'rm -rf -- "${staging_dir}"' EXIT
 # run staging_dir_builder
 #############################################
 "${RUNFILES_DIR}/__main__/build/bazel/rules/staging_dir_builder" \
-  ${staging_dir_builder_manifest_file} \
+  ${staging_dir_builder_options_file} \
   ${staging_dir} \
   ${apexer_tool_path} \
   --manifest ${manifest_file} \

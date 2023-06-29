@@ -32,6 +32,8 @@ import dependency_analysis
 class GraphFilterInfo:
   module_names: Set[str] = dataclasses.field(default_factory=set)
   module_types: Set[str] = dataclasses.field(default_factory=set)
+  package_dir: str = dataclasses.field(default_factory=str)
+  recursive: bool = dataclasses.field(default_factory=bool)
 
 @dataclasses.dataclass(frozen=True, order=True)
 class ModuleInfo:
@@ -96,9 +98,9 @@ class ReportData:
   kind_of_unconverted_modules: Set[str]
   converted: Set[str]
   show_converted: bool
+  package_dir: str
   input_modules: Set[InputModule] = dataclasses.field(default_factory=set)
   input_types: Set[str] = dataclasses.field(default_factory=set)
-
 
 # Generate a dot file containing the transitive closure of the module.
 def generate_dot_file(modules: Dict[ModuleInfo, DepInfo],
@@ -155,6 +157,14 @@ def get_transitive_unconverted_deps(
   cache[module] = unconverted_deps
   return unconverted_deps
 
+# Filter modules based on the module and graph_filter
+def module_matches_filter(module, graph_filter):
+  dirname = module.dirname + "/"
+  if graph_filter.package_dir is not None:
+      if graph_filter.recursive:
+          return dirname.startswith(graph_filter.package_dir)
+      return dirname == graph_filter.package_dir
+  return module.name in graph_filter.module_names or module.kind in graph_filter.module_types
 
 # Generate a report for each module in the transitive closure, and the blockers for each module
 def generate_report_data(modules: Dict[ModuleInfo, DepInfo],
@@ -214,7 +224,7 @@ def generate_report_data(modules: Dict[ModuleInfo, DepInfo],
       dirs_with_unconverted_modules.add(module.dirname)
       kind_of_unconverted_modules[module.kind] += 1
 
-    if module.name in graph_filter.module_names or module.kind in graph_filter.module_types:
+    if (module_matches_filter(module, graph_filter)):
       transitive_deps = dep_info.all_deps()
       input_modules.add(InputModule(module, len(transitive_deps), len(unconverted_transitive_deps)))
       input_all_deps.update(transitive_deps)
@@ -234,6 +244,7 @@ def generate_report_data(modules: Dict[ModuleInfo, DepInfo],
       kind_of_unconverted_modules=kinds,
       converted=converted,
       show_converted=show_converted,
+      package_dir=graph_filter.package_dir
   )
 
 
@@ -335,7 +346,13 @@ def adjacency_list_from_json(
     collect_transitive_dependencies: bool = True,
 ) -> Dict[ModuleInfo, Set[ModuleInfo]]:
   def filtering(json):
-    return json["Name"] in graph_filter.module_names or json["Type"] in graph_filter.module_types
+    module = ModuleInfo(
+      name=json["Name"],
+      created_by=json["CreatedBy"],
+      kind=json["Type"],
+      dirname=os.path.dirname(json["Blueprint"])
+    )
+    return module_matches_filter(module, graph_filter)
 
   module_adjacency_list = {}
   name_to_info = {}
@@ -497,6 +514,18 @@ def main():
       help="type(s) of Soong module(s). Multiple modules only supported for report"
   )
   parser.add_argument(
+      "--package-dir",
+      "-p",
+      action="store",
+      help="package directory for Soong modules. Single package directory only supported for report."
+  )
+  parser.add_argument(
+      "--recursive",
+      "-r",
+      action="store_true",
+      help="whether to perform recursive search when --package-dir flag is passed."
+  )
+  parser.add_argument(
       "--use-queryview",
       action="store_true",
       help="whether to use queryview or module_info")
@@ -551,10 +580,23 @@ def main():
   banchan_mode = args.banchan
   modules = set(args.module) if args.module is not None else set()
   types = set(args.type) if args.type is not None else set()
-  graph_filter = GraphFilterInfo(modules,types)
+  recursive = args.recursive
+  package_dir = os.path.normpath(args.package_dir) + '/' if args.package_dir else args.package_dir
+  graph_filter = GraphFilterInfo(modules,types, package_dir, recursive)
 
-  if len(modules) == 0 and len(types) == 0:
-    sys.exit("Must specify at least one module or type.")
+
+  if package_dir is None:
+    if len(modules) == 0 and len(types) == 0:
+      sys.exit("Must specify at least one module, type or package directory")
+    if recursive:
+      sys.exit("Cannot support --recursive with modules or types")
+  if package_dir is not None:
+    if args.use_queryview:
+      sys.exit("Can only support the package directory with json module graph")
+    if args.mode == "graph":
+      sys.exit(f"Cannot support --package-dir with mode {args.mode}")
+    if len(modules) > 0 or len(types) > 0:
+       sys.exit("Can only support either modules, types or package directory")
   if len(modules) > 0 and len(types) > 0 and args.use_queryview:
     sys.exit("Can only support either of modules or types with use-queryview")
   if len(modules) > 1 and args.mode == "graph":
@@ -573,7 +615,7 @@ def main():
       banchan_mode=banchan_mode)
 
   if len(module_adjacency_list) == 0:
-    sys.exit(f"Found no modules, verify that the modules ({args.modules}) or types ({args.types}) you requested are valid.")
+    sys.exit(f"Found no modules, verify that the module ({args.module}), type ({args.type}) or package {args.package_dir} you requested are valid.")
 
   converted = add_created_by_to_converted(converted, module_adjacency_list)
 

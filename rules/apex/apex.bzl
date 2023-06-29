@@ -440,7 +440,9 @@ def _run_apexer(ctx, apex_toolchain):
     api_fingerprint_file = None
 
     file_mapping_file = ctx.actions.declare_file(ctx.attr.name + "_apex_file_mapping.json")
-    ctx.actions.write(file_mapping_file, json.encode({k: v.path for k, v in file_mapping.items()}))
+    ctx.actions.write(file_mapping_file, json.encode({
+        "file_mapping": {k: v.path for k, v in file_mapping.items()},
+    }))
 
     # Outputs
     apex_output_file = ctx.actions.declare_file(ctx.attr.name + ".apex.unsigned")

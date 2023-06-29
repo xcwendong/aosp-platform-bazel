@@ -62,10 +62,12 @@ def _partition_impl(ctx):
         if not v.startswith("/system"):
             fail("Files outside of /system are not currently supported: %s", v)
 
-    file_mapping_file = ctx.actions.declare_file(ctx.attr.name + "/partition_file_mapping.json")
+    staging_dir_builder_options_file = ctx.actions.declare_file(ctx.attr.name + "/staging_dir_builder_options.json")
 
-    # It seems build_image will prepend /system to the paths when building_system_image=true
-    ctx.actions.write(file_mapping_file, json.encode({k.removeprefix("/system"): v.path for k, v in files.items()}))
+    ctx.actions.write(staging_dir_builder_options_file, json.encode({
+        # It seems build_image will prepend /system to the paths when building_system_image=true
+        "file_mapping": {k.removeprefix("/system"): v.path for k, v in files.items()},
+    }))
 
     staging_dir = ctx.actions.declare_directory(ctx.attr.name + "_staging_dir")
 
@@ -83,7 +85,7 @@ def _partition_impl(ctx):
     ctx.actions.run(
         inputs = [
             image_info,
-            file_mapping_file,
+            staging_dir_builder_options_file,
         ] + files.values(),
         tools = extra_tools + [
             build_image_files,
@@ -92,7 +94,7 @@ def _partition_impl(ctx):
         outputs = [output_image, staging_dir],
         executable = ctx.executable._staging_dir_builder,
         arguments = [
-            file_mapping_file.path,
+            staging_dir_builder_options_file.path,
             staging_dir.path,
             build_image_files.executable.path,
             staging_dir.path,

@@ -56,6 +56,7 @@ _soong_module_graph = [
     soong_module_json.make_module('e', 'type3', blueprint='other/Android.bp'),
     soong_module_json.make_module('f', 'type4', blueprint='pkg2/Android.bp'),
     soong_module_json.make_module('g', 'type5', blueprint='pkg3/Android.bp'),
+    soong_module_json.make_module('h', 'type3', blueprint='pkg/pkg4/Android.bp'),
 ]
 
 _soong_module_graph_created_by_no_loop = [
@@ -175,7 +176,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
       return_value=_soong_module_graph)
   def test_get_module_adjacency_list_soong_module_transitive_deps(self, _):
     adjacency_dict = bp2build_progress.get_module_adjacency_list(
-        bp2build_progress.GraphFilterInfo(module_names=set(['a', 'f'])), False, set(), False, True, False)
+        bp2build_progress.GraphFilterInfo(module_names=set(['a', 'f']), package_dir=None), False, set(), False, True, False)
 
     a = bp2build_progress.ModuleInfo(
         name='a', kind='type1', dirname='pkg', num_deps=2, created_by='')
@@ -205,7 +206,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
       return_value=_soong_module_graph)
   def test_get_module_adjacency_list_soong_module_transitive_deps(self, _):
     adjacency_dict = bp2build_progress.get_module_adjacency_list(
-        bp2build_progress.GraphFilterInfo(module_types=set(['type1', 'type4'])), False, set(), False, True, False)
+        bp2build_progress.GraphFilterInfo(module_types=set(['type1', 'type4']), package_dir=None), False, set(), False, True, False)
 
     a = bp2build_progress.ModuleInfo(
         name='a', kind='type1', dirname='pkg', num_deps=2, created_by='')
@@ -233,9 +234,51 @@ class Bp2BuildProgressTest(unittest.TestCase):
       'dependency_analysis.get_json_module_info',
       autospec=True,
       return_value=_soong_module_graph)
+  def test_get_module_adjacency_list_soong_module_transitive_deps_package_dir(self, _):
+    adjacency_dict1 = bp2build_progress.get_module_adjacency_list(
+        bp2build_progress.GraphFilterInfo(package_dir="pkg/", recursive=True), False, set(), False, True, False)
+
+    adjacency_dict2 = bp2build_progress.get_module_adjacency_list(
+        bp2build_progress.GraphFilterInfo(package_dir="pkg/", recursive=False), False, set(), False, True, False)
+
+    a = bp2build_progress.ModuleInfo(
+        name='a', kind='type1', dirname='pkg', num_deps=2, created_by='')
+    b = bp2build_progress.ModuleInfo(
+        name='b', kind='type2', dirname='pkg', num_deps=1, created_by='')
+    c = bp2build_progress.ModuleInfo(
+        name='c', kind='type2', dirname='other', num_deps=1, created_by='')
+    d = bp2build_progress.ModuleInfo(
+        name='d', kind='type2', dirname='pkg', num_deps=0, created_by='')
+    e = bp2build_progress.ModuleInfo(
+        name='e', kind='type3', dirname='other', num_deps=0, created_by='')
+    h = bp2build_progress.ModuleInfo(
+        name='h', kind='type3', dirname='pkg/pkg4', num_deps=0, created_by='')
+
+    expected_adjacency_dict1 = {}
+    expected_adjacency_dict1[a] = bp2build_progress.DepInfo(direct_deps=set([b, c]), transitive_deps=set([d, e]))
+    expected_adjacency_dict1[b] = bp2build_progress.DepInfo(direct_deps=set([d]))
+    expected_adjacency_dict1[c] = bp2build_progress.DepInfo(direct_deps=set([e]))
+    expected_adjacency_dict1[d] = bp2build_progress.DepInfo()
+    expected_adjacency_dict1[e] = bp2build_progress.DepInfo()
+    expected_adjacency_dict1[h] = bp2build_progress.DepInfo()
+
+    expected_adjacency_dict2 = {}
+    expected_adjacency_dict2[a] = bp2build_progress.DepInfo(direct_deps=set([b, c]), transitive_deps=set([d, e]))
+    expected_adjacency_dict2[b] = bp2build_progress.DepInfo(direct_deps=set([d]))
+    expected_adjacency_dict2[c] = bp2build_progress.DepInfo(direct_deps=set([e]))
+    expected_adjacency_dict2[d] = bp2build_progress.DepInfo()
+    expected_adjacency_dict2[e] = bp2build_progress.DepInfo()
+
+    self.assertDictEqual(adjacency_dict1, expected_adjacency_dict1)
+    self.assertDictEqual(adjacency_dict2, expected_adjacency_dict2)
+
+  @unittest.mock.patch(
+      'dependency_analysis.get_json_module_info',
+      autospec=True,
+      return_value=_soong_module_graph)
   def test_get_module_adjacency_list_soong_module_direct_deps(self, _):
     adjacency_dict = bp2build_progress.get_module_adjacency_list(
-        bp2build_progress.GraphFilterInfo(set(['a', 'f'])),
+        bp2build_progress.GraphFilterInfo(module_names=set(['a', 'f']), package_dir=None),
                                                                  False, set(),
                                                                  False, False)
 
@@ -268,7 +311,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
       return_value=_soong_module_graph_created_by_no_loop)
   def test_get_module_adjacency_list_soong_module_created_by(self, _):
     adjacency_dict = bp2build_progress.get_module_adjacency_list(
-        bp2build_progress.GraphFilterInfo(set(['a', 'f'])),
+        bp2build_progress.GraphFilterInfo(module_names=set(['a', 'f']), package_dir=None),
                                                                  False, set(),
                                                                  True, False)
 
@@ -288,7 +331,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
       return_value=_soong_module_graph_created_by_loop)
   def test_get_module_adjacency_list_soong_module_created_by_loop(self, _):
     adjacency_dict = bp2build_progress.get_module_adjacency_list(
-        bp2build_progress.GraphFilterInfo(set(['a', 'f'])),
+        bp2build_progress.GraphFilterInfo(module_names=set(['a', 'f']), package_dir=None),
                                                                  False, set(),
                                                                  True, False)
 
@@ -328,7 +371,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
     module_graph[g] = bp2build_progress.DepInfo()
 
     report_data = bp2build_progress.generate_report_data(
-        module_graph, {'d', 'g'}, bp2build_progress.GraphFilterInfo(module_names={'a', 'f'}))
+        module_graph, {'d', 'g'}, bp2build_progress.GraphFilterInfo(module_names={'a', 'f'}, package_dir=None))
 
     all_unconverted_modules = collections.defaultdict(set)
     all_unconverted_modules[b].update({a, f})
@@ -363,6 +406,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
         kind_of_unconverted_modules={'type1: 1', 'type2: 2', 'type3: 1', 'type4: 1'},
         converted={'d', 'g'},
         show_converted=False,
+        package_dir=None
     )
 
     self.assertEqual(report_data, expected_report_data)
@@ -393,7 +437,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
     module_graph[g] = bp2build_progress.DepInfo()
 
     report_data = bp2build_progress.generate_report_data(
-        module_graph, {'d', 'g'}, bp2build_progress.GraphFilterInfo(module_types={'type1', 'type4'}))
+        module_graph, {'d', 'g'}, bp2build_progress.GraphFilterInfo(module_types={'type1', 'type4'}, package_dir=None))
 
     all_unconverted_modules = collections.defaultdict(set)
     all_unconverted_modules['b'].update({a, f})
@@ -429,6 +473,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
         kind_of_unconverted_modules={'type1', 'type2', 'type4'},
         converted={'d', 'g'},
         show_converted=False,
+        package_dir=None
     )
 
     self.assertEqual(report_data.input_modules, expected_report_data.input_modules)
@@ -446,7 +491,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
     module_graph[c] = bp2build_progress.DepInfo()
 
     report_data = bp2build_progress.generate_report_data(
-        module_graph, {'b'}, bp2build_progress.GraphFilterInfo(module_names={'a'}), show_converted=True)
+        module_graph, {'b'}, bp2build_progress.GraphFilterInfo(module_names={'a'}, package_dir=None), show_converted=True)
 
     all_unconverted_modules = collections.defaultdict(set)
     all_unconverted_modules[c].update({a})
@@ -474,6 +519,7 @@ class Bp2BuildProgressTest(unittest.TestCase):
         kind_of_unconverted_modules={'type1: 1', 'type3: 1'},
         converted={'b'},
         show_converted=True,
+        package_dir=None
     )
 
     self.assertEqual(report_data, expected_report_data)

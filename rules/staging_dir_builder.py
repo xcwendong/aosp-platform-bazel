@@ -21,43 +21,48 @@ import subprocess
 import sys
 import argparse
 
-def build_staging_dir(file_mapping_path, staging_dir_path, command_argv):
+def build_staging_dir(options_path, staging_dir_path, command_argv):
     '''Create a staging dir with provided file mapping and apply the command in the dir.
 
     At least
 
     Args:
-      file_mapping_path (str): path to the file mapping json
+      options_path (str): path to the options json
       staging_dir_path (str): path to the staging directory
       command_argv (str list): the command to be executed, with the first arg as the executable
     '''
 
     try:
-        with open(file_mapping_path, 'r') as f:
-            file_mapping = json.load(f)
+        with open(options_path, 'r') as f:
+            options = json.load(f)
     except OSError as e:
         sys.exit(str(e))
     except json.JSONDecodeError as e:
-        sys.exit(file_mapping_path + ": JSON decode error: " + str(e))
+        sys.exit(options_path + ": JSON decode error: " + str(e))
 
-    # Validate and clean the file_mapping. This consists of:
-    #   - Making sure it's a dict[str, str]
-    #   - Normalizing the paths in the staging dir and stripping leading /s
-    #   - Making sure there are no duplicate paths in the staging dir
-    #   - Making sure no paths use .. to break out of the staging dir
-    cleaned_file_mapping = {}
-    if not isinstance(file_mapping, dict):
-        sys.exit(file_mapping_path + ": expected a JSON dict[str, str]")
-    for path_in_staging_dir, path_in_bazel in file_mapping.items():
+    # Validate and clean the options by making sure it's a dict[str, ?] with only these keys:
+    #   - file_mapping, which must be a dict[str, str]. Then we:
+    #     - Normalize the paths in the staging dir and stripping leading /s
+    #     - Make sure there are no duplicate paths in the staging dir
+    #     - Make sure no paths use .. to break out of the staging dir
+    if not isinstance(options, dict):
+        sys.exit(options_path + ": expected a JSON dict[str, ?]")
+    for k in options.keys():
+        if k not in ["file_mapping"]:
+            sys.exit("Unknown option: " + str(k))
+    if not isinstance(options.get("file_mapping", {}), dict):
+        sys.exit(options_path + ": file_mapping: expected a JSON dict[str, str]")
+
+    file_mapping = {}
+    for path_in_staging_dir, path_in_bazel in options.get("file_mapping", {}).items():
         if not isinstance(path_in_staging_dir, str) or not isinstance(path_in_bazel, str):
-            sys.exit(file_mapping_path + ": expected a JSON dict[str, str]")
+            sys.exit(options_path + ": expected a JSON dict[str, str]")
         path_in_staging_dir = os.path.normpath(path_in_staging_dir).lstrip('/')
-        if path_in_staging_dir in cleaned_file_mapping:
+        if path_in_staging_dir in file_mapping:
             sys.exit("Staging dir path repeated twice: " + path_in_staging_dir)
         if path_in_staging_dir.startswith('../'):
             sys.exit("Path attempts to break out of staging dir: " + path_in_staging_dir)
-        cleaned_file_mapping[path_in_staging_dir] = path_in_bazel
-    file_mapping = cleaned_file_mapping
+        file_mapping[path_in_staging_dir] = path_in_bazel
 
     for path_in_staging_dir, path_in_bazel in file_mapping.items():
         path_in_staging_dir = os.path.join(staging_dir_path, path_in_staging_dir)
@@ -115,19 +120,20 @@ def main():
     be copied there. The rest of the arguments will be run as a separate command.
 
     Example:
-    staging_dir_builder file_mapping.json path/to/staging_dir path/to/apexer --various-apexer-flags path/to/out.apex.unsigned
+    staging_dir_builder options.json path/to/staging_dir path/to/apexer --various-apexer-flags path/to/out.apex.unsigned
     '''
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "file_mapping_path",
-        help="Path to the <staging dir path>:<bazel input path> file mapping JSON.",
+        "options_path",
+        help="""Path to a JSON file containing options for staging_dir_builder. The top level object must be a dict. The keys for the dict can be:
+file_mapping: A dict mapping from <staging dir path> to <bazel input path>""",
     )
     parser.add_argument(
         "staging_dir_path",
         help="Path to a directory to store the staging directory content.",
     )
     args, command_argv = parser.parse_known_args()
-    build_staging_dir(args.file_mapping_path, args.staging_dir_path, command_argv)
+    build_staging_dir(args.options_path, args.staging_dir_path, command_argv)
 
 if __name__ == '__main__':
     main()

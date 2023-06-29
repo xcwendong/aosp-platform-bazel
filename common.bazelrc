@@ -144,3 +144,7 @@ build --noincompatible_python_disallow_native_rules
 try-import %workspace%/vendor/google/tools/soong_config/googler.bazelrc
 
 build --incompatible_visibility_private_attributes_at_definition
+
+# Some targets in rules_go use config_setting(s) that are not visible to them
+# TODO -  b/289074954: Fix the visibility defs in rules_go and re-enable this enforcement.
+build --incompatible_enforce_config_setting_visibility=false
