@@ -24,18 +24,16 @@ android_product(
 )
 
 android_product(
+    name = "aosp_arm_for_testing_custom_linker_alignment",
+    soong_variables = dicts.add(
+        _soong_variables_arm,
+        {"DeviceMaxPageSizeSupported": "65536"},
+    ),
+)
+
+android_product(
     name = "aosp_arm64_for_testing",
     soong_variables = _soong_variables_arm64,
-)
-
-android_product(
-    name = "aosp_x86_for_testing",
-    soong_variables = _soong_variables_x86,
-)
-
-android_product(
-    name = "aosp_x86_64_for_testing",
-    soong_variables = _soong_variables_x86_64,
 )
 
 android_product(
@@ -69,4 +67,22 @@ android_product(
             "DefaultAppCertificate": "build/bazel/rules/apex/testdata/devkey",
         },
     ),
+)
+
+android_product(
+    name = "aosp_arm64_for_testing_custom_linker_alignment",
+    soong_variables = dicts.add(
+        _soong_variables_arm64,
+        {"DeviceMaxPageSizeSupported": "16384"},
+    ),
+)
+
+android_product(
+    name = "aosp_x86_for_testing",
+    soong_variables = _soong_variables_x86,
+)
+
+android_product(
+    name = "aosp_x86_64_for_testing",
+    soong_variables = _soong_variables_x86_64,
 )

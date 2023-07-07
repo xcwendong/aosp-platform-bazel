@@ -14,10 +14,12 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/bazel/product_config:product_variables_providing_rule.bzl", "ProductVariablesInfo")
+load("//build/bazel/rules:metadata.bzl", "MetadataFileInfo")
 load("//build/bazel/rules/cc:cc_library_common.bzl", "parse_apex_sdk_version")
 load("//build/bazel/rules/cc:cc_library_shared.bzl", "CcSharedLibraryOutputInfo", "CcStubLibrariesInfo")
 load("//build/bazel/rules/cc:cc_stub_library.bzl", "CcStubLibrarySharedInfo")
 load("//build/bazel/rules/cc:stripped_cc_common.bzl", "CcUnstrippedInfo")
+load("//build/bazel/rules/license:license_aspect.bzl", "license_aspect")
 
 ApexCcInfo = provider(
     "Info needed to use CC targets in APEXes",
@@ -219,6 +221,7 @@ def _apex_cc_aspect_impl(target, ctx):
         shared_object_files.append(struct(
             stripped = target[CcSharedLibraryOutputInfo].output_file,
             unstripped = target[CcUnstrippedInfo].unstripped,
+            metadata_file = target[MetadataFileInfo].metadata_file,
         ))
         if hasattr(ctx.rule.attr, "shared"):
             transitive_deps.append(ctx.rule.attr.shared[0])
@@ -247,6 +250,7 @@ def _apex_cc_aspect_impl(target, ctx):
                     shared_object_files.append(struct(
                         stripped = output_file,
                         unstripped = unstripped,
+                        metadata_file = dep[MetadataFileInfo].metadata_file,
                     ))
             transitive_deps.append(dep)
 
@@ -297,5 +301,6 @@ apex_cc_aspect = aspect(
         "_product_variables": attr.label(default = "//build/bazel/product_config:product_vars"),
     },
     attr_aspects = CC_ATTR_ASPECTS,
+    requires = [license_aspect],
     # TODO: Have this aspect also propagate along attributes of native_shared_libs?
 )
