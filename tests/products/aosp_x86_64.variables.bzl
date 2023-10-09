@@ -181,7 +181,6 @@ variables = json.decode('''{
             "IS_TARGET_MIXED_SEPOLICY": "",
             "PRODUCT_INSTALL_DEBUG_POLICY_TO_SYSTEM_EXT": "",
             "SYSTEMUI_OPTIMIZE_JAVA": "true",
-            "SYSTEMUI_USE_COMPOSE": "false",
             "SYSTEM_OPTIMIZE_JAVA": "true",
             "TARGET_DYNAMIC_64_32_MEDIASERVER": "true",
             "TARGET_ENABLE_MEDIADRM_64": "true",
