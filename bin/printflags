@@ -22,4 +22,4 @@ if [[ ! -f "$aconfig" || ! -f "$flags_file" ]]; then
    echo "Missing dependencies: please run 'm all_aconfig_declarations' and try again."
    exit 1
 fi
-$aconfig dump-cache --cache $flags_file $@
+$aconfig dump-cache --cache "$flags_file" "$@"
