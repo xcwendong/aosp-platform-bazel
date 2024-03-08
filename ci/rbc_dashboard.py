@@ -20,10 +20,10 @@ import xml.etree.ElementTree as ET
 _PRODUCT_REGEX = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)(?:(?:-(trunk|trunk_staging|next))?-(user|userdebug|eng))?')
 
 _ALREADY_FAILING_PRODUCTS = [
-  "arm_v7_v8",
-  "car_ui_portrait",
-  "car_x86_64",
-  "sdk_car_portrait_x86_64",
+  "aosp_cf_x86_64_tv",
+  "aosp_cf_x86_tv",
+  "aosp_husky_61_pgagnostic",
+  "aosp_shiba_61_pgagnostic",
 ]
 
 @dataclasses.dataclass(frozen=True)
@@ -484,13 +484,18 @@ async def main():
         print(args.failure_message, file=sys.stderr)
       sys.exit(1)
 
+  baseline_failures = []
   for result in all_results:
     if result.product.product not in _ALREADY_FAILING_PRODUCTS and not result.baseline_success:
-      print(f"{result.product} fails to run (Make-based) product config", file=sys.stderr)
-      dump_files_to_stderr(os.path.join(dirs.results, str(result.product), 'baseline'))
-      if args.failure_message:
-        print(args.failure_message, file=sys.stderr)
-      sys.exit(1)
+      baseline_failures.append(result)
+  if baseline_failures:
+    product_str = "\n  ".join([f"{x.product}" for x in baseline_failures])
+    print(f"These products fail to run (Make-based) product config:\n  {product_str}\nFirst failure:", file=sys.stderr)
+    result = baseline_failures[0]
+    dump_files_to_stderr(os.path.join(dirs.results, str(result.product), 'baseline'))
+    if args.failure_message:
+      print(args.failure_message, file=sys.stderr)
+    sys.exit(1)
 
 
 if __name__ == '__main__':
