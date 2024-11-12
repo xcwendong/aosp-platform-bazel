@@ -105,6 +105,8 @@ def _ndk_triple(ctx):
         return "arm-linux-androideabi"
     if ctx.target_platform_has_constraint(ctx.attr._arm64_constraint[platform_common.ConstraintValueInfo]):
         return "aarch64-linux-android"
+    if ctx.target_platform_has_constraint(ctx.attr._loongarch64_constraint[platform_common.ConstraintValueInfo]):
+        return "loongarch64-linux-android"
     if ctx.target_platform_has_constraint(ctx.attr._riscv64_constraint[platform_common.ConstraintValueInfo]):
         return "riscv64-linux-android"
     if ctx.target_platform_has_constraint(ctx.attr._x86_constraint[platform_common.ConstraintValueInfo]):
@@ -175,6 +177,9 @@ ndk_headers = rule(
         ),
         "_arm64_constraint": attr.label(
             default = Label("//build/bazel_common_rules/platforms/arch:arm64"),
+        ),
+        "_loongarch64_constraint": attr.label(
+            default = Label("//build/bazel_common_rules/platforms/arch:loongarch64"),
         ),
         "_riscv64_constraint": attr.label(
             default = Label("//build/bazel_common_rules/platforms/arch:riscv64"),
